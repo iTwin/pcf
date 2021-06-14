@@ -3,7 +3,7 @@ import * as pcf from "../../pcf";
 import * as path from "path";
 
 export async function run() {
-  await IModelHost.startup();
+  await bk.IModelHost.startup();
 
   const config: pcf.BaseAppConfig = {
     clientConfig: {
@@ -21,7 +21,7 @@ export async function run() {
   const app = new pcf.BaseApp(config);
   await app.run();
 
-  await IModelHost.shutdown();
+  await bk.IModelHost.shutdown();
 }
 
 run();
