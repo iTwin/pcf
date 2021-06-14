@@ -1,0 +1,24 @@
+# Dependency directories
+node_modules/
+**/node_modules
+
+# trash
+*.bak
+*.orig
+.node-xmlhttprequest-sync*
+
+# misc
+.DS_Store
+integration-test-result.xml
+
+# Logs
+*.log
+
+# rush specific
+common/temp/**
+.rush/temp/**
+/**/.rush
+package-deps.json
+*.build.log
+*.build.error.log
+

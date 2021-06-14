@@ -1,0 +1,10 @@
+*
+!lib/**/*.d.ts
+!lib/**/*.d.ts.map
+!lib/**/*.js
+!lib/**/*.js.map
+!lib/assets/**
+!src/**/*.ts
+assets/**
+test
+!*.md

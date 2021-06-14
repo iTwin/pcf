@@ -1,0 +1,38 @@
+{
+  "name": "pcf",
+  "version": "0.0.1",
+  "description": "itwin-pcf command line",
+  "license": "MIT",
+  "keywords": [
+    "Bentley",
+    "BIM",
+    "iModel"
+  ],
+  "homepage": "https://github.com/zachzhu2016/parametric-connector",
+  "main": "./bin/pcf.js",
+  "bin": {
+    "pcf": "./bin/pcf"
+  },
+  "preferGlobal": true,
+  "repository": {
+    "type": "git"
+  },
+  "scripts": {},
+  "dependencies": {
+    "chalk": "2.4.2",
+    "config": "3.1.0",
+    "git-config": "0.0.7",
+    "glob": "7.1.4",
+    "latest-version": "5.1.0",
+    "param-case": "^3.0.3",
+    "pascal-case": "^3.1.1",
+    "request": "2.88.0",
+    "semver": "^7.1.1",
+    "yargs": "^17.0.1",
+    "yeoman-environment": "2.7.0",
+    "yeoman-generator": "^4.4.0"
+  },
+  "peerDependencies": {
+    "yeoman-environment": "2.7.0"
+  }
+}

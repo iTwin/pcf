@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Integration Tests",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run-script", "test:integration"]
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Unit Tests",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run-script", "test:unit"]
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Run JSON Connector",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "runtimeExecutable": "node",
+            "runtimeArgs": ["lib/test/JSONConnector/App.js"]
+        }
+    ]
+}

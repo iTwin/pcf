@@ -1,0 +1,26 @@
+{
+  "name": "<%= className %>",
+  "version": "1.0.0",
+  "description": "Give your connector a description here.",
+  "main": "lib/App.js",
+  "scripts": {
+    "start": "tsc && node ./lib/App.js",
+    "build": "tsc && npm run copyFiles",
+    "copyFiles": "npx babel src --out-dir lib --copy-files",
+    "clean": "rimraf lib"
+  },
+  "dependencies": {
+    "@bentley/bentleyjs-core": "<%= imjsversion %>",
+    "@bentley/ecschema-metadata": "<%= imjsversion %>",
+    "@bentley/electron-manager": "<%= imjsversion %>",
+    "@bentley/imodeljs-backend": "<%= imjsversion %>",
+    "@bentley/imodeljs-common": "<%= imjsversion %>",
+    "@itwin/pcf": "<%= pcfversion %>"
+  },
+  "devDependencies": {
+    "@bentley/build-tools": "^2.16.0",
+    "@types/node": "^10.17.28",
+    "babel-cli": "^6.26.0",
+    "typescript": "^4.1.0"
+  }
+}

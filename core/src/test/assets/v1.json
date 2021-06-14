@@ -1,0 +1,70 @@
+{
+  "ExtPhysicalElement": [
+    {
+      "id": "0",
+      "ExtUserLabel": "mock_user_label"
+    },
+    {
+      "id": "1",
+      "ExtUserLabel": "mock_user_label"
+    },
+    {
+      "id": "2",
+      "ExtUserLabel": "mock_user_label"
+    },
+    {
+      "id": "3",
+      "ExtUserLabel": "mock_user_label"
+    }
+  ],
+  "ExtPhysicalType": [
+    {
+      "id": "1"
+    },
+    {
+      "id": "2"
+    }
+  ],
+  "ExtCategory": [
+    {
+      "id": "1"
+    },
+    {
+      "id": "2"
+    }
+  ],
+  "ExtSpace": [
+    {
+      "id": "1"
+    }
+  ],
+  "ExtGroupInformationElement": [
+    {
+      "id": "1"
+    },
+    {
+      "id": "2"
+    }
+  ],
+  "ExtElementRefersToElements": [
+    {
+      "id": "1",
+      "ExtPhysicalElementKey1": "1",
+      "ExtPhysicalElementKey2": "2"
+    }
+  ],
+  "ExtElementGroupsMembers": [
+    {
+      "id": "1",
+      "ExtGroupInformationElementKey": "2",
+      "ExtPhysicalElementKey": "1"
+    }
+  ],
+  "ExtPhysicalElementAssemblesElements": [
+    {
+      "id": "1",
+      "ExtPhysicalElementKey1": "1",
+      "ExtPhysicalElementKey2": "2"
+    }
+  ]
+}
