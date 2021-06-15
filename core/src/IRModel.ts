@@ -9,41 +9,41 @@ import { IDriver } from "./drivers/Driver";
  */
 export class IRModel {
 
-  protected _entityMap: {[key: string]: IREntity};
-  protected _relMap: {[key: string]: IRRelationship};
+  public entityMap: {[key: string]: IREntity};
+  public relMap: {[key: string]: IRRelationship};
 
   constructor(entities: IREntity[], relationships: IRRelationship[]) {
-    this._entityMap = {};
+    this.entityMap = {};
     for (const e of entities) {
-      this._entityMap[e.key] = IRModel.normalized(e);
+      this.entityMap[e.key] = IRModel.normalized(e);
     }
-    this._relMap = {};
+    this.relMap = {};
     for (const r of relationships) {
-      this._relMap[r.key] = r;
+      this.relMap[r.key] = r;
     }
   }
 
   public getEntityInstances(dmo: ElementDMO): IRInstance[] {
-    if (!(dmo.entity in this._entityMap))
+    if (!(dmo.entity in this.entityMap))
       return [];
-    let instances = this._entityMap[dmo.entity].instances;
+    let instances = this.entityMap[dmo.entity].instances;
     if (typeof dmo.doSyncInstance === "function")
       instances = instances.filter(dmo.doSyncInstance);
     return instances;
   }
 
   public getRelInstances(dmo: RelationshipDMO | RelatedElementDMO): IRInstance[] {
-    if (!(dmo.entity in this._relMap))
+    if (!(dmo.entity in this.relMap))
       return [];
-    let instances = this._relMap[dmo.entity].instances;
+    let instances = this.relMap[dmo.entity].instances;
     if (typeof dmo.doSyncInstance === "function")
       instances = instances.filter(dmo.doSyncInstance);
     return instances;
   }
 
   public getAttributes(dmo: DMO): IRAttribute[] {
-    if (dmo.entity in this._entityMap)
-      return this._entityMap[dmo.entity].attributes;
+    if (dmo.entity in this.entityMap)
+      return this.entityMap[dmo.entity].attributes;
     return [];
   }
 
@@ -65,6 +65,20 @@ export class IRModel {
     if (typeof driver.getRelationships === "function")
       relationships = await driver.getRelationships();
     return new IRModel(entities, relationships);
+  }
+
+  public static compare(modelA: IRModel, modelB: IRModel): boolean {
+    const entityMapA = modelA.entityMap;
+    const entityMapB = modelB.entityMap;
+    if (JSON.stringify(entityMapA) !== JSON.stringify(entityMapB))
+      return false;
+
+    const relMapA = modelA.relMap;
+    const relMapB = modelB.relMap;
+    if (JSON.stringify(relMapA) !== JSON.stringify(relMapB))
+      return false;
+    
+    return true;
   }
 }
 

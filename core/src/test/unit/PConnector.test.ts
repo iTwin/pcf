@@ -4,9 +4,11 @@ import { BridgeJobDefArgs, BridgeRunner } from "../../fwk/BridgeRunner";
 import { KnownTestLocations } from "../KnownTestLocations";
 import { TestResults } from "../ExpectedTestResults";
 import { PConnector } from "../../PConnector";
+import { IRModel } from "../../IRModel";
 import * as util from "../../Utils";
 import { LogCategory } from "../../LogCategory";
-import { expect } from "chai";
+import * as testDrivers from "../TestDrivers";
+import { assert, expect } from "chai";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -26,7 +28,7 @@ describe("Unit Tests", () => {
 
   const testCases: any = [
     {
-      title: "Should create empty snapshotDb and synchronize source data",
+      title: "Should create empty snapshotDb and synchronize source data (JSON)",
       sourceFiles: ["v1.json"],
       bridgeModule: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
     },
@@ -76,4 +78,15 @@ describe("Unit Tests", () => {
       fs.unlinkSync(targetPath);
     });
   }
+
+  it("Driver Tests", async () => {
+    await testDrivers.testJSONDriver.open(path.join(KnownTestLocations.testAssetsDir, "v1.json"));
+    const modelFromJSON = await IRModel.fromDriver(testDrivers.testJSONDriver);
+
+    await testDrivers.testSQLiteDriver.open(path.join(KnownTestLocations.testAssetsDir, "v1.sqlite"));
+    const modelFromSQLite = await IRModel.fromDriver(testDrivers.testSQLiteDriver);
+
+    if (!IRModel.compare(modelFromJSON, modelFromSQLite))
+      assert.fail("IR Model from JSON != IR Model from SQLite");
+  });
 });

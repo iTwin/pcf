@@ -66,7 +66,7 @@ export class JSONDriver implements IDriver {
     const attrs: IRAttribute[] = [];
     const subkeys = Object.keys(firstObj);
     for (const subkey of subkeys) {
-      const isPrimary = this.getPKey(entityKey).includes(subkey) ? true : false;
+      const isPrimary = this.getPKey(entityKey) === subkey ? true : false;
       const attr = new IRAttribute({
         key: subkey,
         entityKey,

@@ -14,7 +14,7 @@ export function getBridgeInstance() {
       if (elementNode.key === "ExtPhysicalElement") {
         const dmo = (elementNode as pcf.MultiElementNode).dmo as pcf.ElementDMO;
         if (dmo.classProps) {
-          (dmo.classProps as any).properties.push({ 
+          (dmo.classProps as any).properties.push({
             name: "SkyScraperNumber",
             type: PrimitiveType.String,
           });

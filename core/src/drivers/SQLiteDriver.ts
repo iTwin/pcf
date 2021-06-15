@@ -36,7 +36,7 @@ export class SQLiteDriver implements IDriver {
     const tables: any[] = await this.db.all("select * from sqlite_master where type='table'");
     const entities: IREntity[] = [];
     for (const table of tables) {
-      if (usedKeys.includes(table.name))
+      if (!usedKeys.includes(table.name))
         continue;
       const attributes = await this.getAttributes(table.name);
       const instances = await this.getInstances(table.name);
@@ -55,16 +55,14 @@ export class SQLiteDriver implements IDriver {
     const attrs: IRAttribute[] = [];
     for (const col of cols) {
       const tsType = this.getTsType(col.type);
+      const isPrimary = this.getPKey(entityKey) === col.name ? true : false;
       const attr = new IRAttribute({
         key: col.name,
         entityKey,
         tsType,
-        isPrimary: col.pk === 1,
+        isPrimary,
       });
       attrs.push(attr);
-
-      if (col.isPrimary)
-        this.tableToPKey[entityKey] = col.key;
     }
     return attrs;
   }
@@ -97,8 +95,6 @@ export class SQLiteDriver implements IDriver {
   }
 
   public getPKey(entityKey: string) {
-    if (this.tableToPKey[entityKey])
-      return this.tableToPKey[entityKey];
     if (this.config.primaryKeyMap && entityKey in this.config.primaryKeyMap)
       return this.config.primaryKeyMap[entityKey];
     if (this.config.defaultPrimaryKey)
