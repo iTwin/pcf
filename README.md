@@ -14,7 +14,7 @@ Table of Contents
 # What is itwin-pcf?
 
 
-itwin-pcf is tool for synchronizing external data with your digital twin, iModel, deterministically and efficiently. As opposed to traditional [iModel Connectors](https://www.itwinjs.org/learning/imodel-connectors/), itwin-pcf allows you to **define** your desired state of your iModel in programming language then it takes care of the steps to reach that goal. With pcf, you have the full control over how you would like your data to land in an iModel with minimal efforts.
+itwin-pcf is tool for synchronizing external data with your digital twin, iModel, deterministically and efficiently. As opposed to traditional [iModel Connectors](https://www.itwinjs.org/learning/imodel-connectors/), itwin-pcf allows you to **define** your iModel as code then it takes care of the steps to reach that goal. With pcf, you have the full control over how you would like your data to land in an iModel with minimal efforts.
 
 
 # Why use itwin-pcf?
