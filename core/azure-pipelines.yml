@@ -10,38 +10,56 @@
 #     - master
 #     - release/*
 
-strategy:
-  matrix:
-    linux:
-      imageName: 'ubuntu-lastest'
-    mac:
-      imageName: 'macos-latest'
-    windows:
-      imageName: 'vs2017-latest'
+trigger: none
 
-pool:
-  vmImage: $(imageName)
+jobs:
+  - job:
+    strategy:
+      matrix:
+        linux:
+          imageName: 'ubuntu-lastest'
+        mac:
+          imageName: 'macos-latest'
+        windows:
+          imageName: 'vs2017-latest'
+    
+    pool:
+      vmImage: $(imageName)
 
-steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '12.x'
-  displayName: 'Install Node.js'
-  condition: succeeded()
+    steps:
 
-- script: |
-    npm ci
-    npm run build
-  displayName: 'install dependencies and build'
-  condition: succeeded()
+    - checkout: self
+      persistCredentials: true
+      clean: true
+    
+    - script: # to cwd
+      workingDirectory: core
 
-- script: |
-    npm run test:unit
-  displayName: 'unit tests'
-  condition: succeeded()
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '12.x'
+      displayName: 'Install Node.js'
 
-- script: |
-    npm run test:integration
-  displayName: 'integration tests'
-  condition: succeeded()
+    - script: |
+        npm ci
+      displayName: 'npm ci'
 
+    - script: |
+         npm run build
+      displayName: 'npm run build'
+
+    - script: |
+        npm run test:unit
+      displayName: 'npm run test:unit'
+
+    - script: |
+        npm run test:integration
+      displayName: 'npm run test:integration'
+    
+    - script: |
+        npm pack
+      displayName: 'Package for release'
+
+    - bash: | # Grab the package version
+        v=`node -p "const p = require('./package.json'); p.version;"`
+        echo "##vso[task.setvariable variable=packageVersion]$v"
