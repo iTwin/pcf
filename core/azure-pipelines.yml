@@ -1,19 +1,15 @@
 
-trigger:
-  - main
-  - release/*
+# trigger:
+#   - main
+#   - release/*
+#
+# pr:
+#   drafts: false
+#   branches:
+#     include:
+#     - master
+#     - release/*
 
-pr:
-  drafts: false
-  branches:
-    include:
-    - master
-    - release/*
-
-variables:
-  - group: 
-  
-  
 strategy:
   matrix:
     linux:
@@ -48,3 +44,4 @@ steps:
     npm run test:integration
   displayName: 'integration tests'
   condition: succeeded()
+
