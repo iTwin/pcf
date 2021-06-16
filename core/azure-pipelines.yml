@@ -13,6 +13,7 @@
 trigger: none
 
 jobs:
+
   - job:
     strategy:
       matrix:
@@ -41,6 +42,23 @@ jobs:
         workingDirectory: core
       displayName: 'Install Node.js'
 
+		# @itwin/pcf-cli
+		# TODO WIP
+    # - script: |
+    #     npm ci
+    #   displayName: 'npm ci'
+    #   workingDirectory: cli
+    # - script: |
+    #     npm install -g .
+    #   displayName: 'npm install -g .'
+    #   workingDirectory: cli
+    # - script: |
+	  #     pcf init MyConnector
+    #   displayName: 'pcf init'
+    #   workingDirectory: cli
+
+		# @itwin/pcf
+
     - script: |
         npm ci
       displayName: 'npm ci'
@@ -56,10 +74,10 @@ jobs:
       displayName: 'npm run test:unit'
       workingDirectory: core
 
-      # - script: |
-      #     npm run test:integration
-      #   displayName: 'npm run test:integration'
-      #   workingDirectory: core
+		# - script: |
+		#     npm run test:integration
+		#   displayName: 'npm run test:integration'
+		#   workingDirectory: core
 
     - script: |
         npm pack
@@ -71,3 +89,43 @@ jobs:
         echo "##vso[task.setvariable variable=packageVersion]$v"
       displayName: 'Grab the package version'
       workingDirectory: core
+
+		# - task: CopyFiles@2
+		# 	inputs:
+		# 		contents: '*.tgz'
+		# 		targetFolder: $(Build.ArtifactStagingDirectory)/npm
+		# 		workingDirectory: core
+		# 	displayName: 'Copy archives to artifacts staging directory'
+
+		# - task: CopyFiles@2
+		# 	inputs:
+		# 		sourceFolder: '$(Build.SourcesDirectory)'
+		# 		contents: 'package.json'
+		# 		targetFolder: $(Build.ArtifactStagingDirectory)/npm
+		# 		workingDirectory: core
+		# 	displayName: 'Copy package.json'
+
+		# - task: PublishBuildArtifacts@1
+		# 	inputs:
+		# 		PathtoPublish: '$(Build.ArtifactStagingDirectory)/npm'
+		# 		artifactName: npm
+		# 		workingDirectory: core
+		# 	displayName: 'Publish npm artifact'
+
+		# - script: |
+		#			npm config list
+		#			npm --version
+		#			npm version patch --force
+		#			npm publish --access public
+		#   workingDirectory: core
+
+		# - task: CmdLine@2
+		# 	inputs:
+		# 		script: |
+		# 			git config --global user.email "zachzhu2016@gmail.com	"
+		# 			git config --global user.name "zachzhu2016"
+		# 			git add package.json
+		# 			git commit -a -m "Patch Version Bump from Azure DevOps"
+		# 			git push -u origin HEAD:main
+		#     workingDirectory: core
+
