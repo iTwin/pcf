@@ -22,7 +22,7 @@ jobs:
           imageName: 'macos-latest'
         windows:
           imageName: 'vs2017-latest'
-    
+
     pool:
       vmImage: $(imageName)
 
@@ -31,35 +31,43 @@ jobs:
     - checkout: self
       persistCredentials: true
       clean: true
-    
+
     - script: # to cwd
       workingDirectory: core
 
     - task: NodeTool@0
       inputs:
         versionSpec: '12.x'
+        workingDirectory: core
       displayName: 'Install Node.js'
 
     - script: |
         npm ci
       displayName: 'npm ci'
+      workingDirectory: core
 
     - script: |
          npm run build
       displayName: 'npm run build'
+      workingDirectory: core
 
     - script: |
         npm run test:unit
       displayName: 'npm run test:unit'
+      workingDirectory: core
 
-    - script: |
-        npm run test:integration
-      displayName: 'npm run test:integration'
-    
+      # - script: |
+      #     npm run test:integration
+      #   displayName: 'npm run test:integration'
+      #   workingDirectory: core
+
     - script: |
         npm pack
       displayName: 'Package for release'
+      workingDirectory: core
 
-    - bash: | # Grab the package version
+    - bash: |
         v=`node -p "const p = require('./package.json'); p.version;"`
         echo "##vso[task.setvariable variable=packageVersion]$v"
+      displayName: 'Grab the package version'
+      workingDirectory: core
