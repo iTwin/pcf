@@ -1,0 +1,50 @@
+
+trigger:
+  - main
+  - release/*
+
+pr:
+  drafts: false
+  branches:
+    include:
+    - master
+    - release/*
+
+variables:
+  - group: 
+  
+  
+strategy:
+  matrix:
+    linux:
+      imageName: 'ubuntu-lastest'
+    mac:
+      imageName: 'macos-latest'
+    windows:
+      imageName: 'vs2017-latest'
+
+pool:
+  vmImage: $(imageName)
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '12.x'
+  displayName: 'Install Node.js'
+  condition: succeeded()
+
+- script: |
+    npm ci
+    npm run build
+  displayName: 'install dependencies and build'
+  condition: succeeded()
+
+- script: |
+    npm run test:unit
+  displayName: 'unit tests'
+  condition: succeeded()
+
+- script: |
+    npm run test:integration
+  displayName: 'integration tests'
+  condition: succeeded()
