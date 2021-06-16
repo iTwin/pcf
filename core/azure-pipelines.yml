@@ -17,11 +17,11 @@ jobs:
     strategy:
       matrix:
         linux:
-          imageName: 'ubuntu-lastest'
+          imageName: 'ubuntu-latest'
         mac:
           imageName: 'macos-latest'
         windows:
-          imageName: 'vs2017-latest'
+          imageName: 'windows-latest'
 
     pool:
       vmImage: $(imageName)
