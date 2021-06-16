@@ -37,7 +37,7 @@ jobs:
 
     - task: NodeTool@0
       inputs:
-        versionSpec: '12.x'
+        versionSpec: '12.17.0'
         workingDirectory: core
       displayName: 'Install Node.js'
 
