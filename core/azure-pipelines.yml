@@ -43,19 +43,23 @@ jobs:
       displayName: 'Install Node.js'
 
 		# @itwin/pcf-cli
-		# TODO WIP
-    # - script: |
-    #     npm ci
-    #   displayName: 'npm ci'
-    #   workingDirectory: cli
-    # - script: |
-    #     npm install -g .
-    #   displayName: 'npm install -g .'
-    #   workingDirectory: cli
-    # - script: |
-	  #     pcf init MyConnector
-    #   displayName: 'pcf init'
-    #   workingDirectory: cli
+
+    - script: |
+        npm ci
+      displayName: 'npm ci'
+      workingDirectory: cli
+    - script: |
+        npm install -g .
+      displayName: 'npm install -g .'
+      workingDirectory: cli
+    - script: |
+	      pcf init TestProject TestConnector TestClientId
+      displayName: 'pcf init'
+      workingDirectory: cli
+    - script: |
+	      npm run build
+      displayName: 'build generated connector'
+      workingDirectory: cli/TestProject
 
 		# @itwin/pcf
 
@@ -74,10 +78,13 @@ jobs:
       displayName: 'npm run test:unit'
       workingDirectory: core
 
-		# - script: |
-		#     npm run test:integration
-		#   displayName: 'npm run test:integration'
-		#   workingDirectory: core
+		- script: |
+		    npm run test:integration
+		  displayName: 'npm run test:integration'
+		  workingDirectory: core
+      env:
+        imjs_test_regular_user_name: $(test_user_name)
+        imjs_test_regular_user_password: $(test_user_password)
 
     - script: |
         npm pack
