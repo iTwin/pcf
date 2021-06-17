@@ -38,10 +38,12 @@ module.exports = class extends Generator {
     super(args, opts);
 
     try {
-      this.argument("directory", { type: String, required: true });
+      this.argument("dir", { type: String, required: true });
+      this.argument("name", { type: String, required: false });
+      this.argument("clientId", { type: String, required: false });
     } catch (error) {
-      console.error("Please specify the project directory:");
-      console.error(`  ${chalk.cyan("npm init imodeljs-connector")} ${chalk.green("<project-directory>")}`);
+      console.error("Please specify a directory for your connector:");
+      console.error(`  ${chalk.cyan("npm init imodeljs-connector")} ${chalk.green("<directory>")}`);
       console.error("\nFor example:");
       console.error(`  ${chalk.cyan("npx yo imodeljs-connector")} ${chalk.green("my-connector")}`);
       process.exit(1);
@@ -49,10 +51,11 @@ module.exports = class extends Generator {
   }
 
   async initializing() {
-    this.destinationRoot(path.resolve(this.contextRoot, this.options.directory));
+    this.destinationRoot(path.resolve(this.contextRoot, this.options.dir));
 
-    this._defaultNodeVersion = semver.satisfies(process.versions.node, "12.x") ? process.versions.node : "12.18.4";
+    this._defaultNodeVersion = semver.satisfies(process.versions.node, "12.17.0") ? process.versions.node : "12.17.0";
     this._latestIMJSVersion = await latestVersion("@bentley/imodeljs-common");
+
     if (this.options.imjsversion !== undefined &&
       !semver.satisfies(this.options.imjsversion, '2.x', { includePrerelease: true }) &&
       this.options.imjsversion !== "latest") {
@@ -81,11 +84,11 @@ module.exports = class extends Generator {
         },
       }
     }
-
+    
     this.answers = await this.prompt([
       {
         name: "name",
-        message: "What\'s the name of your Connector? (Use a unique, descriptive name.",
+        message: "What\'s the name of your connector? (Use a unique, descriptive name.",
         default: paramCase(path.basename(this.destinationRoot())),
         when: () => !this.options.name,
         filter: (v) => paramCase(v),
@@ -99,18 +102,6 @@ module.exports = class extends Generator {
         default: "",
         when: () => !this.options.clientId,
       },
-      {
-        name: "clientRedirectUri",
-        message: "What\'s your Client Redirect URI?",
-        default: "http://localhost:3000/signin-callback",
-        when: () => !this.options.clientRedirectUri,
-      },
-      {
-        name: "clientScope",
-        message: "Enter Client scopes you want to define?",
-        default: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
-        when: () => !this.options.clientScope,
-      },
     ]);
   }
 
@@ -120,15 +111,15 @@ module.exports = class extends Generator {
 
     this.log(files);
     const answerName = this.answers.name || this.options.name;
-    const templateData = {
 
+    const templateData = {
       name: answerName,
       capsName: answerName.replace(/-/g, " ").toUpperCase(),
       className: pascalCase(answerName),
 
       clientId: this.answers.clientId || this.options.clientId || "",
-      clientScope: this.answers.clientScope || this.options.clientScope,
-      clientRedirectUri: this.answers.clientRedirectUri || this.options.clientRedirectUri,
+      clientRedirectUri: "http://localhost:3000/signin-callback",
+      clientScope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
 
       imjsversion: "^2.16.0",
       pcfversion: "0.0.1",

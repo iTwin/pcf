@@ -9,7 +9,7 @@ async function parseArgs() {
   return yargs
     .scriptName('pct')
     .usage('Usage: pct COMMAND [args]')
-    .command(['init [CONNECTOR_NAME'], 'Initialize an empty project', yargs => yargs)
+    .command(['init [PROJECT_DIR] [CONNECTOR_NAME] [CLIENT_ID]'], 'Initialize an empty project', yargs => yargs)
     .command(['save [APP_PATH]'], 'Save your entire connector in the form of json', yargs => yargs)
     // TODO .command(['run [APP_PATH]'], 'Run your connector app', yargs => yargs)
     .demandCommand()
@@ -24,7 +24,7 @@ async function main() {
 
   switch(cmd) {
     case 'init':
-      init(argv.CONNECTOR_NAME);
+      init(argv.PROJECT_DIR, argv.CONNECTOR_NAME, argv.CLIENT_ID);
       break;
     case 'run':
       await run(argv.APP_PATH);
@@ -37,12 +37,16 @@ async function main() {
   }
 }
 
-function init(name) {
-  name = name ? name : "MyConnector";
+function init(dir, name, clientId) {
   const env = yeoman.createEnv();
   const generatorPath = path.join(__dirname, '../generator/index.js');
   env.register(generatorPath, 'imodeljs:connector');
-  env.run(`imodeljs:connector ${name}`, () => {});
+
+  dir = dir ? dir : 'MyProject';
+  name = name ? name : '';
+  clientId = clientId ? clientId : '';
+  args = `imodeljs:connector ${dir} ${name} ${clientId}`;
+  env.run(args, () => {});
 }
 
 function getAppInstance(p) {
