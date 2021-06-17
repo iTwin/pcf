@@ -37,6 +37,7 @@
     "@bentley/imodeljs-backend": "^2.16.0",
     "@bentley/imodeljs-common": "^2.16.0",
     "@bentley/itwin-client": "^2.16.0",
+    "@bentley/oidc-signin-tool": "^2.16.0",
     "@bentley/presentation-common": "^2.16.0",
     "@bentley/rbac-client": "^2.16.0",
     "@bentley/telemetry-client": "^2.16.0",

@@ -114,11 +114,15 @@ export class BaseApp {
    * Sign in through your iModelHub account. This call would open up a page in your browser.
    */
   public async signin() {
-    if (this.serverArgs.getToken)
-      return;
-    const token = await this._signIn();
+    let token: AccessToken;
+    if (this.serverArgs.getToken) {
+      token = await this.serverArgs.getToken();
+      this.requestContext = new AuthorizedBackendRequestContext(token);
+    } else {
+      token = await this._signIn();
+      this.serverArgs.getToken = async (): Promise<AccessToken> => token;
+    }
     this.requestContext = new AuthorizedBackendRequestContext(token);
-    this.serverArgs.getToken = async (): Promise<AccessToken> => token;
   }
 
   protected async _signIn(): Promise<AccessToken> {
@@ -207,7 +211,7 @@ export class BaseTestApp extends BaseApp {
       throw new Error("Request Context is undefined");
 
     const { contextId: testProjectId } = this.serverArgs;
-    const testIModelName = "Integration Test IModel";
+    const testIModelName = `Integration Test IModel (${process.platform})`;
     const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.requestContext, testProjectId!, testIModelName, { description: `Description for ${testIModelName}` });
     const testIModelId = iModel.wsgId;
     assert(undefined !== testIModelId);
