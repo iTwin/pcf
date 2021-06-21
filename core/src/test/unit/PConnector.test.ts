@@ -14,23 +14,15 @@ import * as fs from "fs";
 
 describe("Unit Tests", () => {
 
-  async function runConnector(sourcePath: string, bridgeModule: string) {
-    const bridgeJobDef = new BridgeJobDefArgs();
-    bridgeJobDef.sourcePath = sourcePath;
-    bridgeJobDef.bridgeModule = bridgeModule;
-    bridgeJobDef.outputDir = KnownTestLocations.testOutputDir;
-    bridgeJobDef.isSnapshot = true;
-
-    const runner = new BridgeRunner(bridgeJobDef);
-    const result = await runner.synchronize();
-    expect(result === BentleyStatus.SUCCESS);
+  async function runConnector(sourcePath: string, connectorModulePath: string) {
+    const runner = new BridgeRunner();
   }
 
   const testCases: any = [
     {
       title: "Should create empty snapshotDb and synchronize source data (JSON)",
       sourceFiles: ["v1.json"],
-      bridgeModule: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
+      connectorModulePath: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
     },
   ];
 
@@ -69,7 +61,7 @@ describe("Unit Tests", () => {
       for (const srcFile of testCase.sourceFiles) {
         const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
         IModelJsFs.copySync(srcPath, tempSrcPath, { overwrite: true });
-        await runConnector(tempSrcPath, testCase.bridgeModule);
+        await runConnector(tempSrcPath, testCase.connectorModulePath);
         const db = SnapshotDb.openFile(targetPath);
         await util.verifyIModel(db, TestResults[srcFile]);
         db.close();
@@ -81,10 +73,10 @@ describe("Unit Tests", () => {
 
   it("Driver Tests", async () => {
     await testDrivers.testJSONDriver.open(path.join(KnownTestLocations.testAssetsDir, "v1.json"));
-    const modelFromJSON = await IRModel.fromDriver(testDrivers.testJSONDriver);
+    const modelFromJSON = await IRModel.fromLoader(testDrivers.testJSONDriver);
 
     await testDrivers.testSQLiteDriver.open(path.join(KnownTestLocations.testAssetsDir, "v1.sqlite"));
-    const modelFromSQLite = await IRModel.fromDriver(testDrivers.testSQLiteDriver);
+    const modelFromSQLite = await IRModel.fromLoader(testDrivers.testSQLiteDriver);
 
     if (!IRModel.compare(modelFromJSON, modelFromSQLite))
       assert.fail("IR Model from JSON != IR Model from SQLite");

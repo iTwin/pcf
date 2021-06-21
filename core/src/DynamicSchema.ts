@@ -28,7 +28,7 @@ export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<Me
   return schema;
 }
 
-export async function syncDynamicSchema(db: IModelDb, requestContext: AuthorizedClientRequestContext | ClientRequestContext, props: DynamicSchemaProps) {
+export async function syncDynamicSchema(db: IModelDb, requestContext: AuthorizedClientRequestContext | ClientRequestContext, props: DynamicSchemaProps): schemaState {
 
   const schemaName = props.name;
   const existingSchema = await tryGetSchema(db, schemaName);
@@ -59,6 +59,8 @@ export async function syncDynamicSchema(db: IModelDb, requestContext: Authorized
     const schemaString = await schemaToXmlString(dynamicSchema);
     await db.importSchemaStrings(requestContext, [schemaString]);
   }
+
+  return schemaState;
 }
 
 // Generates an in-memory [Dynamic EC Schema](https://www.itwinjs.org/bis/intro/schema-customization/) from user-defined DMO.

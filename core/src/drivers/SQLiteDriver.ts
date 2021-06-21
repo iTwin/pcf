@@ -1,26 +1,29 @@
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { IDriver, DriverConfig } from "./Driver";
+import { Loader, LoaderConnection, LoaderConfig } from "./Driver";
 
-export interface SQLiteDriverConfig extends DriverConfig {}
+export interface SQLiteLoaderConnection extends LoaderConnection {
+  filepath: string;
+}
 
-export class SQLiteDriver implements IDriver {
+export interface SQLiteLoaderConfig extends LoaderConfig {}
+
+export class SQLiteLoader extends Loader {
 
   public db?: any;
-  public config: SQLiteDriverConfig;
-  public tableToPKey: {[tableName: string]: string};
+  public config: SQLiteLoaderConfig;
 
-  constructor(config: SQLiteDriverConfig) {
-    this.tableToPKey = {};
+  constructor(config: SQLiteLoaderConfig) {
+    super(config);
     this.config = config;
   }
 
-  public async open(srcDataPath: string) {
-    this.db = await sqlite.open({ filename: srcDataPath, driver: sqlite3.Database });
+  public async open(con: SQLiteLoaderConnection): Promise<void> {
+    this.db = await sqlite.open({ filename: con.filepath, driver: sqlite3.Database });
   }
 
-  public async close() {
+  public async close(): Promise<void> {
     this.db.close();
   }
 
@@ -92,13 +95,5 @@ export class SQLiteDriver implements IDriver {
     if (boolTypes.has(colType))
       tsType = "boolean";
     return tsType;
-  }
-
-  public getPKey(entityKey: string) {
-    if (this.config.primaryKeyMap && entityKey in this.config.primaryKeyMap)
-      return this.config.primaryKeyMap[entityKey];
-    if (this.config.defaultPrimaryKey)
-      return this.config.defaultPrimaryKey;
-    return "id";
   }
 }

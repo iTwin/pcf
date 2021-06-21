@@ -1,12 +1,14 @@
-import { assert, BentleyStatus, ClientRequestContext, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
-import { AuthorizedBackendRequestContext, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
+import { assert, ClientRequestContext, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
+import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost, SnapshotDb, StandaloneDb } from "@bentley/imodeljs-backend";
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
-import { NativeAppAuthorizationConfiguration } from "@bentley/imodeljs-common";
+import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
 import { AccessToken } from "@bentley/itwin-client";
-import { Briefcase as HubBriefcase, HubIModel } from "@bentley/imodelhub-client";
-import { BridgeJobDefArgs, BridgeRunner } from "./fwk/BridgeRunner";
-import { IModelBankArgs } from "./fwk/IModelBankUtils";
+import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
+import { Synchronizer } from "./fwk/Synchronizer";
+import { PConnector } from "./PConnector";
+import { LoaderConnection } from "./drivers";
+import * as path from "path";
 
 // QA and Dev are for Bentley Developer only
 export enum Environment {
@@ -17,30 +19,37 @@ export enum Environment {
 
 export interface BaseAppConfig {
   // relative path to your 'compiled' javascript (.js) connector module.
-  connectorModule: string,
-  // relative path to folder storing the files created after each run, if any.
-  outputDir: string, 
-  // relative path to your source data file
-  sourcePath: string,
+  connectorModulePath: string,
+  // used to connect to source data
+  loaderConnection: LoaderConnection;
   // your project's GUID ID 
   projectId: Id64String | GuidString, 
   // your iModel's GUID ID 
   iModelId: Id64String | GuidString,
   // you may obtain client configurations from https://developer.bentley.com by creating a SPA app
   clientConfig: NativeAppAuthorizationConfiguration;
+  // relative path to the directory for storing output files
+  outputDir?: string;
   // do not override this value if you're not a Bentley developer.
   env?: Environment;
   // change log level to debug your connector (rarely needed)
   logLevel?: LogLevel;
+
+  revisionHeader?: string;
+
+  doDetectDeletedElements?: boolean;
+
+  updateDbProfile?: boolean;
+
+  updateDomainSchemas?: boolean;
 }
 
 export interface BaseTestAppConfig {
+  connectorModulePath: string, 
+  loaderConnection: LoaderConnection,
   outputDir: string, 
-  sourcePath: string,
   projectId: Id64String | GuidString, 
   clientConfig: NativeAppAuthorizationConfiguration;
-  env?: Environment;
-  logLevel?: LogLevel;
 }
 
 /*
@@ -49,32 +58,29 @@ export interface BaseTestAppConfig {
  */
 export class BaseApp {
 
-  public requestContext?: AuthorizedBackendRequestContext;
-  public jobArgs: BridgeJobDefArgs;
-  public serverArgs: IModelBankArgs;
-  public env: Environment;
-  public logLevel: LogLevel;
   public clientConfig: NativeAppAuthorizationConfiguration;
+  public connectorModulePath: string;
+  public projectId: Id64String;
+  public iModelId: Id64String;
+
+  // disable upgrade schemas for now
+  public env: Environment = Environment.Prod;
+  public logLevel: LogLevel = LogLevel.None;
+  public outputDir: string = path.join(__dirname, "output");
+  public revisionHeader: string = "itwin-pcf";
+  public doDetectDeletedElements: boolean = true;
+  public updateDbProfile: boolean = false;
+  public updateDomainSchemas: boolean = false;
+  public authReqContext?: AuthorizedBackendRequestContext;
+  public loaderConnection: LoaderConnection;
 
   constructor(config: BaseAppConfig) {
-    this.env = config.env ?? Environment.Prod;
-    this.logLevel = config.logLevel ?? LogLevel.None;
     this.clientConfig = config.clientConfig;
-
-    this.jobArgs = new BridgeJobDefArgs();
-    this.jobArgs.bridgeModule = config.connectorModule;
-    this.jobArgs.sourcePath = config.sourcePath;
-    this.jobArgs.outputDir = config.outputDir;
-    this.jobArgs.revisionComments = "itwin-pcf"
-
-    // disable upgrade schemas for now
-    this.jobArgs.doDetectDeletedElements = true;
-    this.jobArgs.updateDbProfile = false;
-    this.jobArgs.updateDomainSchemas = false;
-
-    this.serverArgs = new IModelBankArgs();
-    this.serverArgs.contextId = config.projectId;
-    this.serverArgs.iModelId = config.iModelId;
+    this.connectorModulePath = config.connectorModulePath;
+    this.outputDir = config.outputDir;
+    this.projectId = config.projectId;
+    this.iModelId = config.iModelId;
+    this.loaderConnection = config.loaderConnection;
   }
 
   /*
@@ -83,7 +89,7 @@ export class BaseApp {
   public async run() {
     await this.startup();
     await this.signin();
-    await this.sync();
+    await this.syncBriefcaseDb();
     await this.shutdown();
   }
 
@@ -114,15 +120,8 @@ export class BaseApp {
    * Sign in through your iModelHub account. This call would open up a page in your browser.
    */
   public async signin() {
-    let token: AccessToken;
-    if (this.serverArgs.getToken) {
-      token = await this.serverArgs.getToken();
-      this.requestContext = new AuthorizedBackendRequestContext(token);
-    } else {
-      token = await this._signIn();
-      this.serverArgs.getToken = async (): Promise<AccessToken> => token;
-    }
-    this.requestContext = new AuthorizedBackendRequestContext(token);
+    const token = await this._signIn();
+    this.authReqContext = new AuthorizedBackendRequestContext(token);
   }
 
   protected async _signIn(): Promise<AccessToken> {
@@ -141,12 +140,67 @@ export class BaseApp {
   }
 
   /*
-   * Executes itwin-connector-framework
+   * Executes a connector synchronization job
    */
-  public async sync() {
-    const runner = new BridgeRunner(this.jobArgs, this.serverArgs);
-    const result = await runner.synchronize();
-    assert(result === BentleyStatus.SUCCESS);
+  public async sync(db: BriefcaseDb | SnapshotDb | StandaloneDb) {
+
+    const connector = this.loadConnector();
+
+    if (db instanceof BriefcaseDb) {
+      if (!this.authReqContext)
+        throw new Error("must call signin() before synchronizing a BriefcaseDb.");
+      connector.reqContext = this.authReqContext;
+      connector.synchronizer = new Synchronizer(db, false, this.authReqContext);
+    } else {
+      connector.synchronizer = new Synchronizer(db, false);
+    }
+
+    const jobSubjectName = "abcd"; // TODO USE LOADER to get this value;
+    await connector.updateJobSubject(jobSubjectName);
+    await connector.updateDomainSchema();
+    await connector.updateDynamicSchema();
+    await connector.updateData();
+    await connector.updateProjectExtents();
+  }
+
+  public async syncBriefcaseDb() {
+    const db = await this.downloadBriefcaseDb();
+    this.sync(db);
+  }
+
+  public async openCachedBriefcaseDb(): Promise<BriefcaseDb | undefined> {
+    const briefcases = BriefcaseManager.getCachedBriefcases(this.iModelId);
+    const briefcaseEntry = briefcases[0];
+    if (briefcaseEntry === undefined)
+      return undefined;
+
+    const briefcase = await BriefcaseDb.open(new ClientRequestContext(), {
+      fileName: briefcases[0].fileName,
+      readonly: true,
+    });
+    return briefcase;
+  }
+
+  public async downloadBriefcaseDb(): Promise<BriefcaseDb> {
+    if (!this.authReqContext)
+      throw new Error("must call signin() before downloading a BriefcaseDb.");
+
+    // TODO call openCachedBriefcase
+
+    const req = { contextId: this.projectId, iModelId: this.iModelId };
+    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext, req);
+
+    if (this.updateDbProfile || this.updateDomainSchemas)
+      await BriefcaseDb.upgradeSchemas(this.authReqContext, bcProps);
+
+    const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
+    const db = await BriefcaseDb.open(this.authReqContext, openArgs);
+    return db;
+  }
+
+  public loadConnector(): PConnector {
+    const connectorModule = require(this.connectorModulePath);
+    return connectorModule.getConnectorInstance();
   }
 
   // API EXPOSED FOR CLI
@@ -158,7 +212,7 @@ export class BaseApp {
   }
 
   public async saveConnector() {
-    await BaseApp.saveConnector(this.jobArgs.bridgeModule!);
+    await BaseApp.saveConnector(this.connectorModulePath);
   }
 }
 
@@ -167,37 +221,22 @@ export class BaseApp {
  */
 export class BaseTestApp extends BaseApp {
 
+  public env: Environment = Environment.QA;
+  public logLevel: LogLevel = LogLevel.Error;
   private _deleteBriefcasePath?: string;
 
   constructor(config: BaseTestAppConfig) {
     super(config as BaseAppConfig);
-    this.env = config.env ?? Environment.QA;
-    this.logLevel = config.logLevel ?? LogLevel.Error;
+    this.env = Environment.QA;
+    this.logLevel = LogLevel.Error;
   }
 
-  public async openCachedBriefcase() {
-    const { iModelId } = this.serverArgs;
-    const briefcases = BriefcaseManager.getCachedBriefcases(iModelId);
-    const briefcaseEntry = briefcases[0];
-    if (briefcaseEntry === undefined)
-      throw new Error("Undefined Briefcase Entry.");
-
-    const briefcase = await BriefcaseDb.open(new ClientRequestContext(), {
-      fileName: briefcases[0].fileName,
-      readonly: true,
-    });
-    return briefcase;
-  }
-
-  public async openBriefcase() {
+  public async downloadBriefcase() {
     if (this._deleteBriefcasePath)
-      await BriefcaseManager.deleteBriefcaseFiles(this._deleteBriefcasePath, this.requestContext);
+      await BriefcaseManager.deleteBriefcaseFiles(this._deleteBriefcasePath, this.authReqContext);
 
-    const contextId = this.serverArgs.contextId!;
-    const iModelId = this.serverArgs.iModelId!;
-    const briefcaseProps = await BriefcaseManager.downloadBriefcase(this.requestContext!, { contextId, iModelId });
-
-    const briefcase = await BriefcaseDb.open(this.requestContext!, {
+    const briefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext!, { contextId: this.projectId, iModelId: this.iModelId });
+    const briefcase = await BriefcaseDb.open(this.authReqContext!, {
       fileName: briefcaseProps.fileName,
       readonly: true,
     });
@@ -206,21 +245,19 @@ export class BaseTestApp extends BaseApp {
     return briefcase;
   }
 
-  public async createTestIModel(): Promise<GuidString> {
-    if (!this.requestContext)
+  public async createTestBriefcase(): Promise<GuidString> {
+    if (!this.authReqContext)
       throw new Error("Request Context is undefined");
 
-    const { contextId: testProjectId } = this.serverArgs;
     const testIModelName = `Integration Test IModel (${process.platform})`;
-    const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.requestContext, testProjectId!, testIModelName, { description: `Description for ${testIModelName}` });
+    const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.authReqContext, this.projectId, testIModelName, { description: `Description for ${testIModelName}` });
     const testIModelId = iModel.wsgId;
     assert(undefined !== testIModelId);
-    this.serverArgs.iModelId = testIModelId;
+    this.iModelId = testIModelId;
     return testIModelId;
   }
 
-  public async purgeTestIModel() {
-    const { contextId: testProjectId, iModelId: testIModelId } = this.serverArgs;
-    await IModelHost.iModelClient.iModels.delete(this.requestContext!, testProjectId!, testIModelId!);
+  public async purgeTestBriefcase() {
+    await IModelHost.iModelClient.iModels.delete(this.authReqContext!, this.projectId, this.iModelId);
   }
 }

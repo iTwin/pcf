@@ -144,7 +144,7 @@ export class ModelNode extends Node implements ModelNodeProps {
   protected async _updateModel() {
     const codeScope = this.pc.jobSubject.id;
     const codeValue = this.key;
-    const code = this.partitionClass.createCode(this.pc.iModel, codeScope, codeValue);
+    const code = this.partitionClass.createCode(this.pc.db, codeScope, codeValue);
 
     const partitionProps: common.InformationPartitionElementProps = {
       classFullName: this.partitionClass.classFullName,
@@ -155,20 +155,20 @@ export class ModelNode extends Node implements ModelNodeProps {
       code,
     };
 
-    const existingPartitionId = this.pc.iModel.elements.queryElementIdByCode(code);
+    const existingPartitionId = this.pc.db.elements.queryElementIdByCode(code);
 
     let modelId;
 
     if (existingPartitionId) {
       modelId = existingPartitionId;
     } else {
-      const partitionId = this.pc.iModel.elements.insertElement(partitionProps);
+      const partitionId = this.pc.db.elements.insertElement(partitionProps);
       const modelProps: common.ModelProps = {
         classFullName: this.bisClass.classFullName,
         modeledElement: { id: partitionId },
         name: this.key,
       };
-      modelId = this.pc.iModel.models.insertModel(modelProps);
+      modelId = this.pc.db.models.insertModel(modelProps);
     }
 
     this.pc.modelCache[this.key] = modelId;
@@ -213,7 +213,7 @@ export class ElementNode extends Node {
 
   protected async _updateElement() {
     const modelId = this.pc.modelCache[this.parent.key];
-    const codeSpec: common.CodeSpec = this.pc.iModel.codeSpecs.getByName(PConnector.CodeSpecName);
+    const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
 
     const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: this.key });
     const sourceItem: sync.SourceItem = { id: this.key, checksum: this.key };
@@ -227,8 +227,8 @@ export class ElementNode extends Node {
       classFullName: this.bisClass.classFullName,
     };
 
-    const existingElementId = this.pc.iModel.elements.queryElementIdByCode(code);
-    const element = this.pc.iModel.elements.createElement(props);
+    const existingElementId = this.pc.db.elements.queryElementIdByCode(code);
+    const element = this.pc.db.elements.createElement(props);
 
     if (existingElementId)
       element.id = existingElementId;
@@ -276,7 +276,7 @@ export class MultiElementNode extends Node {
     for (const instance of instances) {
       const modelId = this.pc.modelCache[this.parent.key];
       const categoryId = this.category ? this.pc.elementCache[this.category.key] : undefined;
-      const codeSpec: common.CodeSpec = this.pc.iModel.codeSpecs.getByName(PConnector.CodeSpecName);
+      const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
 
       const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue() });
       const sourceItem: sync.SourceItem = { id: instance.codeValue(), checksum: instance.checksum() };
@@ -300,8 +300,8 @@ export class MultiElementNode extends Node {
       if ("placement" in props)
         this.pc.updateExtent((props as any).placement);
 
-      const existingElementId = this.pc.iModel.elements.queryElementIdByCode(code);
-      const element = this.pc.iModel.elements.createElement(props);
+      const existingElementId = this.pc.db.elements.queryElementIdByCode(code);
+      const element = this.pc.db.elements.createElement(props);
 
       if (existingElementId)
         element.id = existingElementId;
@@ -353,7 +353,7 @@ export class MultiRelationshipNode extends Node {
         continue;
 
       const [sourceId, targetId] = pair;
-      const existing = this.pc.iModel.relationships.tryGetInstance(this.dmo.classFullName, { sourceId, targetId });
+      const existing = this.pc.db.relationships.tryGetInstance(this.dmo.classFullName, { sourceId, targetId });
       if (existing)
         continue;
 
@@ -361,7 +361,7 @@ export class MultiRelationshipNode extends Node {
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      const relationshipId = this.pc.iModel.relationships.insertInstance(props);
+      const relationshipId = this.pc.db.relationships.insertInstance(props);
     }
   }
 
@@ -406,8 +406,8 @@ export class MultiRelatedElementNode extends Node {
         continue;
 
       const [sourceId, targetId] = pair;
-      const sourceElement = this.pc.iModel.elements.getElement(sourceId);
-      const targetElement = this.pc.iModel.elements.getElement(targetId);
+      const sourceElement = this.pc.db.elements.getElement(sourceId);
+      const targetElement = this.pc.db.elements.getElement(targetId);
       const props: common.RelatedElementProps = { id: sourceId, relClassName: this.dmo.classFullName };
 
       if (typeof this.dmo.modifyProps === "function")

@@ -7,9 +7,23 @@ import * as testDrivers from "../TestDrivers";
 import * as pcf from "../../pcf";
 import * as path from "path";
 
-export class JSONConnector extends pcf.PConnector {
-  constructor(params: pcf.PConnectorConfig) {
-    super(params);
+export default class JSONConnector extends pcf.PConnector {
+  constructor() {
+    super({ 
+      schemaConfig: {
+        domainSchemaPaths: [
+          "Functional.ecschema.xml",
+          "SpatialComposition.ecschema.xml",
+          "BuildingSpatial.ecschema.xml"
+        ].map((file: string) => path.join(KnownTestLocations.testAssetsDir, "domain_schemas", file)),
+        schemaName: "TestSchema",
+        schemaAlias: "ts",
+      },
+      connectorName: "TestConnector",
+      appId: "TestConnector",
+      appVersion: "1.0.0.0",
+      loader: testDrivers.testJSONDriver,
+    });
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
@@ -54,22 +68,3 @@ export class JSONConnector extends pcf.PConnector {
     });
   }
 }
-
-export function getBridgeInstance() {
-  return new JSONConnector({
-    schemaConfig: {
-      domainSchemaPaths: [
-        "Functional.ecschema.xml",
-        "SpatialComposition.ecschema.xml",
-        "BuildingSpatial.ecschema.xml"
-      ].map((file: string) => path.join(KnownTestLocations.testAssetsDir, "domain_schemas", file)),
-      schemaName: "TestSchema",
-      schemaAlias: "ts",
-    },
-    connectorName: "TestConnector",
-    appId: "TestConnector",
-    appVersion: "1.0.0.0",
-    driver: testDrivers.testJSONDriver,
-  });
-}
-

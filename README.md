@@ -124,6 +124,7 @@ You can write your own Driver by implementing [IDriver](https://github.com/zachz
 - [ ] add wrappers for other programming languages
 - [ ] data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
 - [ ] dynamically infer the relationship between external entities
+- [ ] read large JSON (https://github.com/uhop/stream-json)
 
 # Inspired by
 

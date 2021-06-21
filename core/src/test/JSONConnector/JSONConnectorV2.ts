@@ -1,9 +1,9 @@
 import { PrimitiveType } from "@bentley/ecschema-metadata";
-import { getBridgeInstance as getBridgeInstanceV1 } from "./JSONConnector";
+import JSONConnector from "./JSONConnector";
 import * as pcf from "../../pcf";
 
 export function getBridgeInstance() {
-  const connector = getBridgeInstanceV1();
+  const connector = new JSONConnector();
   connector.tree.models.forEach((model: pcf.ModelNode) => {
 
     // delete a category manually

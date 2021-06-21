@@ -1,9 +1,9 @@
 import { IREntity, IRAttribute, IRInstance, IRRelationship } from "../IRModel";
 
 /*
- * Defined by users. A Driver fetches data according to this object.
+ * Defined by users. A Loader fetches data according to this object.
  */
-export interface DriverConfig {
+export interface LoaderConfig {
 
   /*
    * Used Entity Keys
@@ -27,42 +27,56 @@ export interface DriverConfig {
 }
 
 /*
- * An interface that all Drivers must implement. It is used to generate an IR Model.
+ * Defined by users. A loader uses this to retrieve data.
  */
-export interface IDriver {
+export interface LoaderConnection {}
 
+export abstract class Loader {
+
+  public config: LoaderConfig;
+
+  constructor(config: LoaderConfig) {
+    this.config = config;
+  }
   /*
    * Open connection to a data source.
    */
-  open(srcDataPath?: string): Promise<void>;
+  public abstract open(con: LoaderConnection): Promise<void>;
 
   /*
    * Close connection. Do nothing if open already read in the entire source file.
    */
-  close(): Promise<void>;
+  public abstract close(): Promise<void>;
 
   /*
    * Returns all the entities (e.g. all sheets in xlsx, all tables in database)
    */
-  getEntities(): Promise<IREntity[]>;
+  public abstract getEntities(): Promise<IREntity[]>;
 
   /*
    * Returns all the attributes of an entity (e.g. headers in xlsx, tables in database)
    */
-  getAttributes?(entityKey: string): Promise<IRAttribute[]>;
+  public abstract getAttributes?(entityKey: string): Promise<IRAttribute[]>;
 
   /*
    * Returns all non-relationship instances (e.g. the rows of non-link tables)
    */
-  getInstances(entityKey: string): Promise<IRInstance[]>;
+  public abstract getInstances(entityKey: string): Promise<IRInstance[]>;
 
   /*
    * Returns all relationship instances (e.g. the rows of link tables)
    */
-  getRelationships?(): Promise<IRRelationship[]>;
+  public abstract getRelationships?(): Promise<IRRelationship[]>;
 
   /*
    * Returns the primary key of an entity. Data integrity may be compromised if primary key is neglected.
    */
-  getPKey(entityKey: string): string;
+  public getPKey(entityKey: string): string {
+    if (this.config.primaryKeyMap && entityKey in this.config.primaryKeyMap)
+      return this.config.primaryKeyMap[entityKey];
+    if (this.config.defaultPrimaryKey)
+      return this.config.defaultPrimaryKey;
+    return "id";
+  };
 }
+

@@ -1,9 +1,9 @@
-import { JSONDriver, SQLiteDriver, XLSXDriver } from "../drivers";
+import { JSONLoader, SQLiteLoader, XLSXLoader } from "../drivers";
 
 const entityKeys = ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"];
 const relKeys = ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"];
 
-export const testJSONDriver = new JSONDriver({ entityKeys, relKeys });
-export const testSQLiteDriver = new SQLiteDriver({ entityKeys, relKeys });
-export const testXLSXDriver = new XLSXDriver({ entityKeys, relKeys });
+export const testJSONDriver = new JSONLoader({ entityKeys, relKeys });
+export const testSQLiteDriver = new SQLiteLoader({ entityKeys, relKeys });
+export const testXLSXDriver = new XLSXLoader({ entityKeys, relKeys });
 

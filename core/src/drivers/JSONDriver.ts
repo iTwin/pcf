@@ -1,5 +1,5 @@
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { IDriver, DriverConfig } from "./Driver";
+import { Loader, LoaderConfig, LoaderConnection } from "./Driver";
 import * as fs from "fs";
 
 // sample json format
@@ -14,23 +14,28 @@ import * as fs from "fs";
 //      ]
 // }
 
-export interface JSONDriverConfig extends DriverConfig {}
+export interface JSONLoaderConnection extends LoaderConnection {
+  filepath: string;
+}
 
-export class JSONDriver implements IDriver {
+export interface JSONLoaderConfig extends LoaderConfig {}
+
+export class JSONLoader extends Loader {
 
   public json: any;
-  public config: JSONDriverConfig;
+  public config: JSONLoaderConfig;
 
-  constructor(config: JSONDriverConfig) {
-    this.json = {};
+  constructor(config: JSONLoaderConfig) {
+    super(config);
     this.config = config;
+    this.json = {};
   }
 
-  public async open(srcDataPath: string) {
-    this.json = JSON.parse(fs.readFileSync(srcDataPath, "utf8"));
+  public async open(con: JSONLoaderConnection): Promise<void> {
+    this.json = JSON.parse(fs.readFileSync(con.filepath, "utf8"));
   }
 
-  public async close() {}
+  public async close(): Promise<void> {}
 
   public async getEntities(): Promise<IREntity[]> {
     return this._getEntities(this.config.entityKeys);
@@ -94,13 +99,5 @@ export class JSONDriver implements IDriver {
       instances.push(instance);
     }
     return instances;
-  }
-
-  public getPKey(entityKey: string) {
-    if (this.config.primaryKeyMap && entityKey in this.config.primaryKeyMap)
-      return this.config.primaryKeyMap[entityKey];
-    if (this.config.defaultPrimaryKey)
-      return this.config.defaultPrimaryKey;
-    return "id";
   }
 }
