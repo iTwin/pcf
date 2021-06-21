@@ -77,10 +77,23 @@ export class BaseApp {
   constructor(config: BaseAppConfig) {
     this.clientConfig = config.clientConfig;
     this.connectorModulePath = config.connectorModulePath;
-    this.outputDir = config.outputDir;
     this.projectId = config.projectId;
     this.iModelId = config.iModelId;
     this.loaderConnection = config.loaderConnection;
+    if (config.outputDir)
+      this.outputDir = config.outputDir;
+    if (config.env)
+      this.env = config.env;
+    if (config.logLevel)
+      this.logLevel = config.logLevel;
+    if (config.revisionHeader)
+      this.revisionHeader = config.revisionHeader;
+    if (config.doDetectDeletedElements)
+      this.doDetectDeletedElements = config.doDetectDeletedElements;
+    if (config.updateDbProfile)
+      this.updateDbProfile = config.updateDbProfile;
+    if (config.updateDomainSchemas)
+      this.updateDomainSchemas = config.updateDomainSchemas;
   }
 
   /*

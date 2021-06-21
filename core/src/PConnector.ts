@@ -87,7 +87,7 @@ export class PConnector {
 
   public async updateDomainSchema(): Promise<any> {
     if (this.db instanceof BriefcaseDb)
-      await this.enterSharedChannel();
+      await this.enterRepoChannel();
 
     const { domainSchemaPaths } = this.config.schemaConfig;
     if (domainSchemaPaths.length > 0)
@@ -98,7 +98,7 @@ export class PConnector {
 
   public async updateDynamicSchema(): Promise<any> {
     if (this.db instanceof BriefcaseDb)
-      await this.enterSharedChannel();
+      await this.enterRepoChannel();
 
     const { schemaName, schemaAlias, domainSchemaPaths } = this.config.schemaConfig;
     const dmoMap = this.tree.buildDMOMap();
@@ -128,7 +128,7 @@ export class PConnector {
 
   public async updateData() {
     if (this.db instanceof BriefcaseDb)
-      await this.enterNormalChannel();
+      await this.enterSubjectChannel();
 
     this.updateCodeSpecs();
     await this.tree.update();
@@ -139,7 +139,7 @@ export class PConnector {
 
   public async updateProjectExtents() {
     if (this.db instanceof BriefcaseDb)
-      await this.enterNormalChannel();
+      await this.enterSubjectChannel();
 
     const options: ComputeProjectExtentsOptions = {
       reportExtentsWithOutliers: false,
@@ -162,7 +162,7 @@ export class PConnector {
     }
 
     if (this.db instanceof BriefcaseDb)
-      await this.enterSharedChannel();
+      await this.enterRepoChannel();
 
     const jsonProperties = {
       Subject: {
@@ -281,7 +281,7 @@ export class PConnector {
     }
   }
 
-  public async enterNormalChannel() {
+  public async enterSubjectChannel() {
     if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
       throw new Error("not signed in");
     if (!this.jobSubject)
@@ -289,7 +289,7 @@ export class PConnector {
     await PConnector.enterChannel(this.db as BriefcaseDb, this.reqContext, this.jobSubject.id);
   }
 
-  public async enterSharedChannel() {
+  public async enterRepoChannel() {
     if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
       throw new Error("not signed in");
     await PConnector.enterChannel(this.db as BriefcaseDb, this.reqContext, IModelDb.repositoryModelId);
