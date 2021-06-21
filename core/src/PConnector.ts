@@ -2,7 +2,7 @@ import { Id64String, Logger } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { AxisAlignedBox3d, Code, CodeScopeSpec, CodeSpec, IModel, Placement3d, SubjectProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, IModel, SubjectProps } from "@bentley/imodeljs-common";
 import { ItemState, SourceItem, SynchronizationResults, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
@@ -10,67 +10,99 @@ import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
 import { ChangesType } from "@bentley/imodelhub-client";
+import { FileConnection, Loader, LoaderConfig } from "./drivers";
 
 export interface PConnectorConfig {
-  // application ID
-  appId: string;
-  // application version
-  appVersion: string;
-  // the name of your connector (e.g. COBieConnector)
-  connectorName: string;
-  // EC Schema related config
-  schemaConfig: SchemaConfig;
-  // loader specific for your data source
-  loader: pcf.drivers.Loader;
+  // Application related config
+  appConfig: {
+    // application ID
+    appId: string;
+    // application version
+    appVersion: string;
+    // the name of your connector (e.g. COBieConnector)
+    connectorName: string;
+  };
+  // EC Domain/Dynamic Schema related config
+  schemaConfig: {
+    // The name of your Dynamic Schema if any. (e.g. 'COBieDynamic')
+    schemaName?: string;
+    // The alias of your Dynamic Schema name if any. (e.g. 'COBieDynamic' => 'cd')
+    schemaAlias?: string;
+    // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
+    domainSchemaPaths: string[];
+  };
+  // determines the behavior of Loader
+  loaderConfig: LoaderConfig;
 }
 
-export interface SchemaConfig {
-  // The name of your Dynamic Schema if any. (e.g. 'COBieDynamic')
-  schemaName?: string;
-  // The alias of your Dynamic Schema name if any. (e.g. 'COBieDynamic' => 'cd')
-  schemaAlias?: string;
-  // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
-  domainSchemaPaths: string[];
+export interface PConnectorProps {
+  db: IModelDb;
+  reqContext: AuthorizedBackendRequestContext;
+  loader: Loader;
+  dataConnection: FileConnection;
+  subjectName: string;
+  revisionHeader: string;
 }
 
-export class PConnector {
+export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
-
-  public loader?: pcf.drivers.Loader;
-  public revisionHeader?: string;
-  public jobSubject?: Subject;
-  public srcDataPath?: string;
-  public synchronizer?: Synchronizer;
-  public reqContext: AuthorizedBackendRequestContext | BackendRequestContext;
 
   public modelCache: { [modelNodeKey: string]: Id64String };
   public elementCache: { [elementNodeKey: string]: Id64String };
   public aspectCache: { [aspectNodeKey: string]: Id64String };
 
-  public config: PConnectorConfig;
   public tree: pcf.Tree;
   public nodeMap: { [nodeKey: string]: pcf.Node };
 
   public irModel?: pcf.IRModel;
   public dynamicSchema?: MetaSchema;
 
-  constructor(config: PConnectorConfig) {
-    this.config = config;
+  public db: IModelDb;
+  public loader: Loader;
+  public dataConnection: FileConnection;
+  public synchronizer: Synchronizer;
+  public reqContext: AuthorizedBackendRequestContext;
+  public revisionHeader: string | undefined;
+  public subjectName: string;
+  public subject?: Subject;
+
+  protected _config?: PConnectorConfig;
+
+  constructor(props: PConnectorProps) {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
     this.nodeMap = {};
     this.tree = new pcf.Tree();
-    this.reqContext = new BackendRequestContext();
+
+    this.db = props.db;
+    this.reqContext = props.reqContext;
+    this.loader = props.loader;
+    this.dataConnection = props.dataConnection;
+    this.subjectName = props.subjectName;
+    this.revisionHeader = props.revisionHeader;
+    this.synchronizer = new Synchronizer(this.db, false, this.reqContext);
   }
 
-  public get db() {
-    if (!this.synchronizer)
-      throw new Error("Loaded connector does not have synchronizer.");
-    if (!this.synchronizer.imodel)
-      throw new Error("Loaded connector does not have iModel.");
-    return this.synchronizer.imodel;
+  public get config() {
+    if (!this._config)
+      throw new Error("PConnector.config is not defined");
+    return this._config;
+  } 
+
+  public async runJob() {
+    try {
+      await this._updateJobSubject();
+      await this._updateDomainSchema();
+      await this._updateDynamicSchema();
+      await this._updateCodeSpecs();
+      await this._updateData();
+      await this._updateProjectExtents();
+    } catch(err) {
+
+    } finally {
+    }
   }
 
   public async save() {
@@ -85,22 +117,22 @@ export class PConnector {
     this.irModel = await pcf.IRModel.fromLoader(this.loader);
   }
 
-  public async updateDomainSchema(): Promise<any> {
+  protected async _updateDomainSchema(): Promise<any> {
     if (this.db instanceof BriefcaseDb)
       await this.enterRepoChannel();
 
-    const { domainSchemaPaths } = this.config.schemaConfig;
+    const { domainSchemaPaths: domainSchemaPaths } = this.config.schemaConfig;
     if (domainSchemaPaths.length > 0)
-      await this.synchronizer!.imodel.importSchemas(this.reqContext, domainSchemaPaths);
+      await this.db.importSchemas(this.reqContext, domainSchemaPaths);
 
     await this.persistChanges(`Imported ${domainSchemaPaths.length} Domain Schema(s)`, ChangesType.Schema);
   }
 
-  public async updateDynamicSchema(): Promise<any> {
+  protected async _updateDynamicSchema(): Promise<any> {
     if (this.db instanceof BriefcaseDb)
       await this.enterRepoChannel();
 
-    const { schemaName, schemaAlias, domainSchemaPaths } = this.config.schemaConfig;
+    const { schemaName, schemaAlias, domainSchemaPaths: domainSchemaPaths } = this.config.schemaConfig;
     const dmoMap = this.tree.buildDMOMap();
     const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
 
@@ -126,18 +158,18 @@ export class PConnector {
     }
   }
 
-  public async updateData() {
+  protected async _updateData() {
     if (this.db instanceof BriefcaseDb)
       await this.enterSubjectChannel();
 
-    this.updateCodeSpecs();
+    this._updateCodeSpecs();
     await this.tree.update();
-    this.synchronizer!.detectDeletedElements();
+    this.synchronizer.detectDeletedElements();
 
     await this.persistChanges("Data Changes", ChangesType.Regular);
   }
 
-  public async updateProjectExtents() {
+  protected async _updateProjectExtents() {
     if (this.db instanceof BriefcaseDb)
       await this.enterSubjectChannel();
 
@@ -151,13 +183,13 @@ export class PConnector {
     await this.persistChanges("Updated Project Extents", ChangesType.Regular);
   }
 
-  public async updateJobSubject(subName: string) {
-    const code = Subject.createCode(this.db, IModel.rootSubjectId, subName);
+  protected async _updateJobSubject() {
+    const code = Subject.createCode(this.db, IModel.rootSubjectId, this.subjectName);
     const existingSubId = this.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.db.elements.tryGetElement<Subject>(existingSubId);
       if (existingSub)
-        this.jobSubject = existingSub;
+        this.subject = existingSub;
       return;
     }
 
@@ -187,25 +219,25 @@ export class PConnector {
     };
 
     const newSubId = this.db.elements.insertElement(subProps);
-    this.jobSubject = this.db.elements.getElement<Subject>(newSubId);
+    this.subject = this.db.elements.getElement<Subject>(newSubId);
 
     await this.persistChanges("Inserted Connector Job Subject", ChangesType.GlobalProperties);
   }
 
   public getSrcDataState(): SynchronizationResults {
-    if (!this.srcDataPath)
-      throw new Error("Source file has not yet been opened");
-
-    let timeStamp = Date.now();
-    const stat = IModelJsFs.lstatSync(this.srcDataPath);
-    if (stat)
-      timeStamp = stat.mtimeMs;
-
-    const sourceItem: SourceItem = { id: this.srcDataPath, version: timeStamp.toString() };
-    const srcDataState = this.synchronizer!.recordDocument(IModelDb.rootSubjectId, sourceItem);
-    if (!srcDataState)
-      throw new Error(`Failed to retrieve a RepositoryLink for ${this.srcDataPath}`);
-
+    let srcDataState;
+    switch(this.dataConnection.kind) {
+      case "FileConnection":
+        let timestamp = Date.now();
+        const stat = IModelJsFs.lstatSync(this.dataConnection.filepath);
+        if (stat)
+          timestamp = stat.mtimeMs;
+        const sourceItem: SourceItem = { id: this.dataConnection.filepath, version: timestamp.toString() };
+        srcDataState = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
+        break;
+      default:
+        throw new Error(`${this.dataConnection.kind} is not supported yet.`);
+    }
     return srcDataState;
   }
 
@@ -251,7 +283,7 @@ export class PConnector {
     return new Code({spec: this.defaultCodeSpec.id, scope: modelId, value: codeValue});
   }
 
-  public updateCodeSpecs() {
+  protected _updateCodeSpecs() {
     const codeSpecName = PConnector.CodeSpecName;
     if (this.db.codeSpecs.hasName(codeSpecName))
       return;
@@ -284,9 +316,9 @@ export class PConnector {
   public async enterSubjectChannel() {
     if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
       throw new Error("not signed in");
-    if (!this.jobSubject)
+    if (!this.subject)
       throw new Error("job subject is undefined");
-    await PConnector.enterChannel(this.db as BriefcaseDb, this.reqContext, this.jobSubject.id);
+    await PConnector.enterChannel(this.db as BriefcaseDb, this.reqContext, this.subject.id);
   }
 
   public async enterRepoChannel() {

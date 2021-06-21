@@ -18,7 +18,7 @@ describe("Integration Tests", () => {
     },
   ]
 
-  const config: pcf.BaseTestAppConfig = {
+  const config: pcf.BaseTestAppArgs = {
     clientConfig: {
       clientId: "spa-GZnICrOpqnfv9jkaH1MFlri9r",
       redirectUri: "http://localhost:3000/signin-callback",
@@ -54,7 +54,7 @@ describe("Integration Tests", () => {
   for (const testCase of testCases) {
     it(testCase.title, async () => {
       try {
-        await app.createTestBriefcase();
+        await app.createTestBriefcaseDb();
         for (let i = 0; i < testCase.sourceFiles.length; i++) {
           const srcFile = testCase.sourceFiles[i];
           const connectorModule = testCase.connectorModules[i];

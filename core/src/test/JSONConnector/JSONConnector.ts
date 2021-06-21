@@ -3,13 +3,14 @@ import { KnownTestLocations } from "../KnownTestLocations";
 import * as elements from "./dmos/Elements";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
-import * as testDrivers from "../TestDrivers";
 import * as pcf from "../../pcf";
 import * as path from "path";
 
 export default class JSONConnector extends pcf.PConnector {
-  constructor() {
-    super({ 
+  constructor(props: pcf.PConnectorProps) {
+    super(props);
+
+    this._config = {
       schemaConfig: {
         domainSchemaPaths: [
           "Functional.ecschema.xml",
@@ -19,11 +20,16 @@ export default class JSONConnector extends pcf.PConnector {
         schemaName: "TestSchema",
         schemaAlias: "ts",
       },
-      connectorName: "TestConnector",
-      appId: "TestConnector",
-      appVersion: "1.0.0.0",
-      loader: testDrivers.testJSONDriver,
-    });
+      loaderConfig: {
+        entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
+        relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
+      },
+      appConfig: {
+        connectorName: "TestConnector",
+        appId: "TestConnector",
+        appVersion: "1.0.0.0",
+      },
+    }
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
@@ -67,4 +73,21 @@ export default class JSONConnector extends pcf.PConnector {
       target: extPhysicalElement,
     });
   }
+}
+
+async function run() {
+  await bk.IModelHost.startup();
+
+  const args = require("./args");
+  const app = new pcf.BaseApp(args);
+  const reqContext = await app.signin();
+  const db = await app.downloadBriefcaseDb();
+  const { revisionHeader, dataConnection, subjectName } = app;
+
+  await loader.open(dataConnection);
+
+  const connector = new JSONConnector({ db, loader, revisionHeader, reqContext, dataConnection, subjectName });
+  await connector.runJob();
+
+  await bk.IModelHost.shutdown();
 }

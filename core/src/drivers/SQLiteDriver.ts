@@ -1,11 +1,7 @@
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { Loader, LoaderConnection, LoaderConfig } from "./Driver";
-
-export interface SQLiteLoaderConnection extends LoaderConnection {
-  filepath: string;
-}
+import { Loader, FileConnection, LoaderConfig } from "./Driver";
 
 export interface SQLiteLoaderConfig extends LoaderConfig {}
 
@@ -19,7 +15,7 @@ export class SQLiteLoader extends Loader {
     this.config = config;
   }
 
-  public async open(con: SQLiteLoaderConnection): Promise<void> {
+  public async open(con: FileConnection): Promise<void> {
     this.db = await sqlite.open({ filename: con.filepath, driver: sqlite3.Database });
   }
 

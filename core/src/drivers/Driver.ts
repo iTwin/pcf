@@ -29,7 +29,10 @@ export interface LoaderConfig {
 /*
  * Defined by users. A loader uses this to retrieve data.
  */
-export interface LoaderConnection {}
+export interface FileConnection {
+  kind: "FileConnection";
+  filepath: string;
+}
 
 export abstract class Loader {
 
@@ -38,10 +41,11 @@ export abstract class Loader {
   constructor(config: LoaderConfig) {
     this.config = config;
   }
+
   /*
-   * Open connection to a data source.
+   * Open connection to a data source. Must be called before loading data.
    */
-  public abstract open(con: LoaderConnection): Promise<void>;
+  public abstract open(con: any): Promise<void>;
 
   /*
    * Close connection. Do nothing if open already read in the entire source file.
@@ -79,4 +83,3 @@ export abstract class Loader {
     return "id";
   };
 }
-
