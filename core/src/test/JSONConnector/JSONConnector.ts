@@ -1,5 +1,5 @@
 import * as bk from "@bentley/imodeljs-backend";
-import { KnownTestLocations } from "../KnownTestLocations";
+import KnownTestLocations from "../KnownTestLocations";
 import * as elements from "./dmos/Elements";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";

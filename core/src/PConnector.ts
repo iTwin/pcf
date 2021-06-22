@@ -69,7 +69,7 @@ export abstract class PConnector {
 
   public get config() {
     if (!this._config)
-      throw new Error("PConnector.config is not defined");
+      throw new Error("PConnector._config should be defined in the constructor of your connector class");
     return this._config;
   } 
 
@@ -100,7 +100,7 @@ export abstract class PConnector {
         await this._updateDomainSchema();
         await this._loadIRModel();
         await this._updateDynamicSchema();
-        await this._updateCodeSpecs();
+        this._updateCodeSpecs();
         await this._updateData();
         await this._updateProjectExtents();
       }

@@ -3,8 +3,8 @@ import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";
 import * as pcf from "../../pcf";
-import { KnownTestLocations } from "../KnownTestLocations";
-import { TestResults } from "../ExpectedTestResults";
+import KnownTestLocations from "../KnownTestLocations";
+import TestResults from "../ExpectedTestResults";
 import { testJSONLoader, testSQLiteLoader } from "../TestLoaders";
 
 describe("Unit Tests", () => {

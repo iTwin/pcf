@@ -1,5 +1,5 @@
 import { JSONLoader, SQLiteLoader } from "../drivers";
-import { KnownTestLocations } from "./KnownTestLocations";
+import KnownTestLocations from "./KnownTestLocations";
 import * as path from "path";
 
 const config = {
