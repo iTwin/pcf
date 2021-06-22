@@ -6,7 +6,7 @@ import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcase
 import { AccessToken } from "@bentley/itwin-client";
 import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
-import { DataConnection, Loader } from "./drivers";
+import { DataConnection, Loader, LoaderClass } from "./drivers";
 import * as path from "path";
 
 // QA and Dev are for Bentley Developer only
@@ -31,11 +31,14 @@ export class JobArgs {
   public enableDelete: boolean = true;
   // header of save/push comments.
   public revisionHeader: string = "itwin-pcf";
+  // choose an available loader to use. you can also point this to your own Loader.
+  public loaderClass: LoaderClass;
 
-  constructor(props: { connectorPath: string, con: DataConnection, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
+  constructor(props: { connectorPath: string, con: DataConnection, loaderClass: LoaderClass, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
     this.connectorPath = props.connectorPath;
     this.con = props.con;
     this.subjectName = props.subjectName ?? props.con.filepath;
+    this.loaderClass = props.loaderClass;
   }
 }
 
@@ -66,10 +69,10 @@ export class HubArgs {
 export class BaseApp {
 
   public readonly jobArgs: JobArgs;
-  public readonly hubArgs?: HubArgs | undefined;
+  public readonly hubArgs: HubArgs | undefined;
   public reqContext?: AuthorizedBackendRequestContext;
 
-  constructor(jobArgs: JobArgs, hubArgs?: HubArgs) {
+  constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
 
     this.jobArgs = jobArgs;
     this.hubArgs = hubArgs;
@@ -93,17 +96,15 @@ export class BaseApp {
   }
 
   /*
-   * Execute a connector job.
+   * Execute a connector job to synchronizer a BriefcaseDb.
    */
-  public async run(db: IModelDb, loader: Loader) {
+  public async run() {
     const connector = require(this.jobArgs.connectorPath).default;
-    if (db.isBriefcaseDb()) {
-      const reqContext = await this.signin();
-      this.reqContext = reqContext;
-      await connector.runJob({ db, loader, jobArgs: this.jobArgs, reqContext });
-    } else {
-      await connector.runJob({ db, loader, jobArgs: this.jobArgs });
-    }
+    const reqContext = await this.signin();
+    const db = await this.openBriefcaseDb();
+    this.reqContext = reqContext;
+    await connector.runJob({ db, jobArgs: this.jobArgs, reqContext });
+    db.close();
   }
 
   /*
@@ -221,7 +222,7 @@ export class IntegrationTestApp extends BaseApp {
     }
   }
 
-  public async openTestBriefcaseDb() {
+  public async openBriefcaseDb() {
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.reqContext);
     const db = await super.openBriefcaseDb();

@@ -5,8 +5,8 @@ import * as fs from "fs";
 import * as pcf from "../../pcf";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import TestLoaderConfig from "../TestLoaderConfig";
 import { JSONLoader, SQLiteLoader } from "../../drivers";
+import { PConnector } from "../../PConnector";
 
 describe("Unit Tests", () => {
 
@@ -27,12 +27,11 @@ describe("Unit Tests", () => {
     await bk.IModelHost.shutdown();
   });
 
-  const testJobArgs = new pcf.JobArgs({
+  const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
     con: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
-  })
-
-  const app = new pcf.BaseApp(testJobArgs);
+    loaderClass: JSONLoader,
+  });
 
   const tempSrcPath = path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json");
   const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath!, path.extname(tempSrcPath!))}.bim`);
@@ -49,8 +48,8 @@ describe("Unit Tests", () => {
         bk.IModelJsFs.copySync(srcPath, tempSrcPath, { overwrite: true });
         
         const db = bk.StandaloneDb.openFile(targetPath);
-        const loader = new JSONLoader(app.jobArgs.con, TestLoaderConfig);
-        await app.run(db, loader);
+        const connector: PConnector = require(jobArgs.connectorPath).default;
+        await connector.runJob({ db, jobArgs });
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);
         await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
@@ -62,11 +61,14 @@ describe("Unit Tests", () => {
   }
 
   it("Loader Tests", async () => {
-    const jsonLoader = new JSONLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, TestLoaderConfig);
+    const connector: PConnector = require(jobArgs.connectorPath).default;
+    const config = connector.config.loaderConfig;
+
+    const jsonLoader = new JSONLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, config);
     await jsonLoader.open();
     const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
 
-    const sqliteLoader = new SQLiteLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")}, TestLoaderConfig);
+    const sqliteLoader = new SQLiteLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")}, config);
     await sqliteLoader.open();
     const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
 

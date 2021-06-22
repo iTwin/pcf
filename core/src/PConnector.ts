@@ -1,12 +1,12 @@
-import { BentleyStatus, Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
+import { Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { Code, CodeScopeSpec, CodeSpec, IModel, IModelError, SubjectProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, IModel, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
-import { ItemState, SourceItem, SynchronizationResults, Synchronizer } from "./fwk/Synchronizer";
+import { ItemState, SourceItem, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
-import { DataConnection, Loader } from "./drivers";
+import { Loader, LoaderConfig } from "./drivers";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
@@ -32,6 +32,7 @@ export interface PConnectorConfig {
     // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
     domainSchemaPaths: string[];
   };
+  loaderConfig: LoaderConfig;
 }
 
 export abstract class PConnector {
@@ -122,12 +123,11 @@ export abstract class PConnector {
     return this._irModel;
   }
 
-  public async runJob(props: { db: IModelDb, loader: Loader, jobArgs: JobArgs, reqContext?: AuthorizedBackendRequestContext }) {
-
+  public async runJob(props: { db: IModelDb, jobArgs: JobArgs, reqContext?: AuthorizedBackendRequestContext }): Promise<void> {
     this._db = props.db;
-    this._loader = props.loader;
     this._authReqContext = props.reqContext;
     this._jobArgs = props.jobArgs;
+    this._loader = new props.jobArgs.loaderClass(this.jobArgs.con, this.config.loaderConfig);
 
     if (this.db.isBriefcaseDb()) {
       this.db.concurrencyControl.startBulkMode();
@@ -151,8 +151,6 @@ export abstract class PConnector {
       console.log(err); // TODO Debug only
       if (this.db.isBriefcaseDb())
         await this.db.concurrencyControl.abandonResources(this.authReqContext);
-    } finally {
-      this.db.close();
     }
   }
 

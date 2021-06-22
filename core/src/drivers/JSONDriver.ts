@@ -16,12 +16,7 @@ import * as fs from "fs";
 
 export class JSONLoader extends Loader {
 
-  public json: any;
-
-  constructor(con: DataConnection, config: LoaderConfig) {
-    super(con, config);
-    this.json = {};
-  }
+  public json: any = {};
 
   public async open(): Promise<void> {
     this.json = JSON.parse(fs.readFileSync(this.con.filepath, "utf8"));

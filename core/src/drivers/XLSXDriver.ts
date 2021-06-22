@@ -3,11 +3,6 @@ import { DataConnection, LoaderConfig } from "./Driver";
 import * as xlsx from "xlsx";
 
 export class XLSXLoader extends JSONLoader {
-
-  constructor(con: DataConnection, config: LoaderConfig) {
-    super(con, config);
-  }
-
   public async open() {
     const workbook = xlsx.readFile(this.con.filepath);
     const sheetNames = workbook.SheetNames;

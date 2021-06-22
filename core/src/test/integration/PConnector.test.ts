@@ -4,7 +4,6 @@ import * as path from "path";
 import * as fs from "fs";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import TestLoaderConfig from "../TestLoaderConfig";
 import * as pcf from "../../pcf";
 import { JSONLoader } from "../../drivers";
 
@@ -31,6 +30,7 @@ describe("Integration Tests", () => {
   const testJobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "JSONConnector.js"),
     con: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
+    loaderClass: JSONLoader,
   });
 
   const app = new pcf.IntegrationTestApp(testJobArgs, testHubArgs);
@@ -50,15 +50,12 @@ describe("Integration Tests", () => {
           const srcFile = testCase.sourceFiles[i];
           const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
           fs.copyFileSync(srcPath, app.jobArgs.con.filepath);
-
-          const db = await app.openTestBriefcaseDb();
           const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCase.connectorFiles[i]);
           app.jobArgs.connectorPath = connectorPath;
-          
-          const loader = new JSONLoader(app.jobArgs.con, TestLoaderConfig);
-          await app.run(db, loader);
 
-          const updatedDb = await app.openTestBriefcaseDb();
+          await app.run();
+
+          const updatedDb = await app.openBriefcaseDb();
           await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
           updatedDb.close();
         }

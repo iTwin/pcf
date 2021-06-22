@@ -25,6 +25,10 @@ class JSONConnector extends pcf.PConnector {
         appId: "TestConnector",
         appVersion: "1.0.0.0",
       },
+      loaderConfig: {
+        entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
+        relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
+      }
     }
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });

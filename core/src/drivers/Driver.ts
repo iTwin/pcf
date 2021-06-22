@@ -64,7 +64,7 @@ export abstract class Loader {
   /*
    * Returns all the attributes of an entity (e.g. headers in xlsx, tables in database)
    */
-  public abstract getAttributes?(entityKey: string): Promise<IRAttribute[]>;
+  public abstract getAttributes(entityKey: string): Promise<IRAttribute[]>;
 
   /*
    * Returns all non-relationship instances (e.g. the rows of non-link tables)
@@ -74,7 +74,7 @@ export abstract class Loader {
   /*
    * Returns all relationship instances (e.g. the rows of link tables)
    */
-  public abstract getRelationships?(): Promise<IRRelationship[]>;
+  public abstract getRelationships(): Promise<IRRelationship[]>;
 
   /*
    * Returns the primary key of an entity. Data integrity may be compromised if primary key is neglected.
@@ -87,3 +87,5 @@ export abstract class Loader {
     return "id";
   };
 }
+
+export type LoaderClass = new (con: DataConnection, config: LoaderConfig) => Loader;

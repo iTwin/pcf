@@ -7,10 +7,6 @@ export class SQLiteLoader extends Loader {
 
   public db?: any;
 
-  constructor(con: DataConnection, config: LoaderConfig) {
-    super(con, config);
-  }
-
   public async open(): Promise<void> {
     this.db = await sqlite.open({ filename: this.con.filepath, driver: sqlite3.Database });
   }
