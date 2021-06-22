@@ -10,7 +10,6 @@ async function run() {
     entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
     relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
   });
-  await app.signin();
   const db = await app.openBriefcaseDb();
   await app.run(db, loader);
   await bk.IModelHost.shutdown();

@@ -50,7 +50,7 @@ export abstract class PConnector {
   // initialized by initJob()
   protected _db?: IModelDb;
   protected _loader?: Loader;
-  protected _reqContext?: AuthorizedBackendRequestContext;
+  protected _authReqContext?: AuthorizedBackendRequestContext;
   protected _jobArgs?: JobArgs;
   protected _synchronizer?: Synchronizer;
   protected _subject?: Subject;
@@ -89,10 +89,19 @@ export abstract class PConnector {
     return this._jobArgs;
   }
 
-  public get reqContext() {
-    if (!this._reqContext) 
+  public get authReqContext() {
+    if (!this._authReqContext) 
       throw new Error("reqContext is undefined");
-    return this._reqContext;
+    return this._authReqContext;
+  }
+
+  public get reqContext() {
+    if (this.db.isBriefcaseDb()) {
+      if (!this._authReqContext) 
+        throw new Error("reqContext is undefined");
+      return this._authReqContext;
+    }
+    return new BackendRequestContext();
   }
 
   public get synchronizer() {
@@ -117,12 +126,12 @@ export abstract class PConnector {
 
     this._db = props.db;
     this._loader = props.loader;
-    this._reqContext = props.reqContext;
+    this._authReqContext = props.reqContext;
     this._jobArgs = props.jobArgs;
 
     if (this.db.isBriefcaseDb()) {
       this.db.concurrencyControl.startBulkMode();
-      this._synchronizer = new Synchronizer(this.db, false, this.reqContext);
+      this._synchronizer = new Synchronizer(this.db, false, this.authReqContext);
     } else {
       this._synchronizer = new Synchronizer(this.db, false);
     }
@@ -141,7 +150,7 @@ export abstract class PConnector {
     } catch(err) {
       console.log(err); // TODO Debug only
       if (this.db.isBriefcaseDb())
-        await this.db.concurrencyControl.abandonResources(this.reqContext as AuthorizedBackendRequestContext);
+        await this.db.concurrencyControl.abandonResources(this.authReqContext);
     } finally {
       this.db.close();
     }
@@ -154,7 +163,9 @@ export abstract class PConnector {
   }
 
   protected async _getSrcState(): Promise<ItemState> {
-    await this.enterRepoChannel();
+    if (this.db.isBriefcaseDb())
+      await this.enterRepoChannel();
+
     let srcState;
     const { con } = this.jobArgs;
     switch(con.kind) {
@@ -186,7 +197,7 @@ export abstract class PConnector {
       return;
     }
 
-    if (this.db instanceof BriefcaseDb)
+    if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
 
     const { appVersion, connectorName } = this.config.appConfig;
@@ -219,7 +230,7 @@ export abstract class PConnector {
   }
 
   protected async _updateDomainSchema(): Promise<any> {
-    if (this.db instanceof BriefcaseDb)
+    if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
 
     const { domainSchemaPaths } = this.config.schemaConfig;
@@ -263,7 +274,7 @@ export abstract class PConnector {
   }
 
   protected async _updateData() {
-    if (this.db instanceof BriefcaseDb)
+    if (this.db.isBriefcaseDb())
       await this.enterSubjectChannel();
 
     this._updateCodeSpecs();
@@ -273,14 +284,15 @@ export abstract class PConnector {
   }
 
   protected async _updateDeletedElements(): Promise<void> {
-    if (this.db instanceof BriefcaseDb)
+    if (this.db.isBriefcaseDb()) {
       await this.enterSubjectChannel();
-    this.synchronizer.detectDeletedElements();
+      this.synchronizer.detectDeletedElements();
+    }
     await this.persistChanges("Deleted Elements", ChangesType.Regular);
   }
 
   protected async _updateProjectExtents() {
-    if (this.db instanceof BriefcaseDb)
+    if (this.db.isBriefcaseDb())
       await this.enterSubjectChannel();
 
     const options: ComputeProjectExtentsOptions = {
@@ -354,15 +366,13 @@ export abstract class PConnector {
     const { revisionHeader } = this.jobArgs;
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const comment = `${header} - ${changeDesc}`;
-    if (this.db instanceof BriefcaseDb) {
-      if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
-        throw new Error("not signed in");
+    if (this.db.isBriefcaseDb()) {
       while (true) {
         try {
-          await this.db.concurrencyControl.request(this.reqContext);
-          await this.db.pullAndMergeChanges(this.reqContext);
+          await this.db.concurrencyControl.request(this.authReqContext);
+          await this.db.pullAndMergeChanges(this.authReqContext);
           this.db.saveChanges(comment);
-          await this.db.pushChanges(this.reqContext, comment, ctype);
+          await this.db.pushChanges(this.authReqContext, comment, ctype);
           break;
         } catch(err) {
           if ((err as any).status === 429) { // Too Many Request Error 
@@ -379,20 +389,14 @@ export abstract class PConnector {
   }
 
   public async enterSubjectChannel() {
-    if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
-      throw new Error("not signed in");
-    if (!this.subject)
-      throw new Error("job subject is undefined");
-    await PConnector.enterChannel(this.db as BriefcaseDb, this.reqContext, this.subject.id);
+    await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, this.subject.id);
   }
 
   public async enterRepoChannel() {
-    if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
-      throw new Error("not signed in");
-    await PConnector.enterChannel(this.db as BriefcaseDb, this.reqContext, IModelDb.repositoryModelId);
+    await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, IModelDb.repositoryModelId);
   }
 
-  public static async enterChannel(db: BriefcaseDb, reqContext: AuthorizedClientRequestContext, rootId: Id64String) {
+  public static async enterChannel(db: BriefcaseDb, authReqContext: AuthorizedClientRequestContext, rootId: Id64String) {
     if (db.concurrencyControl.hasPendingRequests)
       throw new Error("has pending requests");
     if (!db.concurrencyControl.isBulkMode)
@@ -404,7 +408,7 @@ export abstract class PConnector {
     if (db.concurrencyControl.channel.isChannelRootLocked)
       throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
     db.concurrencyControl.channel.channelRoot = rootId;
-    await db.concurrencyControl.channel.lockChannelRoot(reqContext);
+    await db.concurrencyControl.channel.lockChannelRoot(authReqContext);
   }
 }
 

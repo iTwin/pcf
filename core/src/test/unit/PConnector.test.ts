@@ -42,17 +42,17 @@ describe("Unit Tests", () => {
       if (fs.existsSync(targetPath))
         fs.unlinkSync(targetPath);
 
-      bk.SnapshotDb.createEmpty(targetPath, { rootSubject: { name: "TestRootSubject" } }).close();
+      bk.StandaloneDb.createEmpty(targetPath, { rootSubject: { name: "TestRootSubject" } }).close();
 
       for (const srcFile of testCase.sourceFiles) {
         const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
         bk.IModelJsFs.copySync(srcPath, tempSrcPath, { overwrite: true });
         
-        const db = bk.SnapshotDb.openFile(targetPath);
+        const db = bk.StandaloneDb.openFile(targetPath);
         const loader = new JSONLoader(app.jobArgs.con, TestLoaderConfig);
         await app.run(db, loader);
 
-        const updatedDb = bk.SnapshotDb.openFile(targetPath);
+        const updatedDb = bk.StandaloneDb.openFile(targetPath);
         await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
         updatedDb.close();
       }

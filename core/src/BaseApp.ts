@@ -1,5 +1,5 @@
-import { assert, ClientRequestContext, Config, GuidString, Id64, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, BriefcaseManager, IModelDb, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
+import { ClientRequestContext, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
+import { AuthorizedBackendRequestContext, BriefcaseDb, BriefcaseManager, IModelDb, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@bentley/oidc-signin-tool";
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
@@ -27,7 +27,7 @@ export class JobArgs {
   public outputDir: string = path.join(__dirname, "output");
   // change log level to debug your connector (rarely needed)
   public logLevel: LogLevel = LogLevel.None;
-  // allows elements to be deleted if they no longer exist in the source file.
+  // allows elements to be deleted if they no longer exist in the source file. (only works for BriefcaseDb)
   public enableDelete: boolean = true;
   // header of save/push comments.
   public revisionHeader: string = "itwin-pcf";
@@ -161,7 +161,7 @@ export class BaseApp {
     if (!this.hubArgs)
       throw new Error("hubArgs is undefined");
     if (!this.reqContext)
-      throw new Error("must call signin() before downloading a BriefcaseDb.");
+      this.reqContext = await this.signin();
 
     // TODO enable this later
     // const cachedDb = await this.openCachedBriefcaseDb(false);
