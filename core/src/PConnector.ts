@@ -1,7 +1,7 @@
 import { BentleyStatus, Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { Code, CodeScopeSpec, CodeSpec, IModel, SubjectProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, IModel, IModelError, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { ItemState, SourceItem, SynchronizationResults, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
@@ -10,6 +10,7 @@ import { DataConnection, Loader } from "./drivers";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
+import { JobArgs } from "./pcf";
 
 // Be extreme cautious when editing your connector config. Mistakes could potentially corrupt your iModel.
 export interface PConnectorConfig {
@@ -47,16 +48,13 @@ export abstract class PConnector {
   public dynamicSchema?: MetaSchema;
 
   // initialized by initJob()
-  public db!: IModelDb;
-  public loader!: Loader;
-  public con!: DataConnection;
-  public reqContext!: AuthorizedBackendRequestContext | BackendRequestContext;
-  public revisionHeader!: string | undefined;
-  public subjectName!: string;
-  public synchronizer!: Synchronizer;
-  public subject!: Subject;
-  public irModel!: pcf.IRModel;
-
+  protected _db?: IModelDb;
+  protected _loader?: Loader;
+  protected _reqContext?: AuthorizedBackendRequestContext;
+  protected _jobArgs?: JobArgs;
+  protected _synchronizer?: Synchronizer;
+  protected _subject?: Subject;
+  protected _irModel?: pcf.IRModel;
   protected _config?: PConnectorConfig;
 
   constructor() {
@@ -73,40 +71,77 @@ export abstract class PConnector {
     return this._config;
   } 
 
-  public async runJob(props: {
-    db: IModelDb,
-    loader: Loader,
-    con: DataConnection,
-    subjectName: string,
-    revisionHeader: string,
-    reqContext: AuthorizedBackendRequestContext | BackendRequestContext,
-  }) {
+  public get db() {
+    if (!this._db) 
+      throw new Error("IModelDb is undefined");
+    return this._db;
+  }
 
-    this.db = props.db;
-    this.con = props.con;
-    this.subjectName = props.subjectName;
-    this.revisionHeader = props.revisionHeader;
-    this.reqContext = props.reqContext;
-    if (this.db instanceof BriefcaseDb)
-      this.synchronizer = new Synchronizer(this.db, false, this.reqContext as AuthorizedBackendRequestContext);
-    else
-      this.synchronizer = new Synchronizer(this.db, false);
+  public get loader() {
+    if (!this._loader) 
+      throw new Error("Loader is undefined");
+    return this._loader;
+  }
+
+  public get jobArgs() {
+    if (!this._jobArgs) 
+      throw new Error("JobArgs is undefined");
+    return this._jobArgs;
+  }
+
+  public get reqContext() {
+    if (!this._reqContext) 
+      throw new Error("reqContext is undefined");
+    return this._reqContext;
+  }
+
+  public get synchronizer() {
+    if (!this._synchronizer) 
+      throw new Error("synchronizer is not initilized");
+    return this._synchronizer;
+  }
+
+  public get subject() {
+    if (!this._subject) 
+      throw new Error("subject is undefined. call updateJobSubject to populate its value.");
+    return this._subject;
+  }
+
+  public get irModel() {
+    if (!this._irModel) 
+      throw new Error("irModel has not been initialized. call loadIRModel to populate its value.");
+    return this._irModel;
+  }
+
+  public async runJob(props: { db: IModelDb, loader: Loader, jobArgs: JobArgs, reqContext?: AuthorizedBackendRequestContext }) {
+
+    this._db = props.db;
+    this._loader = props.loader;
+    this._reqContext = props.reqContext;
+    this._jobArgs = props.jobArgs;
+
+    if (this.db.isBriefcaseDb()) {
+      this.db.concurrencyControl.startBulkMode();
+      this._synchronizer = new Synchronizer(this.db, false, this.reqContext);
+    } else {
+      this._synchronizer = new Synchronizer(this.db, false);
+    }
 
     try {
-      const srcState = this._getSrcState();
-      if (srcState.itemState !== ItemState.Unchanged) {
+      const srcState = await this._getSrcState();
+      if (srcState !== ItemState.Unchanged) {
+        await this._loadIRModel();
         await this._updateJobSubject();
         await this._updateDomainSchema();
-        await this._loadIRModel();
         await this._updateDynamicSchema();
-        this._updateCodeSpecs();
         await this._updateData();
+        await this._updateDeletedElements();
         await this._updateProjectExtents();
       }
     } catch(err) {
-      if (this.db instanceof BriefcaseDb)
-        await this.db.concurrencyControl.abandonResources(this.reqContext as AuthorizedBackendRequestContext);
       console.log(err); // TODO Debug only
+      if (this.db.isBriefcaseDb())
+        await this.db.concurrencyControl.abandonResources(this.reqContext as AuthorizedBackendRequestContext);
     } finally {
       this.db.close();
     }
@@ -118,30 +153,36 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  protected _getSrcState(): SynchronizationResults {
+  protected async _getSrcState(): Promise<ItemState> {
+    await this.enterRepoChannel();
     let srcState;
-    switch(this.con.kind) {
+    const { con } = this.jobArgs;
+    switch(con.kind) {
       case "FileConnection":
         let timestamp = Date.now();
-        const stat = IModelJsFs.lstatSync(this.con.filepath);
+        const stat = IModelJsFs.lstatSync(con.filepath);
         if (stat)
           timestamp = stat.mtimeMs;
-        const sourceItem: SourceItem = { id: this.con.filepath, version: timestamp.toString() };
-        srcState = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
+        const sourceItem: SourceItem = { id: con.filepath, version: timestamp.toString() };
+        const results = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
+        srcState = results.itemState;
         break;
       default:
-        throw new Error(`${this.con.kind} is not supported yet.`);
+        throw new Error(`${con.kind} is not supported yet.`);
     }
+    if (srcState !== ItemState.Unchanged)
+      await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
     return srcState;
   }
 
   protected async _updateJobSubject() {
-    const code = Subject.createCode(this.db, IModel.rootSubjectId, this.subjectName);
+    const { subjectName } = this.jobArgs;
+    const code = Subject.createCode(this.db, IModel.rootSubjectId, subjectName);
     const existingSubId = this.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.db.elements.tryGetElement<Subject>(existingSubId);
       if (existingSub)
-        this.subject = existingSub;
+        this._subject = existingSub;
       return;
     }
 
@@ -172,7 +213,7 @@ export abstract class PConnector {
     };
 
     const newSubId = this.db.elements.insertElement(subProps);
-    this.subject = this.db.elements.getElement<Subject>(newSubId);
+    this._subject = this.db.elements.getElement<Subject>(newSubId);
 
     await this.persistChanges("Inserted Connector Job Subject", ChangesType.GlobalProperties);
   }
@@ -189,11 +230,11 @@ export abstract class PConnector {
   }
 
   protected async _loadIRModel() {
-    this.irModel = await pcf.IRModel.fromLoader(this.loader);
+    this._irModel = await pcf.IRModel.fromLoader(this.loader);
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
-    if (this.db instanceof BriefcaseDb)
+    if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
 
     const dmoMap = this.tree.buildDMOMap();
@@ -227,9 +268,15 @@ export abstract class PConnector {
 
     this._updateCodeSpecs();
     await this.tree.update();
-    this.synchronizer.detectDeletedElements();
 
     await this.persistChanges("Data Changes", ChangesType.Regular);
+  }
+
+  protected async _updateDeletedElements(): Promise<void> {
+    if (this.db instanceof BriefcaseDb)
+      await this.enterSubjectChannel();
+    this.synchronizer.detectDeletedElements();
+    await this.persistChanges("Deleted Elements", ChangesType.Regular);
   }
 
   protected async _updateProjectExtents() {
@@ -304,15 +351,28 @@ export abstract class PConnector {
   }
 
   public async persistChanges(changeDesc: string, ctype: ChangesType) {
-    const header = this.revisionHeader ? this.revisionHeader.substring(0, 400) : "itwin-pcf";
+    const { revisionHeader } = this.jobArgs;
+    const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const comment = `${header} - ${changeDesc}`;
     if (this.db instanceof BriefcaseDb) {
       if (!(this.reqContext instanceof AuthorizedBackendRequestContext))
         throw new Error("not signed in");
-      await this.db.concurrencyControl.request(this.reqContext);
-      await this.db.pullAndMergeChanges(this.reqContext);
-      this.db.saveChanges(comment);
-      await this.db.pushChanges(this.reqContext, comment, ctype);
+      while (true) {
+        try {
+          await this.db.concurrencyControl.request(this.reqContext);
+          await this.db.pullAndMergeChanges(this.reqContext);
+          this.db.saveChanges(comment);
+          await this.db.pushChanges(this.reqContext, comment, ctype);
+          break;
+        } catch(err) {
+          if ((err as any).status === 429) { // Too Many Request Error 
+            await new Promise(resolve => setTimeout(resolve, 15 * 1000));
+            Logger.logInfo(LogCategory.PCF, "Requests are sent too frequent. Sleep for 15 seconds.");
+          } else {
+            throw err;
+          }
+        }
+      }
     } else {
       this.db.saveChanges(comment);
     }
@@ -345,8 +405,6 @@ export abstract class PConnector {
       throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
     db.concurrencyControl.channel.channelRoot = rootId;
     await db.concurrencyControl.channel.lockChannelRoot(reqContext);
-    if (!db.concurrencyControl.channel.isChannelRootLocked)
-      throw new Error("channel root not locked");
   }
 }
 

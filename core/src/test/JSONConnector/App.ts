@@ -11,7 +11,7 @@ async function run() {
     relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
   });
   await app.signin();
-  const db = await app.downloadBriefcaseDb();
+  const db = await app.openBriefcaseDb();
   await app.run(db, loader);
   await bk.IModelHost.shutdown();
 }

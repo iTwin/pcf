@@ -5,7 +5,8 @@ import * as fs from "fs";
 import * as pcf from "../../pcf";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import { testJSONLoader, testSQLiteLoader } from "../TestLoaders";
+import TestLoaderConfig from "../TestLoaderConfig";
+import { JSONLoader, SQLiteLoader } from "../../drivers";
 
 describe("Unit Tests", () => {
 
@@ -48,7 +49,8 @@ describe("Unit Tests", () => {
         bk.IModelJsFs.copySync(srcPath, tempSrcPath, { overwrite: true });
         
         const db = bk.SnapshotDb.openFile(targetPath);
-        await app.run(db, testJSONLoader);
+        const loader = new JSONLoader(app.jobArgs.con, TestLoaderConfig);
+        await app.run(db, loader);
 
         const updatedDb = bk.SnapshotDb.openFile(targetPath);
         await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
@@ -60,11 +62,13 @@ describe("Unit Tests", () => {
   }
 
   it("Loader Tests", async () => {
-    await testJSONLoader.open();
-    const modelFromJSON = await pcf.IRModel.fromLoader(testJSONLoader);
+    const jsonLoader = new JSONLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, TestLoaderConfig);
+    await jsonLoader.open();
+    const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
 
-    await testSQLiteLoader.open();
-    const modelFromSQLite = await pcf.IRModel.fromLoader(testSQLiteLoader);
+    const sqliteLoader = new SQLiteLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")}, TestLoaderConfig);
+    await sqliteLoader.open();
+    const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
 
     if (!pcf.IRModel.compare(modelFromJSON, modelFromSQLite))
       chai.assert.fail("IR Model from JSON != IR Model from SQLite");

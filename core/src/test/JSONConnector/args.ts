@@ -1,12 +1,15 @@
 import * as pcf from "../../pcf";
 import * as path from "path";
 
-const jobArgs = new pcf.JobArgs({ 
+export const jobArgs = new pcf.JobArgs({ 
   connectorPath: path.join(__dirname, "JSONConnector"),
-  con: { kind: "FileConnection", filepath: path.join(__dirname, "../assets/temp.json") }
+  con: {
+    kind: "FileConnection",
+    filepath: path.join(__dirname, "../assets/temp.json"),
+  },
 });
 
-const hubArgs = new pcf.HubArgs({
+export const hubArgs = new pcf.HubArgs({
   projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
   iModelId: "85ac8276-9d4a-478c-82af-55c832c7da3a",
   clientConfig: { 
@@ -16,5 +19,3 @@ const hubArgs = new pcf.HubArgs({
   },
   env: pcf.Environment.QA,
 });
-
-export { jobArgs, hubArgs };
