@@ -8,8 +8,6 @@ import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { FileConnection, Loader } from "./drivers";
 import * as path from "path";
-import * as fs from "fs";
-import { PConnector } from "./PConnector";
 
 // QA and Dev are for Bentley Developer only
 export enum Environment {
@@ -19,6 +17,8 @@ export enum Environment {
 }
 
 export class JobArgs {
+  // relative path to compiler connector module (.js)
+  public connectorPath: string;
   // used to connect to source data
   public dataConnection: FileConnection;
   // dataConnection.filepath is used if undefined.
@@ -32,7 +32,8 @@ export class JobArgs {
   // header of save/push comments.
   public revisionHeader: string = "itwin-pcf";
 
-  constructor(props: { dataConnection: FileConnection, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
+  constructor(props: { connectorPath: string, dataConnection: FileConnection, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
+    this.connectorPath = props.connectorPath;
     this.dataConnection = props.dataConnection;
     this.subjectName = props.subjectName ?? props.dataConnection.filepath;
   }
@@ -66,7 +67,7 @@ export class HubArgs {
  * The driver for your entire connector program.
  * BaseApp takes care of all the prerequisites to run your connector.
  */
-export class App {
+export class BaseApp {
 
   public jobArgs: JobArgs;
   public hubArgs?: HubArgs | undefined;
@@ -98,14 +99,15 @@ export class App {
   /*
    * Execute a connector job.
    */
-  public async runConnector<T extends PConnector>(db: IModelDb, connector: T, loader: Loader) {
+  public async run(db: IModelDb, loader: Loader) {
+    const connector = require(this.jobArgs.connectorPath).default;
     let reqContext = new BackendRequestContext();
     if (db instanceof BriefcaseDb) {
       if (!this.authReqContext)
         throw new Error("not signed in");
       reqContext = this.authReqContext;
     }
-    connector.initJob({
+    await connector.runJob({
       db, 
       loader,
       reqContext,
@@ -113,7 +115,6 @@ export class App {
       dataConnection: this.jobArgs.dataConnection, 
       subjectName: this.jobArgs.subjectName,
     });
-    await connector.runJob();
   }
 
   /*
@@ -223,7 +224,7 @@ export class IntegrationTestArgs {
 /*
  * extend this class to create your own tests
  */
-export class IntegrationTestApp extends App {
+export class IntegrationTestApp extends BaseApp {
 
   protected _testBriefcaseDbPath?: string;
   public testHubArgs: IntegrationTestArgs;

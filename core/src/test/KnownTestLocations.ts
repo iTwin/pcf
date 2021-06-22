@@ -2,7 +2,7 @@ import { ProcessDetector } from "@bentley/bentleyjs-core";
 import * as path from "path";
 import * as os from "os";
 
-export class KnownTestLocations {
+export default class KnownTestLocations {
 
   public static get libDir(): string {
     return path.join(__dirname, "..", "..", "lib");

@@ -1,6 +1,6 @@
 import { QueryToCount } from "../Utils";
 
-export const TestResults: {[fileName: string]: QueryToCount} = {
+const TestResults: {[fileName: string]: QueryToCount} = {
   "v1.json": { // from empty
     "select * from BisCore:DefinitionPartition": 2,
     "select * from BisCore:GroupInformationPartition": 1,
@@ -46,3 +46,6 @@ export const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from TestSchema:ExtGroupInformationElement": 2, // +1 (from v2)
   },
 };
+
+export default TestResults;
+

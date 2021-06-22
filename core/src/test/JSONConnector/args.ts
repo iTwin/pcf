@@ -2,6 +2,7 @@ import * as pcf from "../../pcf";
 import * as path from "path";
 
 const jobArgs = new pcf.JobArgs({ 
+  connectorPath: path.join(__dirname, "JSONConnector"),
   dataConnection: { kind: "FileConnection", filepath: path.join(__dirname, "../assets/temp.json") }
 });
 

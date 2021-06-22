@@ -7,7 +7,6 @@ import { ClientRequestContext } from "@bentley/bentleyjs-core";
 import { ItemState } from "./fwk/Synchronizer";
 import { DMOMap } from "./pcf";
 import { DOMParser, XMLSerializer } from "xmldom";
-import * as path from "path";
 
 export interface DynamicSchemaProps {
   name: string,

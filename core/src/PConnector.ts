@@ -6,7 +6,7 @@ import { ChangesType } from "@bentley/imodelhub-client";
 import { ItemState, SourceItem, SynchronizationResults, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
-import { FileConnection, Loader, LoaderConfig } from "./drivers";
+import { FileConnection, Loader } from "./drivers";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
@@ -31,15 +31,6 @@ export interface PConnectorConfig {
     // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
     domainSchemaPaths: string[];
   };
-}
-
-export interface PConnectorProps {
-  db: IModelDb;
-  loader: Loader;
-  dataConnection: FileConnection;
-  subjectName: string;
-  revisionHeader: string;
-  reqContext: AuthorizedBackendRequestContext | BackendRequestContext;
 }
 
 export abstract class PConnector {
@@ -82,7 +73,15 @@ export abstract class PConnector {
     return this._config;
   } 
 
-  public initJob(props: PConnectorProps) {
+  public async runJob(props: {
+    db: IModelDb,
+    loader: Loader,
+    dataConnection: FileConnection,
+    subjectName: string,
+    revisionHeader: string,
+    reqContext: AuthorizedBackendRequestContext | BackendRequestContext,
+  }): Promise<BentleyStatus> {
+
     this.db = props.db;
     this.dataConnection = props.dataConnection;
     this.subjectName = props.subjectName;
@@ -92,9 +91,7 @@ export abstract class PConnector {
       this.synchronizer = new Synchronizer(this.db, false, this.reqContext as AuthorizedBackendRequestContext);
     else
       this.synchronizer = new Synchronizer(this.db, false);
-  }
 
-  public async runJob(): Promise<BentleyStatus> {
     let status = BentleyStatus.SUCCESS;
     try {
       const srcDataState = this._getSrcDataState();
@@ -110,6 +107,7 @@ export abstract class PConnector {
     } catch(err) {
       if (this.db instanceof BriefcaseDb)
         await this.db.concurrencyControl.abandonResources(this.reqContext as AuthorizedBackendRequestContext);
+      console.log(err);
       status = BentleyStatus.ERROR;
     } finally {
       this.db.close();
@@ -186,7 +184,7 @@ export abstract class PConnector {
     if (this.db instanceof BriefcaseDb)
       await this.enterRepoChannel();
 
-    const { domainSchemaPaths: domainSchemaPaths } = this.config.schemaConfig;
+    const { domainSchemaPaths } = this.config.schemaConfig;
     if (domainSchemaPaths.length > 0)
       await this.db.importSchemas(this.reqContext, domainSchemaPaths);
 
@@ -201,19 +199,18 @@ export abstract class PConnector {
     if (this.db instanceof BriefcaseDb)
       await this.enterRepoChannel();
 
-    const { schemaName, schemaAlias, domainSchemaPaths: domainSchemaPaths } = this.config.schemaConfig;
     const dmoMap = this.tree.buildDMOMap();
     const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
 
     if (shouldGenerateSchema) {
+      const { schemaName, schemaAlias, domainSchemaPaths } = this.config.schemaConfig;
+
       if (!schemaName)
         throw new Error("Schema config missing schemaName to auto generate a dynamic schema");
       if (!schemaAlias)
         throw new Error("Schema config missing schemaAlias to auto generate a dynamic schema");
-      if (!domainSchemaPaths)
-        throw new Error("Schema config missing domainSchemaPaths to auto generate a dynamic schema");
 
-      const domainSchemaNames = domainSchemaPaths ? domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml")) : [];
+      const domainSchemaNames = domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
       const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, { name: schemaName, alias: schemaAlias, domainSchemaNames, dmoMap });
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)

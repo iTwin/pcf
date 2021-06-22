@@ -5,9 +5,8 @@ import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
 import * as pcf from "../../pcf";
 import * as path from "path";
-import { JSONLoader } from "../../drivers";
 
-export default class JSONConnector extends pcf.PConnector {
+class JSONConnector extends pcf.PConnector {
   constructor() {
     super();
 
@@ -72,17 +71,4 @@ export default class JSONConnector extends pcf.PConnector {
   }
 }
 
-async function run() {
-  await bk.IModelHost.startup();
-  const { jobArgs, hubArgs } = require("./args");
-  const app = new pcf.App(jobArgs, hubArgs);
-  const connector = new JSONConnector();
-  const loader = new JSONLoader(app.jobArgs.dataConnection, {
-    entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
-    relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
-  });
-  await app.signin();
-  const db = await app.downloadBriefcaseDb();
-  await app.runConnector(db, connector, loader);
-  await bk.IModelHost.shutdown();
-}
+export default new JSONConnector();
