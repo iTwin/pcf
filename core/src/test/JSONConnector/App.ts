@@ -6,7 +6,7 @@ async function run() {
   await bk.IModelHost.startup();
   const { jobArgs, hubArgs } = require("./args");
   const app = new pcf.BaseApp(jobArgs, hubArgs);
-  const loader = new JSONLoader(app.jobArgs.dataConnection, {
+  const loader = new JSONLoader(app.jobArgs.con, {
     entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
     relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
   });

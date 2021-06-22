@@ -1,5 +1,5 @@
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { Loader, LoaderConfig, FileConnection, DataConnection } from "./Driver";
+import { Loader, LoaderConfig, DataConnection } from "./Driver";
 import * as fs from "fs";
 
 // sample json format
@@ -18,13 +18,13 @@ export class JSONLoader extends Loader {
 
   public json: any;
 
-  constructor(connection: FileConnection, config: LoaderConfig) {
-    super(connection, config);
+  constructor(con: DataConnection, config: LoaderConfig) {
+    super(con, config);
     this.json = {};
   }
 
   public async open(): Promise<void> {
-    this.json = JSON.parse(fs.readFileSync(this.connection.filepath, "utf8"));
+    this.json = JSON.parse(fs.readFileSync(this.con.filepath, "utf8"));
   }
 
   public async close(): Promise<void> {}

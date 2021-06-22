@@ -22,16 +22,16 @@ describe("Unit Tests", () => {
       fs.mkdirSync(KnownTestLocations.testOutputDir);
   });
 
-  const testJobArgs = new pcf.JobArgs({
-    connectorPath: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
-    dataConnection: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
-  })
-
-  const app = new pcf.BaseApp(testJobArgs);
-
   after(async () => {
     await bk.IModelHost.shutdown();
   });
+
+  const testJobArgs = new pcf.JobArgs({
+    connectorPath: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
+    con: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
+  })
+
+  const app = new pcf.BaseApp(testJobArgs);
 
   const tempSrcPath = path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json");
   const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath!, path.extname(tempSrcPath!))}.bim`);

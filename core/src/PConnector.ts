@@ -6,7 +6,7 @@ import { ChangesType } from "@bentley/imodelhub-client";
 import { ItemState, SourceItem, SynchronizationResults, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
-import { FileConnection, Loader } from "./drivers";
+import { DataConnection, Loader } from "./drivers";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
@@ -49,7 +49,7 @@ export abstract class PConnector {
   // initialized by initJob()
   public db!: IModelDb;
   public loader!: Loader;
-  public dataConnection!: FileConnection;
+  public con!: DataConnection;
   public reqContext!: AuthorizedBackendRequestContext | BackendRequestContext;
   public revisionHeader!: string | undefined;
   public subjectName!: string;
@@ -76,14 +76,14 @@ export abstract class PConnector {
   public async runJob(props: {
     db: IModelDb,
     loader: Loader,
-    dataConnection: FileConnection,
+    con: DataConnection,
     subjectName: string,
     revisionHeader: string,
     reqContext: AuthorizedBackendRequestContext | BackendRequestContext,
-  }): Promise<BentleyStatus> {
+  }) {
 
     this.db = props.db;
-    this.dataConnection = props.dataConnection;
+    this.con = props.con;
     this.subjectName = props.subjectName;
     this.revisionHeader = props.revisionHeader;
     this.reqContext = props.reqContext;
@@ -92,10 +92,9 @@ export abstract class PConnector {
     else
       this.synchronizer = new Synchronizer(this.db, false);
 
-    let status = BentleyStatus.SUCCESS;
     try {
-      const srcDataState = this._getSrcDataState();
-      if (srcDataState.itemState !== ItemState.Unchanged) {
+      const srcState = this._getSrcState();
+      if (srcState.itemState !== ItemState.Unchanged) {
         await this._updateJobSubject();
         await this._updateDomainSchema();
         await this._loadIRModel();
@@ -107,12 +106,10 @@ export abstract class PConnector {
     } catch(err) {
       if (this.db instanceof BriefcaseDb)
         await this.db.concurrencyControl.abandonResources(this.reqContext as AuthorizedBackendRequestContext);
-      console.log(err);
-      status = BentleyStatus.ERROR;
+      console.log(err); // TODO Debug only
     } finally {
       this.db.close();
     }
-    return status;
   }
 
   public async save() {
@@ -121,21 +118,21 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  protected _getSrcDataState(): SynchronizationResults {
-    let srcDataState;
-    switch(this.dataConnection.kind) {
+  protected _getSrcState(): SynchronizationResults {
+    let srcState;
+    switch(this.con.kind) {
       case "FileConnection":
         let timestamp = Date.now();
-        const stat = IModelJsFs.lstatSync(this.dataConnection.filepath);
+        const stat = IModelJsFs.lstatSync(this.con.filepath);
         if (stat)
           timestamp = stat.mtimeMs;
-        const sourceItem: SourceItem = { id: this.dataConnection.filepath, version: timestamp.toString() };
-        srcDataState = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
+        const sourceItem: SourceItem = { id: this.con.filepath, version: timestamp.toString() };
+        srcState = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
         break;
       default:
-        throw new Error(`${this.dataConnection.kind} is not supported yet.`);
+        throw new Error(`${this.con.kind} is not supported yet.`);
     }
-    return srcDataState;
+    return srcState;
   }
 
   protected async _updateJobSubject() {

@@ -6,7 +6,7 @@ import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcase
 import { AccessToken } from "@bentley/itwin-client";
 import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
-import { FileConnection, Loader } from "./drivers";
+import { DataConnection, Loader } from "./drivers";
 import * as path from "path";
 
 // QA and Dev are for Bentley Developer only
@@ -20,7 +20,7 @@ export class JobArgs {
   // relative path to compiler connector module (.js)
   public connectorPath: string;
   // used to connect to source data
-  public dataConnection: FileConnection;
+  public con: DataConnection;
   // dataConnection.filepath is used if undefined.
   public subjectName: string;
   // relative path to the directory for storing output files
@@ -28,14 +28,14 @@ export class JobArgs {
   // change log level to debug your connector (rarely needed)
   public logLevel: LogLevel = LogLevel.None;
   // allows elements to be deleted if they no longer exist in the source file.
-  public doDetectDeletedElements: boolean = true;
+  public enableDelete: boolean = true;
   // header of save/push comments.
   public revisionHeader: string = "itwin-pcf";
 
-  constructor(props: { connectorPath: string, dataConnection: FileConnection, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
+  constructor(props: { connectorPath: string, con: DataConnection, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
     this.connectorPath = props.connectorPath;
-    this.dataConnection = props.dataConnection;
-    this.subjectName = props.subjectName ?? props.dataConnection.filepath;
+    this.con = props.con;
+    this.subjectName = props.subjectName ?? props.con.filepath;
   }
 }
 
@@ -69,8 +69,8 @@ export class HubArgs {
  */
 export class BaseApp {
 
-  public jobArgs: JobArgs;
-  public hubArgs?: HubArgs | undefined;
+  public readonly jobArgs: JobArgs;
+  public readonly hubArgs?: HubArgs | undefined;
   public authReqContext?: AuthorizedBackendRequestContext;
 
   constructor(jobArgs: JobArgs, hubArgs?: HubArgs) {
@@ -108,11 +108,11 @@ export class BaseApp {
       reqContext = this.authReqContext;
     }
     await connector.runJob({
-      db, 
+      db,
       loader,
       reqContext,
-      revisionHeader: this.jobArgs.revisionHeader, 
-      dataConnection: this.jobArgs.dataConnection, 
+      revisionHeader: this.jobArgs.revisionHeader,
+      dataConnection: this.jobArgs.con,
       subjectName: this.jobArgs.subjectName,
     });
   }
@@ -149,7 +149,6 @@ export class BaseApp {
   public async silentSignin() {
     if (!this.hubArgs)
       throw new Error("the app is not connected to iModel Hub. no need to sign in.");
-      
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (email && password) {
@@ -222,7 +221,7 @@ export class IntegrationTestArgs {
 }
 
 /*
- * extend this class to create your own tests
+ * extend/utilize this class to create your own integration tests
  */
 export class IntegrationTestApp extends BaseApp {
 
@@ -244,7 +243,6 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
-
     if (!this.authReqContext)
       throw new Error("not signed in");
 

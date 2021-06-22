@@ -29,7 +29,7 @@ export interface LoaderConfig {
 /*
  * Defined by users. A loader uses this to retrieve data.
  */
-export interface FileConnection {
+interface FileConnection {
   kind: "FileConnection";
   filepath: string;
 }
@@ -38,11 +38,11 @@ export type DataConnection = FileConnection;
 
 export abstract class Loader {
 
-  public connection: DataConnection;
+  public con: DataConnection;
   public config: LoaderConfig;
 
-  constructor(connection: DataConnection, config: LoaderConfig) {
-    this.connection = connection;
+  constructor(con: DataConnection, config: LoaderConfig) {
+    this.con = con;
     this.config = config;
   }
 
