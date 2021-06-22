@@ -6,7 +6,7 @@ import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcase
 import { AccessToken } from "@bentley/itwin-client";
 import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
-import { DataConnection, Loader, LoaderClass } from "./drivers";
+import { DataConnection, Loader, LoaderClass } from "./loaders";
 import * as path from "path";
 
 // QA and Dev are for Bentley Developer only

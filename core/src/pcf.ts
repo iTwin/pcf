@@ -1,4 +1,4 @@
-export * as drivers from "./drivers";
+export * as drivers from "./loaders";
 export * from "./Utils";
 export * from "./Node";
 export * from "./DMO";

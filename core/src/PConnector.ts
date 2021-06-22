@@ -6,7 +6,7 @@ import { ChangesType } from "@bentley/imodelhub-client";
 import { ItemState, SourceItem, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
-import { Loader, LoaderConfig } from "./drivers";
+import { Loader, LoaderConfig } from "./loaders";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";

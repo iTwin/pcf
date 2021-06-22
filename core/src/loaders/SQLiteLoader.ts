@@ -1,7 +1,7 @@
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { DataConnection, Loader, LoaderConfig } from "./Driver";
+import { Loader } from "./Loader";
 
 export class SQLiteLoader extends Loader {
 

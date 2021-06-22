@@ -1,7 +1,7 @@
 import * as bk from "@bentley/imodeljs-backend";
 import * as path from "path";
 import * as pcf from "../../pcf";
-import { JSONLoader } from "../../drivers";
+import { JSONLoader } from "../../loaders";
 
 async function run() {
   await bk.IModelHost.startup();
@@ -30,3 +30,5 @@ async function run() {
   await app.run();
   await bk.IModelHost.shutdown();
 }
+
+run();

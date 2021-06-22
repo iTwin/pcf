@@ -1,5 +1,5 @@
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { Loader, LoaderConfig, DataConnection } from "./Driver";
+import { Loader, LoaderConfig, DataConnection } from "./Loader";
 import * as fs from "fs";
 
 // sample json format

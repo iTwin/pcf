@@ -1,6 +1,6 @@
 import * as hash from "object-hash";
 import { DMO, ElementDMO, RelatedElementDMO, RelationshipDMO } from "./pcf";
-import { Loader } from "./drivers/Driver";
+import { Loader } from "./loaders/Loader";
 
 /*
  * A virtual Entity-Relationship store read by PConnector to synchronize data into an iModel.

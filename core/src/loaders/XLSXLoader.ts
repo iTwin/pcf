@@ -1,5 +1,5 @@
-import { JSONLoader } from "./JSONDriver";
-import { DataConnection, LoaderConfig } from "./Driver";
+import { JSONLoader } from "./JSONLoader";
+import { DataConnection, LoaderConfig } from "./Loader";
 import * as xlsx from "xlsx";
 
 export class XLSXLoader extends JSONLoader {

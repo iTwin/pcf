@@ -7,8 +7,8 @@ Table of Contents
 * [Getting started](#getting-started)
 * [What you should know](#what-you-should-know)
 * [Advance Topics](#advance-topics)
-  * [What is the difference between a Connector and a Driver?](#what-is-the-difference-between-a-connector-and-a-driver)
-  * [How to write a Driver?](#how-to-write-a-driver)
+  * [What is the difference between a Connector and a Loader?](#what-is-the-difference-between-a-connector-and-a-loader)
+  * [How to write a Loader?](#how-to-write-a-loader)
 * [Road Map](#road-map)
 
 # What is itwin-pcf?
@@ -49,7 +49,7 @@ You will interact with **at most** four pcf constructs:
 | Name          | Definition                                                                                                   |
 |-------------- | -------------------------------------------------------------------------------------------------------------|
 |**PConnector** | A high-customizable [iModel Connector](https://www.itwinjs.org/learning/imodel-connectors/?term=connector) that synchronizes data based on configurations. | 
-|**Driver**     | A Driver allows read from a data format. It essentially converts the source data format to the IR Model (intermediate representation model) to be consumed by **PConnector**. |
+|**Loader**     | A Loader allows read from a data format. It essentially converts the source data format to the IR Model (intermediate representation model) to be consumed by **PConnector**. |
 |**DMO**        | A DMO (Dynamic Mapping Object) defines the mapping between the source schema and the EC schema. |
 |**Node**       | A Node represents a unit of synchronization. An iModel is synchronized based on user-defined Nodes and linkages between them. A Node either have a "bisClass" or "dmo" property - Nodes with "dmo" could populate more than one EC Instance (= # of external instances) while Nodes with "bisClass" populate exactly one. |
 
@@ -85,8 +85,8 @@ Currently, all the documentations and API references of this project are embedde
 * Dynamic Schema
     * Only Primitive EC Properties can be added to DMO.classProps.
     * EC Properties defined in DMO.classProps can only be added, not deleted.
-* Drivers
-    * Currently supported drivers: JSON Driver, XLSX Driver, SQLite Driver.
+* Loaders
+    * Currently supported loaders: JSON, XLSX, SQLite Loader.
 * Codes
     * Neither itwin-connector-framework nor pcf support Code reuse as of now. (e.g. inserting an element with the same Code as previously deleted element will fail)
 * itwin-connector-framework integration 
@@ -94,7 +94,7 @@ Currently, all the documentations and API references of this project are embedde
 
 # Advance Topics
 
-## What is the difference between a Connector and a Driver?
+## What is the difference between a Connector and a Loader?
 
 One reason that a highly-customizable connector, PConnector, is definitely needed is that it's not possible to have a single connector for a single data format. Data formats could have different schemas that cannot be understood by a single connector. For example, the databases of different users have completely different schemas and importing those data into iModels will always require configurations.
 
@@ -102,16 +102,16 @@ One reason that a highly-customizable connector, PConnector, is definitely neede
 
 Without pcf: data format A == Connector for A => iModel
 
-With pcf:    data format A == Driver for A    => IR Model == parametric connector => iModel 
+With pcf:    data format A == Loader for A    => IR Model == parametric connector => iModel 
 
 ```
 
-This new architecture separates the concern of accessing an external data from the connector so that we can reuse a connector to populate iModels. It's much easier to write a Driver than to write a full-blown Connector as you don't have to deal with the intricacies in the iModel.js world. It requires zero expertise in iModel.js to write a Driver. As long as there's a **Driver** for a data format, its data can be imported into an iModel through pcf.
+This new architecture separates the concern of accessing an external data from the connector so that we can reuse a connector to populate iModels. It's much easier to write a Loader than to write a full-blown Connector as you don't have to deal with the intricacies in the iModel.js world. It requires zero expertise in iModel.js to write a Loader. As long as there's a **Loader** for a data format, its data can be imported into an iModel through pcf.
 
 
-## How to write a Driver?
+## How to write a Loader?
 
-You can write your own Driver by implementing [IDriver](https://github.com/zachzhu2016/pcf/blob/main/core/src/IRModel.ts) or extending one of the currently supported Drivers.
+You can write your own Loader by implementing [Loader](https://github.com/zachzhu2016/pcf/blob/main/core/src/loaders/Loader.ts) or extending one of the currently supported Loaders.
 
 
 # Road Map
@@ -120,7 +120,7 @@ You can write your own Driver by implementing [IDriver](https://github.com/zachz
 - [ ] update elements in parallel (persist IR model on disk)
 - [ ] add a full suite of command line offerings
 - [ ] add domain schema service and sync them
-- [ ] add support for multiple primary keys in IR Driver
+- [ ] add support for multiple primary keys in IR Model
 - [ ] add wrappers for other programming languages
 - [ ] data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
 - [ ] dynamically infer the relationship between external entities

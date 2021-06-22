@@ -5,7 +5,7 @@ import * as fs from "fs";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import * as pcf from "../../pcf";
-import { JSONLoader } from "../../drivers";
+import { JSONLoader } from "../../loaders";
 
 describe("Integration Tests", () => {
 
