@@ -68,21 +68,23 @@ export class HubArgs {
  */
 export class BaseApp {
 
-  public readonly jobArgs: JobArgs;
-  public readonly hubArgs: HubArgs | undefined;
+  public jobArgs: JobArgs;
+  public hubArgs: HubArgs;
   public reqContext?: AuthorizedBackendRequestContext;
 
   constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
-
-    this.jobArgs = jobArgs;
     this.hubArgs = hubArgs;
+    this.jobArgs = jobArgs;
+  }
 
-    if (hubArgs) {
-      const envStr = String(hubArgs.env);
-      Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
-    }
+  /*
+   * Execute a connector job to synchronizer a BriefcaseDb.
+   */
+  public async run() {
+    const envStr = String(this.hubArgs.env);
+    Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
 
-    const defaultLevel = jobArgs.logLevel;
+    const defaultLevel = this.jobArgs.logLevel;
     Logger.initializeToConsole();
     Logger.configureLevels({
       defaultLevel: LogLevel[defaultLevel],
@@ -93,12 +95,7 @@ export class BaseApp {
         },
       ]
     });
-  }
 
-  /*
-   * Execute a connector job to synchronizer a BriefcaseDb.
-   */
-  public async run() {
     const connector = require(this.jobArgs.connectorPath).default;
     const reqContext = await this.signin();
     const db = await this.openBriefcaseDb();
