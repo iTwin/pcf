@@ -1,6 +1,6 @@
 import * as hash from "object-hash";
 import { DMO, ElementDMO, RelatedElementDMO, RelationshipDMO } from "./pcf";
-import { ILoader } from "./drivers/Driver";
+import { FileConnection, Loader } from "./drivers/Driver";
 
 /*
  * A virtual Entity-Relationship store read by PConnector to synchronize data into an iModel.
@@ -59,7 +59,7 @@ export class IRModel {
     return entity;
   }
 
-  public static async fromLoader(loader: ILoader) {
+  public static async fromLoader(loader: Loader) {
     await loader.open();
     const entities = await loader.getEntities();
     let relationships: IRRelationship[] = [];

@@ -28,7 +28,7 @@ export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<Me
   return schema;
 }
 
-export async function syncDynamicSchema(db: IModelDb, requestContext: AuthorizedClientRequestContext | ClientRequestContext, props: DynamicSchemaProps): schemaState {
+export async function syncDynamicSchema(db: IModelDb, requestContext: AuthorizedClientRequestContext | ClientRequestContext, props: DynamicSchemaProps): Promise<ItemState> {
 
   const schemaName = props.name;
   const existingSchema = await tryGetSchema(db, schemaName);

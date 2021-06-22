@@ -142,7 +142,7 @@ export class ModelNode extends Node implements ModelNodeProps {
   }
 
   protected async _updateModel() {
-    const codeScope = this.pc.jobSubject.id;
+    const codeScope = this.pc.subject.id;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, codeScope, codeValue);
 
@@ -296,9 +296,6 @@ export class MultiElementNode extends Node {
 
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
-
-      if ("placement" in props)
-        this.pc.updateExtent((props as any).placement);
 
       const existingElementId = this.pc.db.elements.queryElementIdByCode(code);
       const element = this.pc.db.elements.createElement(props);

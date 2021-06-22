@@ -1,22 +1,18 @@
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { Loader, FileConnection, LoaderConfig } from "./Driver";
-
-export interface SQLiteLoaderConfig extends LoaderConfig {}
+import { FileConnection, Loader, LoaderConfig } from "./Driver";
 
 export class SQLiteLoader extends Loader {
 
   public db?: any;
-  public config: SQLiteLoaderConfig;
 
-  constructor(config: SQLiteLoaderConfig) {
-    super(config);
-    this.config = config;
+  constructor(connection: FileConnection, config: LoaderConfig) {
+    super(connection, config);
   }
 
-  public async open(con: FileConnection): Promise<void> {
-    this.db = await sqlite.open({ filename: con.filepath, driver: sqlite3.Database });
+  public async open(): Promise<void> {
+    this.db = await sqlite.open({ filename: this.connection.filepath, driver: sqlite3.Database });
   }
 
   public async close(): Promise<void> {

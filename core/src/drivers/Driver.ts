@@ -34,18 +34,22 @@ export interface FileConnection {
   filepath: string;
 }
 
+export type DataConnection = FileConnection; 
+
 export abstract class Loader {
 
+  public connection: DataConnection;
   public config: LoaderConfig;
 
-  constructor(config: LoaderConfig) {
+  constructor(connection: DataConnection, config: LoaderConfig) {
+    this.connection = connection;
     this.config = config;
   }
 
   /*
    * Open connection to a data source. Must be called before loading data.
    */
-  public abstract open(con: any): Promise<void>;
+  public abstract open(): Promise<void>;
 
   /*
    * Close connection. Do nothing if open already read in the entire source file.

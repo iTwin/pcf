@@ -1,20 +1,15 @@
-import { JSONLoader, JSONLoaderConfig } from "./JSONDriver";
-import { FileConnection } from "./Driver";
+import { JSONLoader } from "./JSONDriver";
+import { FileConnection, LoaderConfig } from "./Driver";
 import * as xlsx from "xlsx";
-
-export interface XLSXLoaderConfig extends JSONLoaderConfig {}
 
 export class XLSXLoader extends JSONLoader {
 
-  public config: XLSXLoaderConfig;
-
-  constructor(config: XLSXLoaderConfig) {
-    super(config);
-    this.config = config;
+  constructor(connection: FileConnection, config: LoaderConfig) {
+    super(connection, config);
   }
 
-  public async open(con: FileConnection) {
-    const workbook = xlsx.readFile(con.filepath);
+  public async open() {
+    const workbook = xlsx.readFile(this.connection.filepath);
     const sheetNames = workbook.SheetNames;
     for (const sheetName of sheetNames) {
       this.json[sheetName] = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);

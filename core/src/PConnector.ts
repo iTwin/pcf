@@ -1,17 +1,17 @@
-import { Id64String, Logger } from "@bentley/bentleyjs-core";
-import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
+import { BentleyStatus, Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
 import { Code, CodeScopeSpec, CodeSpec, IModel, SubjectProps } from "@bentley/imodeljs-common";
+import { ChangesType } from "@bentley/imodelhub-client";
 import { ItemState, SourceItem, SynchronizationResults, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
+import { FileConnection, Loader, LoaderConfig } from "./drivers";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import { ChangesType } from "@bentley/imodelhub-client";
-import { FileConnection, Loader, LoaderConfig } from "./drivers";
 
+// Be extreme cautious when editing your connector config. Mistakes could potentially corrupt your iModel.
 export interface PConnectorConfig {
   // Application related config
   appConfig: {
@@ -31,17 +31,15 @@ export interface PConnectorConfig {
     // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
     domainSchemaPaths: string[];
   };
-  // determines the behavior of Loader
-  loaderConfig: LoaderConfig;
 }
 
 export interface PConnectorProps {
   db: IModelDb;
-  reqContext: AuthorizedBackendRequestContext;
   loader: Loader;
   dataConnection: FileConnection;
   subjectName: string;
   revisionHeader: string;
+  reqContext: AuthorizedBackendRequestContext | BackendRequestContext;
 }
 
 export abstract class PConnector {
@@ -55,34 +53,27 @@ export abstract class PConnector {
   public tree: pcf.Tree;
   public nodeMap: { [nodeKey: string]: pcf.Node };
 
-  public irModel?: pcf.IRModel;
   public dynamicSchema?: MetaSchema;
 
-  public db: IModelDb;
-  public loader: Loader;
-  public dataConnection: FileConnection;
-  public synchronizer: Synchronizer;
-  public reqContext: AuthorizedBackendRequestContext;
-  public revisionHeader: string | undefined;
-  public subjectName: string;
-  public subject?: Subject;
+  // initialized by initJob()
+  public db!: IModelDb;
+  public loader!: Loader;
+  public dataConnection!: FileConnection;
+  public reqContext!: AuthorizedBackendRequestContext | BackendRequestContext;
+  public revisionHeader!: string | undefined;
+  public subjectName!: string;
+  public synchronizer!: Synchronizer;
+  public subject!: Subject;
+  public irModel!: pcf.IRModel;
 
   protected _config?: PConnectorConfig;
 
-  constructor(props: PConnectorProps) {
+  constructor() {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
     this.nodeMap = {};
     this.tree = new pcf.Tree();
-
-    this.db = props.db;
-    this.reqContext = props.reqContext;
-    this.loader = props.loader;
-    this.dataConnection = props.dataConnection;
-    this.subjectName = props.subjectName;
-    this.revisionHeader = props.revisionHeader;
-    this.synchronizer = new Synchronizer(this.db, false, this.reqContext);
   }
 
   public get config() {
@@ -91,18 +82,39 @@ export abstract class PConnector {
     return this._config;
   } 
 
-  public async runJob() {
-    try {
-      await this._updateJobSubject();
-      await this._updateDomainSchema();
-      await this._updateDynamicSchema();
-      await this._updateCodeSpecs();
-      await this._updateData();
-      await this._updateProjectExtents();
-    } catch(err) {
+  public initJob(props: PConnectorProps) {
+    this.db = props.db;
+    this.dataConnection = props.dataConnection;
+    this.subjectName = props.subjectName;
+    this.revisionHeader = props.revisionHeader;
+    this.reqContext = props.reqContext;
+    if (this.db instanceof BriefcaseDb)
+      this.synchronizer = new Synchronizer(this.db, false, this.reqContext as AuthorizedBackendRequestContext);
+    else
+      this.synchronizer = new Synchronizer(this.db, false);
+  }
 
+  public async runJob(): Promise<BentleyStatus> {
+    let status = BentleyStatus.SUCCESS;
+    try {
+      const srcDataState = this._getSrcDataState();
+      if (srcDataState.itemState !== ItemState.Unchanged) {
+        await this._updateJobSubject();
+        await this._updateDomainSchema();
+        await this._loadIRModel();
+        await this._updateDynamicSchema();
+        await this._updateCodeSpecs();
+        await this._updateData();
+        await this._updateProjectExtents();
+      }
+    } catch(err) {
+      if (this.db instanceof BriefcaseDb)
+        await this.db.concurrencyControl.abandonResources(this.reqContext as AuthorizedBackendRequestContext);
+      status = BentleyStatus.ERROR;
     } finally {
+      this.db.close();
     }
+    return status;
   }
 
   public async save() {
@@ -111,10 +123,63 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  public async loadIRModel() {
-    if (!this.loader)
-      throw new Error("loader is undefined");
-    this.irModel = await pcf.IRModel.fromLoader(this.loader);
+  protected _getSrcDataState(): SynchronizationResults {
+    let srcDataState;
+    switch(this.dataConnection.kind) {
+      case "FileConnection":
+        let timestamp = Date.now();
+        const stat = IModelJsFs.lstatSync(this.dataConnection.filepath);
+        if (stat)
+          timestamp = stat.mtimeMs;
+        const sourceItem: SourceItem = { id: this.dataConnection.filepath, version: timestamp.toString() };
+        srcDataState = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
+        break;
+      default:
+        throw new Error(`${this.dataConnection.kind} is not supported yet.`);
+    }
+    return srcDataState;
+  }
+
+  protected async _updateJobSubject() {
+    const code = Subject.createCode(this.db, IModel.rootSubjectId, this.subjectName);
+    const existingSubId = this.db.elements.queryElementIdByCode(code);
+    if (existingSubId) {
+      const existingSub = this.db.elements.tryGetElement<Subject>(existingSubId);
+      if (existingSub)
+        this.subject = existingSub;
+      return;
+    }
+
+    if (this.db instanceof BriefcaseDb)
+      await this.enterRepoChannel();
+
+    const { appVersion, connectorName } = this.config.appConfig;
+    const jsonProperties = {
+      Subject: {
+        Job: {
+          Properties: {
+            ConnectorVersion: appVersion,
+            ConnectorType: "pcf connector",
+          },
+          Connector: connectorName,
+          Comments: "",
+        }
+      },
+    }
+
+    const root = this.db.elements.getRootSubject();
+    const subProps: SubjectProps = {
+      classFullName: Subject.classFullName,
+      model: root.model,
+      code,
+      jsonProperties,
+      parent: new SubjectOwnsSubjects(root.id),
+    };
+
+    const newSubId = this.db.elements.insertElement(subProps);
+    this.subject = this.db.elements.getElement<Subject>(newSubId);
+
+    await this.persistChanges("Inserted Connector Job Subject", ChangesType.GlobalProperties);
   }
 
   protected async _updateDomainSchema(): Promise<any> {
@@ -126,6 +191,10 @@ export abstract class PConnector {
       await this.db.importSchemas(this.reqContext, domainSchemaPaths);
 
     await this.persistChanges(`Imported ${domainSchemaPaths.length} Domain Schema(s)`, ChangesType.Schema);
+  }
+
+  protected async _loadIRModel() {
+    this.irModel = await pcf.IRModel.fromLoader(this.loader);
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
@@ -181,64 +250,6 @@ export abstract class PConnector {
     this.db.updateProjectExtents(res.extents);
 
     await this.persistChanges("Updated Project Extents", ChangesType.Regular);
-  }
-
-  protected async _updateJobSubject() {
-    const code = Subject.createCode(this.db, IModel.rootSubjectId, this.subjectName);
-    const existingSubId = this.db.elements.queryElementIdByCode(code);
-    if (existingSubId) {
-      const existingSub = this.db.elements.tryGetElement<Subject>(existingSubId);
-      if (existingSub)
-        this.subject = existingSub;
-      return;
-    }
-
-    if (this.db instanceof BriefcaseDb)
-      await this.enterRepoChannel();
-
-    const jsonProperties = {
-      Subject: {
-        Job: {
-          Properties: {
-            ConnectorVersion: this.config.appVersion,
-            ConnectorType: "pcf connector",
-          },
-          Connector: this.config.connectorName,
-          Comments: "",
-        }
-      },
-    }
-
-    const root = this.db.elements.getRootSubject();
-    const subProps: SubjectProps = {
-      classFullName: Subject.classFullName,
-      model: root.model,
-      code,
-      jsonProperties,
-      parent: new SubjectOwnsSubjects(root.id),
-    };
-
-    const newSubId = this.db.elements.insertElement(subProps);
-    this.subject = this.db.elements.getElement<Subject>(newSubId);
-
-    await this.persistChanges("Inserted Connector Job Subject", ChangesType.GlobalProperties);
-  }
-
-  public getSrcDataState(): SynchronizationResults {
-    let srcDataState;
-    switch(this.dataConnection.kind) {
-      case "FileConnection":
-        let timestamp = Date.now();
-        const stat = IModelJsFs.lstatSync(this.dataConnection.filepath);
-        if (stat)
-          timestamp = stat.mtimeMs;
-        const sourceItem: SourceItem = { id: this.dataConnection.filepath, version: timestamp.toString() };
-        srcDataState = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
-        break;
-      default:
-        throw new Error(`${this.dataConnection.kind} is not supported yet.`);
-    }
-    return srcDataState;
   }
 
   public async getSourceTargetIdPair(node: pcf.MultiRelatedElementNode | pcf.MultiRelationshipNode, instance: pcf.IRInstance): Promise<string[] | void> {
