@@ -20,8 +20,7 @@
     "@bentley/ecschema-metadata": "<%= imjsversion %>",
     "@bentley/electron-manager": "<%= imjsversion %>",
     "@bentley/imodeljs-backend": "<%= imjsversion %>",
-    "@bentley/imodeljs-common": "<%= imjsversion %>",
-    "@itwin/pcf": "<%= pcfversion %>"
+    "@bentley/imodeljs-common": "<%= imjsversion %>"
   },
   "devDependencies": {
     "@bentley/build-tools": "^2.16.0",

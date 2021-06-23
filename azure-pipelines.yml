@@ -43,30 +43,6 @@ jobs:
         workingDirectory: core
       displayName: 'Install Node.js'
 
-    # @itwin/pcf-cli
-
-    - script: |
-        npm ci
-      displayName: 'npm ci'
-      workingDirectory: cli
-    - script: |
-        npm install -g .
-      displayName: 'npm install -g .'
-      workingDirectory: cli
-    - script: |
-        pcf init TestProject TestConnector TestClientId
-      displayName: 'pcf init'
-      workingDirectory: cli
-    - script: |
-        npm run build
-      displayName: 'build generated connector'
-      workingDirectory: cli/TestProject
-
-    # - script: |
-    #     npm run test
-    #   displayName: 'test generated connector'
-    #   workingDirectory: cli/TestProject
-
     # @itwin/pcf
 
     - script: |
@@ -91,6 +67,11 @@ jobs:
       env:
         imjs_test_regular_user_name: $(test_user_name)
         imjs_test_regular_user_password: $(test_user_password)
+
+    - script: |
+        npm link
+      displayName: 'npm link'
+      workingDirectory: core
         
     - script: |
         npm pack
@@ -142,3 +123,32 @@ jobs:
     #       git push -u origin HEAD:main
     #     workingDirectory: core
 
+    # @itwin/pcf-cli
+
+    - script: |
+        npm ci
+      displayName: 'npm ci'
+      workingDirectory: cli
+    - script: |
+        npm install -g .
+      displayName: 'npm install -g .'
+      workingDirectory: cli
+    - script: |
+        pcf init TestProject TestConnector TestClientId
+      displayName: 'pcf init'
+      workingDirectory: cli
+
+    - script: |
+        npm link @itwin/pcf
+      displayName: 'npm link @itwin/pcf'
+      workingDirectory: cli/TestProject
+
+    - script: |
+        npm run build
+      displayName: 'build generated connector'
+      workingDirectory: cli/TestProject
+
+    # - script: |
+    #     npm run test
+    #   displayName: 'test generated connector'
+    #   workingDirectory: cli/TestProject
