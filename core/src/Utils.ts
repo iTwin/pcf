@@ -7,6 +7,12 @@ export interface QueryToCount {
   [ecsql: string]: number;
 }
 
+export interface Mistmatch {
+  ecsql: string;
+  expectedCount: number;
+  actualCount: number;
+}
+
 export enum TestTypes {
   NoUpdate,
   InitialRun,
@@ -25,15 +31,18 @@ export async function getRows(db: IModelDb, ecsql: string): Promise<any[]> {
   return rows;
 }
 
-export async function verifyIModel(db: IModelDb, qtc: QueryToCount) {
+export async function verifyIModel(db: IModelDb, qtc: QueryToCount): Promise<Mistmatch[]> {
   const ecsqls = Object.keys(qtc);
+  const mismatches: Mistmatch[] = [];
   for (const ecsql of ecsqls) {
     const expectedCount = qtc[ecsql];
     const rows = await getRows(db, ecsql);
     const actualCount = rows.length;
     Logger.logInfo(LogCategory.PCF, `${ecsql} => ${actualCount} rows`);
-    assert.equal(expectedCount, actualCount);
+    if (expectedCount !== actualCount)
+      mismatches.push({ ecsql, expectedCount, actualCount });
   }
+  return mismatches;
 }
 
 export interface SearchResult {

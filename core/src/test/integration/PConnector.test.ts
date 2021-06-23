@@ -18,23 +18,13 @@ describe("Integration Tests", () => {
     },
   ]
 
-  const testHubArgs = new pcf.TestHubArgs({
-    projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f",
-    iModelId: "", // dummy value not used
-    clientConfig: {
-      clientId: "spa-c2mHcDM3sj4EX3QCL1NHsxNzq",
-      redirectUri: "http://localhost:3000/signin-callback",
-      scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
-    },
-  });
-
   const testJobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "JSONConnector.js"),
     con: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
     loaderClass: JSONLoader,
   });
 
-  const app = new pcf.IntegrationTestApp(testJobArgs, testHubArgs);
+  const app = new pcf.IntegrationTestApp(testJobArgs);
 
   before(async () => {
     await bk.IModelHost.startup();
@@ -64,8 +54,10 @@ describe("Integration Tests", () => {
           chai.assert.fail("app run failed");
 
         const updatedDb = await app.openBriefcaseDb();
-        await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
+        const mismatches = await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
         updatedDb.close();
+        if (mismatches.length > 0)
+          chai.assert.fail(`verifyIModel failed. See mismatches: ${JSON.stringify(mismatches, null, 4)}`);
       }
     });
   }

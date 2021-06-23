@@ -23,7 +23,7 @@ export interface JobArgsProps {
   loaderClass: LoaderClass;
   subjectName?: string;
   outputDir?: string;
-  readonly logLevel?: LogLevel;
+  logLevel?: LogLevel;
   enableDelete?: boolean;
   revisionHeader?: string;
 }
@@ -40,7 +40,7 @@ export class JobArgs implements JobArgsProps {
   // relative path to the directory for storing output files
   public outputDir: string = path.join(__dirname, "output");
   // change log level to debug your connector (rarely needed)
-  public readonly logLevel: LogLevel = LogLevel.None;
+  public logLevel: LogLevel = LogLevel.None;
   // allows elements to be deleted if they no longer exist in the source file. (only works for BriefcaseDb)
   public enableDelete: boolean = true;
   // header of save/push comments.
@@ -82,7 +82,7 @@ export class HubArgs implements HubArgsProps {
   // you may obtain client configurations from https://developer.bentley.com by creating a SPA app
   public clientConfig: NativeAppAuthorizationConfiguration;
   // do not override this value if you're not a Bentley developer.
-  public readonly env: Environment = Environment.Prod;
+  public env: Environment = Environment.Prod;
 
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -115,7 +115,13 @@ export class BaseApp {
   constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
     this.hubArgs = hubArgs;
     this.jobArgs = jobArgs;
+    this._reset();
+  }
 
+  /*
+   * resets app settings based on new jobArgs and hubArgs.
+   */
+  protected _reset() {
     const envStr = String(this.hubArgs.env);
     Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
 
@@ -136,6 +142,7 @@ export class BaseApp {
    * Safely executes a connector job to synchronizer a BriefcaseDb.
    */
   public async run(): Promise<BentleyStatus> {
+    this._reset();
     let db: BriefcaseDb | undefined = undefined;
     await IModelHost.startup();
     await this.signin();
@@ -232,42 +239,53 @@ export class BaseApp {
   }
 }
 
-export class TestHubArgs extends HubArgs {
-  public env: Environment = Environment.QA;
-  public logLevel: LogLevel = LogLevel.Error;
-  constructor(props: { projectId: Id64String, iModelId: Id64String, clientConfig: NativeAppAuthorizationConfiguration }) {
-    super(props);
-  }
-}
-
 /*
  * extend/utilize this class to create your own integration tests
  */
 export class IntegrationTestApp extends BaseApp {
 
   protected _testBriefcaseDbPath?: string;
-  public jobArgs: JobArgs;
-  public hubArgs: TestHubArgs;
+  public email: string;
+  public password: string;
 
-  constructor(testJobArgs: JobArgs, testHubArgs: TestHubArgs) {
-    super(testJobArgs as JobArgs, testHubArgs as HubArgs);
+  constructor(testJobArgs: JobArgs) {
+    const projectId = process.env.imjs_test_project_id;
+    const clientId = process.env.imjs_test_client_id;
+    const email = process.env.imjs_test_regular_user_name;
+    const password = process.env.imjs_test_regular_user_password;
+    if (!projectId)
+      throw new Error("environment variable 'imjs_test_project_id' is not defined");
+    if (!clientId)
+      throw new Error("environment variable 'imjs_test_client_id' is not defined");
+    if (!email)
+      throw new Error("environment variable 'imjs_test_regular_user_name' is not defined");
+    if (!password)
+      throw new Error("environment variable 'imjs_test_regular_user_password' is not defined");
+    const testHubArgs = new HubArgs({
+      projectId,
+      iModelId: "not used",
+      clientConfig: {
+        clientId,
+        redirectUri: "http://localhost:3000/signin-callback",
+        scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
+      },
+      env: Environment.QA,
+    });
+    testJobArgs.logLevel = LogLevel.Error;
+    super(testJobArgs, testHubArgs);
     this.jobArgs = testJobArgs;
     this.hubArgs = testHubArgs;
+    this.email = email;
+    this.password = password;
   }
 
   /*
    * Sign in through your iModelHub test user account. This call would grab your use credentials from environment variables.
    */
   public async signin(): Promise<AuthorizedBackendRequestContext> {
-    const email = process.env.imjs_test_regular_user_name;
-    const password = process.env.imjs_test_regular_user_password;
-    if (email && password) {
-      const cred: TestUserCredentials = { email, password };
-      const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
-      this._authReqContext = new AuthorizedBackendRequestContext(token);
-    } else {
-      throw new Error("Specify imjs_test_regular_user_name & imjs_test_regular_user_password env variables to enable slient sign-in.");
-    }
+    const cred: TestUserCredentials = { email: this.email, password: this.password };
+    const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
+    this._authReqContext = new AuthorizedBackendRequestContext(token);
     return this._authReqContext;
   }
 
