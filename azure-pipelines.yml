@@ -129,10 +129,12 @@ jobs:
         npm ci
       displayName: 'npm ci'
       workingDirectory: cli
+
     - script: |
         npm install -g .
       displayName: 'npm install -g .'
       workingDirectory: cli
+
     - script: |
         pcf init TestProject TestConnector TestClientId
       displayName: 'pcf init'

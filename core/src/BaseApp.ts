@@ -285,6 +285,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
+    // TODO delete existing if present
     const testIModelName = `Integration Test IModel (${process.platform})`;
     const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.authReqContext, this.hubArgs.projectId, testIModelName, { description: `Description for ${testIModelName}` });
     const testIModelId = iModel.wsgId;
