@@ -149,23 +149,23 @@ npm run test
 ### Option 3: run pcf integration tests:
 ```console
 
-# 1. Use your project ID and client ID in https://github.com/iTwin/pcf/blob/main/core/src/test/integration/PConnector.test.ts
-
-# 2. specify test user credentials (cannot use <your-name>@bentley.com)
+# 1. specify QA credentials (cannot use <your-name>@bentley.com)
 
 # on macOS/linux
+export imjs_test_project_id="<your qa project id>"
+export imjs_test_client_id="<your qa app client id>"
 export imjs_test_regular_user_name="<your test user name>"
 export imjs_test_regular_user_password="<your test user password>"
 
 # on windows
+set "imjs_test_project_id=<your qa project id>"
+set "imjs_test_client_id=<your qa app client id>"
 set "imjs_test_regular_user_name=<your test user name>"
 set "imjs_test_regular_user_password=<your test user password>"
 
-# 3. rebuild
-npm run build
+# 2. integration tests
 
-# 4. integration tests 
-# creates a test iModel and purges it at the end of the test
+# this command creates a test iModel and purges it at the end of the test
 npm run test:integration
 
 ```
