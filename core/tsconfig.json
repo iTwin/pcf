@@ -8,8 +8,7 @@
     "noUnusedParameters": false
   },
   "include": [
-    "./src/**/*",
-    "src/test/JSONConnector/App.ts"
+    "./src/**/*"
   ],
   "exclude": [
     "lib", "node_modules"

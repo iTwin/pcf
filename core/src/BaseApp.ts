@@ -3,7 +3,7 @@ import { AuthorizedBackendRequestContext, BriefcaseDb, BriefcaseManager, IModelH
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@bentley/oidc-signin-tool";
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
-import { AccessToken } from "@bentley/itwin-client";
+import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { DataConnection, LoaderClass } from "./loaders";
@@ -17,11 +17,24 @@ export enum Environment {
   Dev = 103,
 }
 
-export class JobArgs {
+export interface JobArgsProps {
+  connectorPath: string;
+  con: DataConnection;
+  loaderClass: LoaderClass;
+  subjectName?: string;
+  outputDir?: string;
+  readonly logLevel?: LogLevel;
+  enableDelete?: boolean;
+  revisionHeader?: string;
+}
+
+export class JobArgs implements JobArgsProps {
   // relative path to compiler connector module (.js)
   public connectorPath: string;
   // used to connect to source data
   public con: DataConnection;
+  // choose an available loader to use. you can also point this to your own Loader.
+  public loaderClass: LoaderClass;
   // dataConnection.filepath is used if undefined.
   public subjectName: string;
   // relative path to the directory for storing output files
@@ -32,18 +45,36 @@ export class JobArgs {
   public enableDelete: boolean = true;
   // header of save/push comments.
   public revisionHeader: string = "itwin-pcf";
-  // choose an available loader to use. you can also point this to your own Loader.
-  public loaderClass: LoaderClass;
 
-  constructor(props: { connectorPath: string, con: DataConnection, loaderClass: LoaderClass, subjectName?: string, outputDir?: string, logLevel?: LogLevel, doDetectDeletedElements?: boolean, revisionHeader?: string }) {
+  constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
     this.con = props.con;
-    this.subjectName = props.subjectName ?? props.con.filepath;
     this.loaderClass = props.loaderClass;
+    if (props.subjectName !== undefined)
+      this.subjectName = props.subjectName;
+    else
+      this.subjectName = props.con.filepath;
+    if (props.outputDir)
+      this.outputDir = props.outputDir;
+    if (props.logLevel !== undefined)
+      this.logLevel = props.logLevel;
+    if (props.logLevel !== undefined)
+      this.logLevel = props.logLevel;
+    if (props.enableDelete !== undefined)
+      this.enableDelete = props.enableDelete;
+    if (props.revisionHeader !== undefined)
+      this.revisionHeader = props.revisionHeader;
   }
 }
 
-export class HubArgs {
+export interface HubArgsProps {
+  projectId: Id64String;
+  iModelId: Id64String;
+  clientConfig: NativeAppAuthorizationConfiguration;
+  env?: Environment;
+}
+
+export class HubArgs implements HubArgsProps {
   // your project's GUID ID
   public projectId: Id64String;
   // your iModel's GUID ID
@@ -56,10 +87,12 @@ export class HubArgs {
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
 
-  constructor(props: { projectId: Id64String, iModelId: Id64String, clientConfig: NativeAppAuthorizationConfiguration, env?: Environment }) {
+  constructor(props: HubArgsProps) {
     this.projectId = props.projectId;
     this.iModelId = props.iModelId;
     this.clientConfig = props.clientConfig;
+    if (props.env !== undefined)
+      this.env = props.env;
   }
 }
 
@@ -71,7 +104,7 @@ export class BaseApp {
 
   public jobArgs: JobArgs;
   public hubArgs: HubArgs;
-  protected _authReqContext?: AuthorizedBackendRequestContext;
+  protected _authReqContext?: AuthorizedClientRequestContext;
 
   public get authReqContext() {
     if (!this._authReqContext)
@@ -104,8 +137,9 @@ export class BaseApp {
    */
   public async run(): Promise<BentleyStatus> {
     let db: BriefcaseDb | undefined = undefined;
+    await IModelHost.startup();
+    await this.signin();
     try {
-      await this.signin();
       db = await this.openBriefcaseDb();
       const connector = require(this.jobArgs.connectorPath).default;
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
@@ -114,7 +148,7 @@ export class BaseApp {
       if ((err as any).status === 403) // out of call volumn quota
         return BentleyStatus.ERROR;
       await utils.retryLoop(async () => {
-        if (db && db.isBriefcaseDb() && this.authReqContext) {
+        if (db && db.isBriefcaseDb()) {
           await db.concurrencyControl.abandonResources(this.authReqContext);
         }
       });
@@ -122,6 +156,7 @@ export class BaseApp {
     } finally {
       if (db)
         db.close();
+      await IModelHost.shutdown();
     }
     return BentleyStatus.SUCCESS;
   }
@@ -130,28 +165,26 @@ export class BaseApp {
    * Sign in through your iModelHub account. This call would open up a page in your browser and prompt you to sign in.
    */
   public async signin(): Promise<AuthorizedBackendRequestContext> {
-    if (this.authReqContext)
-      return this.authReqContext;
-    const getToken = async () => {
-      if (!this.hubArgs)
-        throw new Error("the app is not connected to iModel Hub. no need to sign in.");
-
-      const client = new ElectronAuthorizationBackend();
-      await client.initialize(this.hubArgs.clientConfig);
-
-      return new Promise<AccessToken>((resolve, reject) => {
-        NativeHost.onUserStateChanged.addListener((token) => {
-          if (token !== undefined)
-            resolve(token);
-          else
-            reject(new Error("Failed to sign in"));
-        });
-        client.signIn().catch((err) => reject(err));
-      });
-    }
-    const token = await getToken();
+    if (this._authReqContext)
+      return this._authReqContext;
+    const token = await this.getToken();
     this._authReqContext = new AuthorizedBackendRequestContext(token);
-    return this.authReqContext;
+    return this._authReqContext;
+  }
+
+  public async getToken(): Promise<AccessToken> {
+    const client = new ElectronAuthorizationBackend();
+    await client.initialize(this.hubArgs.clientConfig);
+
+    return new Promise<AccessToken>((resolve, reject) => {
+      NativeHost.onUserStateChanged.addListener((token) => {
+        if (token !== undefined)
+          resolve(token);
+        else
+          reject(new Error("Failed to sign in"));
+      });
+      client.signIn().catch((err) => reject(err));
+    });
   }
 
   /*
@@ -235,7 +268,7 @@ export class IntegrationTestApp extends BaseApp {
     } else {
       throw new Error("Specify imjs_test_regular_user_name & imjs_test_regular_user_password env variables to enable slient sign-in.");
     }
-    return this.authReqContext;
+    return this._authReqContext;
   }
 
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
@@ -252,9 +285,6 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
-    if (!this.authReqContext)
-      throw new Error("not signed in");
-
     const testIModelName = `Integration Test IModel (${process.platform})`;
     const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.authReqContext, this.hubArgs.projectId, testIModelName, { description: `Description for ${testIModelName}` });
     const testIModelId = iModel.wsgId;

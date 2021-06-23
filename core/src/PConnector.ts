@@ -50,9 +50,9 @@ export class PConnectorConfig implements PConnectorConfigProps {
     this.appVersion = props.appVersion;
     this.connectorName = props.connectorName;
     this.loader = props.loader;
-    if (props.domainSchemaPaths)
+    if (props.domainSchemaPaths !== undefined)
       this.domainSchemaPaths = props.domainSchemaPaths;
-    if (props.dynamicSchema)
+    if (props.dynamicSchema !== undefined)
       this.dynamicSchema = props.dynamicSchema;
     pc.config = this;
   }
