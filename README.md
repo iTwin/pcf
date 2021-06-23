@@ -113,6 +113,58 @@ This new architecture separates the concern of accessing an external data from t
 
 You can write your own Loader by implementing [Loader](https://github.com/zachzhu2016/pcf/blob/main/core/src/loaders/Loader.ts) or extending one of the currently supported Loaders.
 
+# Contributing 
+
+### pre-steps:
+```console
+# clone pcf repo
+git clone https://github.com/iTwin/pcf.git
+
+# install pcf core dependencies
+cd core
+npm ci 
+
+# build
+npm run build
+```
+
+### try pcf locally with your connector:
+```console
+# create global symlink
+npm link
+
+# use @itwin/pcf package locally without installing it
+cd <your connector project dir>
+npm link @itwin/pcf
+```
+
+### run pcf unit tests:
+```console
+npm run test
+```
+
+### run pcf integration tests:
+```console
+
+# 1. Use your project ID and client ID in https://github.com/iTwin/pcf/blob/main/core/src/test/integration/PConnector.test.ts
+
+# 2. specify test user credentials (cannot use <your-name>@bentley.com)
+
+# on macOS/linux
+export imjs_test_regular_user_name="<your test user name>"
+export imjs_test_regular_user_password="<your test user password>"
+
+# on windows
+set "imjs_test_regular_user_name=<your test user name>"
+set "imjs_test_regular_user_password=<your test user password>"
+
+# 3. rebuild
+npm run build
+
+# 4. integration tests
+npm run test:integration
+
+```
 
 # Road Map
 
