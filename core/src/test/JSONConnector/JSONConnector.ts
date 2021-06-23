@@ -5,31 +5,30 @@ import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
 import * as pcf from "../../pcf";
 import * as path from "path";
+import { PConnectorConfig } from "../../PConnector";
 
 class JSONConnector extends pcf.PConnector {
   constructor() {
     super();
 
-    this._config = {
-      schemaConfig: {
-        domainSchemaPaths: [
-          "Functional.ecschema.xml",
-          "SpatialComposition.ecschema.xml",
-          "BuildingSpatial.ecschema.xml"
-        ].map((file: string) => path.join(KnownTestLocations.testAssetsDir, "domain_schemas", file)),
+    new PConnectorConfig(this, {
+      domainSchemaPaths: [
+        "Functional.ecschema.xml",
+        "SpatialComposition.ecschema.xml",
+        "BuildingSpatial.ecschema.xml"
+      ].map((file: string) => path.join(KnownTestLocations.testAssetsDir, "domain_schemas", file)),
+      dynamicSchema: {
         schemaName: "TestSchema",
         schemaAlias: "ts",
       },
-      appConfig: {
-        connectorName: "TestConnector",
-        appId: "TestConnector",
-        appVersion: "1.0.0.0",
-      },
-      loaderConfig: {
+      connectorName: "TestConnector",
+      appId: "TestConnector",
+      appVersion: "1.0.0.0",
+      loader: {
         entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
         relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
       }
-    }
+    });
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });

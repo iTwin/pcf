@@ -3,7 +3,7 @@ import * as path from "path";
 import * as pcf from "../../pcf";
 import { JSONLoader } from "../../loaders";
 
-async function run() {
+export async function main() {
   await bk.IModelHost.startup();
 
   const jobArgs = new pcf.JobArgs({ 
@@ -31,4 +31,5 @@ async function run() {
   await bk.IModelHost.shutdown();
 }
 
-run();
+main();
+

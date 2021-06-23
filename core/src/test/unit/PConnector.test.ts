@@ -63,7 +63,7 @@ describe("Unit Tests", () => {
 
   it("Loader Tests", async () => {
     const connector: PConnector = require(jobArgs.connectorPath).default;
-    const config = connector.config.loaderConfig;
+    const config = connector.config.loader;
 
     const jsonLoader = new JSONLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, config);
     await jsonLoader.open();

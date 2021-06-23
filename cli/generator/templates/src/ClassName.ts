@@ -5,8 +5,23 @@ import * as bk from "@bentley/imodeljs-backend";
 import * as pcf from "@itwin/pcf";
 
 export class <%= className %> extends pcf.PConnector {
-  constructor(config: pcf.PConnectorConfig) {
-    super(config);
+  constructor() {
+    super();
+
+    const config = new PConnectorConfig(this, {
+      connectorName: "SampleConnector",
+      appId: "SampleConnector",
+      appVersion: "1.0.0.0",
+      domainSchemaPaths: [],
+      dynamicSchema: {
+        schemaName: "SampleSchema",
+        schemaAlias: "ts",
+      },
+      loader: {
+        entityKeys: ["Component"],
+        relKeys: ["Connection", "Assembly"],
+      },
+    });
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
@@ -29,22 +44,5 @@ export class <%= className %> extends pcf.PConnector {
   }
 }
 
-export function getBridgeInstance() {
-  return new <%= className %>({
-    connectorName: "SampleConnector",
-    appId: "SampleConnector",
-    appVersion: "1.0.0.0",
-    schemaConfig: {
-      domainSchemaPaths: [],
-      schemaName: "COBieDynamic",
-      schemaAlias: "cd",
-    },
-    xlsxConfig: {
-      entityKeys: ["Component"],
-      relKeys: ["Connection", "Assembly"],
-      primaryKeyMap: { Contact: "Email" },
-      defaultPrimaryKey: "Name",
-    },
-  });
-}
+export default new <%= className %>();
 

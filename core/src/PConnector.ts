@@ -13,27 +13,49 @@ import * as fs from "fs";
 import * as path from "path";
 import { JobArgs } from "./pcf";
 
+export interface PConnectorConfigProps {
+  appId: string;
+  appVersion: string;
+  connectorName: string;
+  loader: LoaderConfig;
+  domainSchemaPaths?: string[];
+  dynamicSchema?: {
+    schemaName: string;
+    schemaAlias: string;
+  }
+}
+
 // Be extreme cautious when editing your connector config. Mistakes could potentially corrupt your iModel.
-export interface PConnectorConfig {
-  // Application related config
-  appConfig: {
-    // application ID
-    appId: string;
-    // application version
-    appVersion: string;
-    // the name of your connector (e.g. COBieConnector)
-    connectorName: string;
-  };
-  // EC Domain/Dynamic Schema related config
-  schemaConfig: {
+export class PConnectorConfig implements PConnectorConfigProps {
+  // application ID
+  public appId: string;
+  // application version
+  public appVersion: string;
+  // the name of your connector (e.g. COBieConnector)
+  public connectorName: string;
+  // every PConnector must have a loader to access a data source
+  public loader: LoaderConfig;
+  // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
+  public domainSchemaPaths: string[] = [];
+  // dynamic schema settings
+  public dynamicSchema?: {
     // The name of your Dynamic Schema if any. (e.g. 'COBieDynamic')
-    schemaName?: string;
+    schemaName: string;
     // The alias of your Dynamic Schema name if any. (e.g. 'COBieDynamic' => 'cd')
-    schemaAlias?: string;
-    // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
-    domainSchemaPaths: string[];
-  };
-  loaderConfig: LoaderConfig;
+    schemaAlias: string;
+  }
+
+  constructor(pc: PConnector, props: PConnectorConfigProps) {
+    this.appId = props.appId;
+    this.appVersion = props.appVersion;
+    this.connectorName = props.connectorName;
+    this.loader = props.loader;
+    if (props.domainSchemaPaths)
+      this.domainSchemaPaths = props.domainSchemaPaths;
+    if (props.dynamicSchema)
+      this.dynamicSchema = props.dynamicSchema;
+    pc.config = this;
+  }
 }
 
 export abstract class PConnector {
@@ -69,8 +91,12 @@ export abstract class PConnector {
 
   public get config() {
     if (!this._config)
-      throw new Error("PConnector._config should be defined in the constructor of your connector class");
+      throw new Error("PConnectorConfig must be defined in the constructor of your connector class");
     return this._config;
+  } 
+
+  public set config(config: PConnectorConfig) {
+    this._config = config;
   } 
 
   public get db() {
@@ -126,9 +152,9 @@ export abstract class PConnector {
 
   public async runJob(props: { db: IModelDb, jobArgs: JobArgs, authReqContext?: AuthorizedBackendRequestContext }): Promise<void> {
     this._db = props.db;
-    this._authReqContext = props.authReqContext;
     this._jobArgs = props.jobArgs;
-    this._loader = new props.jobArgs.loaderClass(this.jobArgs.con, this.config.loaderConfig);
+    this._authReqContext = props.authReqContext;
+    this._loader = new props.jobArgs.loaderClass(this.jobArgs.con, this.config.loader);
 
     if (this.db.isBriefcaseDb()) {
       this.db.concurrencyControl.startBulkMode();
@@ -193,7 +219,7 @@ export abstract class PConnector {
     if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
 
-    const { appVersion, connectorName } = this.config.appConfig;
+    const { appVersion, connectorName } = this.config;
     const jsonProperties = {
       Subject: {
         Job: {
@@ -226,7 +252,7 @@ export abstract class PConnector {
     if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
 
-    const { domainSchemaPaths } = this.config.schemaConfig;
+    const { domainSchemaPaths } = this.config;
     if (domainSchemaPaths.length > 0)
       await this.db.importSchemas(this.reqContext, domainSchemaPaths);
 
@@ -245,14 +271,11 @@ export abstract class PConnector {
     const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
 
     if (shouldGenerateSchema) {
-      const { schemaName, schemaAlias, domainSchemaPaths } = this.config.schemaConfig;
+      if (!this.config.dynamicSchema)
+        throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
 
-      if (!schemaName)
-        throw new Error("Schema config missing schemaName to auto generate a dynamic schema");
-      if (!schemaAlias)
-        throw new Error("Schema config missing schemaAlias to auto generate a dynamic schema");
-
-      const domainSchemaNames = domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
+      const { schemaName, schemaAlias } = this.config.dynamicSchema;
+      const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
       const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, { name: schemaName, alias: schemaAlias, domainSchemaNames, dmoMap });
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
