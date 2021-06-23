@@ -10,7 +10,8 @@
 #     - master
 #     - release/*
 
-trigger: none
+trigger: 
+  - none
 
 jobs:
 
@@ -42,7 +43,7 @@ jobs:
         workingDirectory: core
       displayName: 'Install Node.js'
 
-		# @itwin/pcf-cli
+    # @itwin/pcf-cli
 
     # - script: |
     #     npm ci
@@ -53,15 +54,15 @@ jobs:
     #   displayName: 'npm install -g .'
     #   workingDirectory: cli
     # - script: |
-	  #     pcf init TestProject TestConnector TestClientId
+    #     pcf init TestProject TestConnector TestClientId
     #   displayName: 'pcf init'
     #   workingDirectory: cli
     # - script: |
-	  #     npm run build
+    #     npm run build
     #   displayName: 'build generated connector'
     #   workingDirectory: cli/TestProject
 
-		# @itwin/pcf
+    # @itwin/pcf
 
     - script: |
         npm ci
@@ -78,14 +79,14 @@ jobs:
       displayName: 'npm run test:unit'
       workingDirectory: core
 
-		- script: |
-		    npm run test:integration
-		  displayName: 'npm run test:integration'
-		  workingDirectory: core
+    - script: |
+        npm run test:integration
+      displayName: 'npm run test:integration'
+      workingDirectory: core
       env:
         imjs_test_regular_user_name: $(test_user_name)
         imjs_test_regular_user_password: $(test_user_password)
-
+        
     - script: |
         npm pack
       displayName: 'Package for release'
@@ -97,42 +98,42 @@ jobs:
       displayName: 'Grab the package version'
       workingDirectory: core
 
-		# - task: CopyFiles@2
-		# 	inputs:
-		# 		contents: '*.tgz'
-		# 		targetFolder: $(Build.ArtifactStagingDirectory)/npm
-		# 		workingDirectory: core
-		# 	displayName: 'Copy archives to artifacts staging directory'
-
-		# - task: CopyFiles@2
-		# 	inputs:
-		# 		sourceFolder: '$(Build.SourcesDirectory)'
-		# 		contents: 'package.json'
-		# 		targetFolder: $(Build.ArtifactStagingDirectory)/npm
-		# 		workingDirectory: core
-		# 	displayName: 'Copy package.json'
-
-		# - task: PublishBuildArtifacts@1
-		# 	inputs:
-		# 		PathtoPublish: '$(Build.ArtifactStagingDirectory)/npm'
-		# 		artifactName: npm
-		# 		workingDirectory: core
-		# 	displayName: 'Publish npm artifact'
-
-		# - script: |
-		#			npm config list
-		#			npm --version
-		#			npm version patch --force
-		#			npm publish --access public
-		#   workingDirectory: core
-
-		# - task: CmdLine@2
-		# 	inputs:
-		# 		script: |
-		# 			git config --global user.email "zachzhu2016@gmail.com	"
-		# 			git config --global user.name "zachzhu2016"
-		# 			git add package.json
-		# 			git commit -a -m "Patch Version Bump from Azure DevOps"
-		# 			git push -u origin HEAD:main
-		#     workingDirectory: core
+    # - task: CopyFiles@2
+    #   inputs:
+    #     contents: '*.tgz'
+    #     targetFolder: $(Build.ArtifactStagingDirectory)/npm
+    #     workingDirectory: core
+    #   displayName: 'Copy archives to artifacts staging directory'
+    
+    # - task: CopyFiles@2
+    #   inputs:
+    #     sourceFolder: '$(Build.SourcesDirectory)'
+    #     contents: 'package.json'
+    #     targetFolder: $(Build.ArtifactStagingDirectory)/npm
+    #     workingDirectory: core
+    #   displayName: 'Copy package.json'
+    
+    # - task: PublishBuildArtifacts@1
+    #   inputs:
+    #     PathtoPublish: '$(Build.ArtifactStagingDirectory)/npm'
+    #     artifactName: npm
+    #     workingDirectory: core
+    #   displayName: 'Publish npm artifact'
+    
+    # - script: |
+    #     npm config list
+    #     npm --version
+    #     npm version patch --force
+    #     npm publish --access public
+    #   workingDirectory: core
+    
+    # - task: CmdLine@2
+    #   inputs:
+    #     script: |
+    #       git config --global user.email "zachzhu2016@gmail.com "
+    #       git config --global user.name "zachzhu2016"
+    #       git add package.json
+    #       git commit -a -m "Patch Version Bump from Azure DevOps"
+    #       git push -u origin HEAD:main
+    #     workingDirectory: core
 
