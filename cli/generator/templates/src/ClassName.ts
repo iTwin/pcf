@@ -8,7 +8,7 @@ export class <%= className %> extends pcf.PConnector {
   constructor() {
     super();
 
-    const config = new PConnectorConfig(this, {
+    const config = new pcf.PConnectorConfig(this, {
       connectorName: "SampleConnector",
       appId: "SampleConnector",
       appVersion: "1.0.0.0",

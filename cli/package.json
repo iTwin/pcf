@@ -8,7 +8,6 @@
     "BIM",
     "iModel"
   ],
-  "homepage": "https://github.com/zachzhu2016/parametric-connector",
   "main": "./bin/pcf.js",
   "bin": {
     "pcf": "./bin/pcf"

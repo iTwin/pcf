@@ -89,7 +89,6 @@ module.exports = class extends Generator {
       {
         name: "name",
         message: "What\'s the name of your connector? (Use a unique, descriptive name.",
-        default: paramCase(path.basename(this.destinationRoot())),
         when: () => !this.options.name,
         filter: (v) => paramCase(v),
         transformer: (v) => chalk.cyan(paramCase(v)),
@@ -121,7 +120,7 @@ module.exports = class extends Generator {
       clientRedirectUri: "http://localhost:3000/signin-callback",
       clientScope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
 
-      imjsversion: "^2.16.0",
+      imjsversion: "2.16.1",
       pcfversion: "0.0.1",
     };
 

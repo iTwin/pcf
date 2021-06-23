@@ -10,6 +10,12 @@
     "clean": "rimraf lib"
   },
   "dependencies": {
+    "@bentley/itwin-client": "<%= imjsversion %>",
+    "@bentley/backend-itwin-client": "<%= imjsversion %>",
+    "@bentley/imodelhub-client": "<%= imjsversion %>",
+    "@bentley/rbac-client": "<%= imjsversion %>",
+    "@bentley/geometry-core": "<%= imjsversion %>",
+    "@bentley/telemetry-client": "<%= imjsversion %>",
     "@bentley/bentleyjs-core": "<%= imjsversion %>",
     "@bentley/ecschema-metadata": "<%= imjsversion %>",
     "@bentley/electron-manager": "<%= imjsversion %>",
