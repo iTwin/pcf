@@ -46,10 +46,11 @@ describe("Unit Tests", () => {
       for (const srcFile of testCase.sourceFiles) {
         const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
         bk.IModelJsFs.copySync(srcPath, tempSrcPath, { overwrite: true });
-        
+
         const db = bk.StandaloneDb.openFile(targetPath);
         const connector: PConnector = require(jobArgs.connectorPath).default;
         await connector.runJob({ db, jobArgs });
+        db.close();
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);
         await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
