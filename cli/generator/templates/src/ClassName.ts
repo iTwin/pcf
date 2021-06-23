@@ -14,8 +14,8 @@ export class <%= className %> extends pcf.PConnector {
       appVersion: "1.0.0.0",
       domainSchemaPaths: [],
       dynamicSchema: {
-        schemaName: "SampleSchema",
-        schemaAlias: "ts",
+        schemaName: "COBieDynamic",
+        schemaAlias: "cd",
       },
       loader: {
         entityKeys: ["Component"],
