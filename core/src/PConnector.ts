@@ -7,6 +7,7 @@ import { ItemState, SourceItem, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
 import { Loader, LoaderConfig } from "./loaders";
+import * as utils from "./Utils";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
@@ -123,9 +124,9 @@ export abstract class PConnector {
     return this._irModel;
   }
 
-  public async runJob(props: { db: IModelDb, jobArgs: JobArgs, reqContext?: AuthorizedBackendRequestContext }): Promise<void> {
+  public async runJob(props: { db: IModelDb, jobArgs: JobArgs, authReqContext?: AuthorizedBackendRequestContext }): Promise<void> {
     this._db = props.db;
-    this._authReqContext = props.reqContext;
+    this._authReqContext = props.authReqContext;
     this._jobArgs = props.jobArgs;
     this._loader = new props.jobArgs.loaderClass(this.jobArgs.con, this.config.loaderConfig);
 
@@ -136,21 +137,15 @@ export abstract class PConnector {
       this._synchronizer = new Synchronizer(this.db, false);
     }
 
-    try {
-      const srcState = await this._getSrcState();
-      if (srcState !== ItemState.Unchanged) {
-        await this._loadIRModel();
-        await this._updateJobSubject();
-        await this._updateDomainSchema();
-        await this._updateDynamicSchema();
-        await this._updateData();
-        await this._updateDeletedElements();
-        await this._updateProjectExtents();
-      }
-    } catch(err) {
-      console.log(err); // TODO Debug only
-      if (this.db.isBriefcaseDb())
-        await this.db.concurrencyControl.abandonResources(this.authReqContext);
+    const srcState = await this._getSrcState();
+    if (srcState !== ItemState.Unchanged) {
+      await this._loadIRModel();
+      await this._updateJobSubject();
+      await this._updateDomainSchema();
+      await this._updateDynamicSchema();
+      await this._updateData();
+      await this._updateDeletedElements();
+      await this._updateProjectExtents();
     }
   }
 
@@ -277,7 +272,6 @@ export abstract class PConnector {
 
     this._updateCodeSpecs();
     await this.tree.update();
-
     await this.persistChanges("Data Changes", ChangesType.Regular);
   }
 
@@ -365,33 +359,31 @@ export abstract class PConnector {
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const comment = `${header} - ${changeDesc}`;
     if (this.db.isBriefcaseDb()) {
-      while (true) {
-        try {
-          await this.db.concurrencyControl.request(this.authReqContext);
-          await this.db.pullAndMergeChanges(this.authReqContext);
-          this.db.saveChanges(comment);
-          await this.db.pushChanges(this.authReqContext, comment, ctype);
-          break;
-        } catch(err) {
-          if ((err as any).status === 429) { // Too Many Request Error 
-            await new Promise(resolve => setTimeout(resolve, 15 * 1000));
-            Logger.logInfo(LogCategory.PCF, "Requests are sent too frequent. Sleep for 15 seconds.");
-          } else {
-            throw err;
-          }
-        }
-      }
+      await utils.retryLoop(async () => {
+        await (this.db as BriefcaseDb).concurrencyControl.request(this.authReqContext);
+      });
+      await utils.retryLoop(async () => {
+        await (this.db as BriefcaseDb).pullAndMergeChanges(this.authReqContext);
+      });
+      this.db.saveChanges(comment);
+      await utils.retryLoop(async () => {
+        await (this.db as BriefcaseDb).pushChanges(this.authReqContext, comment, ctype);
+      });
     } else {
       this.db.saveChanges(comment);
     }
   }
 
   public async enterSubjectChannel() {
-    await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, this.subject.id);
+    await utils.retryLoop(async () => {
+      await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, this.subject.id);
+    });
   }
 
   public async enterRepoChannel() {
-    await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, IModelDb.repositoryModelId);
+    await utils.retryLoop(async () => {
+      await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, IModelDb.repositoryModelId);
+    });
   }
 
   public static async enterChannel(db: BriefcaseDb, authReqContext: AuthorizedClientRequestContext, rootId: Id64String) {

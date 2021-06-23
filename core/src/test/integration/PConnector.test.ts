@@ -6,6 +6,7 @@ import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import * as pcf from "../../pcf";
 import { JSONLoader } from "../../loaders";
+import { BentleyStatus } from "@bentley/bentleyjs-core";
 
 describe("Integration Tests", () => {
 
@@ -19,9 +20,9 @@ describe("Integration Tests", () => {
 
   const testHubArgs = new pcf.TestHubArgs({
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f",
-    iModelId: "85ac8276-9d4a-478c-82af-55c832c7da3a", // dummy value not used
+    iModelId: "", // dummy value not used
     clientConfig: {
-      clientId: "spa-aXwJXSgbRU2BZLfsQHL2bc9Vb",
+      clientId: "spa-c2mHcDM3sj4EX3QCL1NHsxNzq",
       redirectUri: "http://localhost:3000/signin-callback",
       scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
     },
@@ -42,28 +43,29 @@ describe("Integration Tests", () => {
     await app.signin();
   });
 
+  after(async () => {
+    if (app.hubArgs.iModelId !== "")
+      await app.purgeTestBriefcaseDb();
+    await bk.IModelHost.shutdown();
+  });
+
   for (const testCase of testCases) {
     it(testCase.title, async () => {
-      try {
-        await app.createTestBriefcaseDb();
-        for (let i = 0; i < testCase.sourceFiles.length; i++) {
-          const srcFile = testCase.sourceFiles[i];
-          const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
-          fs.copyFileSync(srcPath, app.jobArgs.con.filepath);
-          const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCase.connectorFiles[i]);
-          app.jobArgs.connectorPath = connectorPath;
+      await app.createTestBriefcaseDb();
+      for (let i = 0; i < testCase.sourceFiles.length; i++) {
+        const srcFile = testCase.sourceFiles[i];
+        const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
+        fs.copyFileSync(srcPath, app.jobArgs.con.filepath);
+        const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCase.connectorFiles[i]);
+        app.jobArgs.connectorPath = connectorPath;
 
-          await app.run();
+        const status = await app.run();
+        if (status !== BentleyStatus.SUCCESS)
+          chai.assert.fail("app run failed");
 
-          const updatedDb = await app.openBriefcaseDb();
-          await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
-          updatedDb.close();
-        }
-      } catch(err) {
-        chai.assert.fail((err as any).toString());
-      } finally {
-        await app.purgeTestBriefcaseDb();
-        await bk.IModelHost.shutdown();
+        const updatedDb = await app.openBriefcaseDb();
+        await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
+        updatedDb.close();
       }
     });
   }

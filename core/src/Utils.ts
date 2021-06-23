@@ -90,3 +90,21 @@ export async function searchElement(db: IModelDb, searchKey: string): Promise<Se
   return { elementId: rows[0].id, ecsql };
 }
 
+export async function retryLoop(atomicOp: () => Promise<void>): Promise<void> {
+  while (true) {
+    try {
+      await atomicOp();
+    } catch(err) {
+      if ((err as any).status === 429) { // Too Many Request Error 
+        Logger.logInfo(LogCategory.PCF, "Requests are sent too frequent. Sleep for 60 seconds.");
+        await new Promise(resolve => setTimeout(resolve, 60 * 1000));
+      } else {
+        throw err;
+      }
+      continue;
+    }
+    await new Promise(resolve => setTimeout(resolve, 20 * 1000));
+    break;
+  }
+}
+

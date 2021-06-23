@@ -1,13 +1,14 @@
-import { ClientRequestContext, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
-import { AuthorizedBackendRequestContext, BriefcaseDb, BriefcaseManager, IModelDb, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
+import { BentleyStatus, ClientRequestContext, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
+import { AuthorizedBackendRequestContext, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@bentley/oidc-signin-tool";
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
 import { AccessToken } from "@bentley/itwin-client";
 import { HubIModel } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
-import { DataConnection, Loader, LoaderClass } from "./loaders";
+import { DataConnection, LoaderClass } from "./loaders";
 import * as path from "path";
+import * as utils from "./Utils";
 
 // QA and Dev are for Bentley Developer only
 export enum Environment {
@@ -26,7 +27,7 @@ export class JobArgs {
   // relative path to the directory for storing output files
   public outputDir: string = path.join(__dirname, "output");
   // change log level to debug your connector (rarely needed)
-  public logLevel: LogLevel = LogLevel.None;
+  public readonly logLevel: LogLevel = LogLevel.None;
   // allows elements to be deleted if they no longer exist in the source file. (only works for BriefcaseDb)
   public enableDelete: boolean = true;
   // header of save/push comments.
@@ -50,7 +51,7 @@ export class HubArgs {
   // you may obtain client configurations from https://developer.bentley.com by creating a SPA app
   public clientConfig: NativeAppAuthorizationConfiguration;
   // do not override this value if you're not a Bentley developer.
-  public env: Environment = Environment.Prod;
+  public readonly env: Environment = Environment.Prod;
 
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -70,17 +71,18 @@ export class BaseApp {
 
   public jobArgs: JobArgs;
   public hubArgs: HubArgs;
-  public reqContext?: AuthorizedBackendRequestContext;
+  protected _authReqContext?: AuthorizedBackendRequestContext;
+
+  public get authReqContext() {
+    if (!this._authReqContext)
+      throw new Error("not signed in");
+    return this._authReqContext;
+  }
 
   constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
     this.hubArgs = hubArgs;
     this.jobArgs = jobArgs;
-  }
 
-  /*
-   * Execute a connector job to synchronizer a BriefcaseDb.
-   */
-  public async run() {
     const envStr = String(this.hubArgs.env);
     Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
 
@@ -95,21 +97,41 @@ export class BaseApp {
         },
       ]
     });
+  }
 
-    const connector = require(this.jobArgs.connectorPath).default;
-    const reqContext = await this.signin();
-    const db = await this.openBriefcaseDb();
-    this.reqContext = reqContext;
-    await connector.runJob({ db, jobArgs: this.jobArgs, reqContext });
-    db.close();
+  /*
+   * Safely executes a connector job to synchronizer a BriefcaseDb.
+   */
+  public async run(): Promise<BentleyStatus> {
+    let db: BriefcaseDb | undefined = undefined;
+    try {
+      await this.signin();
+      db = await this.openBriefcaseDb();
+      const connector = require(this.jobArgs.connectorPath).default;
+      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
+    } catch(err) {
+      console.error(err);
+      if ((err as any).status === 403) // out of call volumn quota
+        return BentleyStatus.ERROR;
+      await utils.retryLoop(async () => {
+        if (db && db.isBriefcaseDb() && this.authReqContext) {
+          await db.concurrencyControl.abandonResources(this.authReqContext);
+        }
+      });
+      return BentleyStatus.ERROR;
+    } finally {
+      if (db)
+        db.close();
+    }
+    return BentleyStatus.SUCCESS;
   }
 
   /*
    * Sign in through your iModelHub account. This call would open up a page in your browser and prompt you to sign in.
    */
-  public async signin() {
-    if (this.reqContext)
-      return this.reqContext;
+  public async signin(): Promise<AuthorizedBackendRequestContext> {
+    if (this.authReqContext)
+      return this.authReqContext;
     const getToken = async () => {
       if (!this.hubArgs)
         throw new Error("the app is not connected to iModel Hub. no need to sign in.");
@@ -128,8 +150,8 @@ export class BaseApp {
       });
     }
     const token = await getToken();
-    this.reqContext = new AuthorizedBackendRequestContext(token);
-    return this.reqContext;
+    this._authReqContext = new AuthorizedBackendRequestContext(token);
+    return this.authReqContext;
   }
 
   /*
@@ -156,10 +178,6 @@ export class BaseApp {
    * Downloads and opens a BriefcaseDb from iModel Hub.
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    if (!this.hubArgs)
-      throw new Error("hubArgs is undefined");
-    if (!this.reqContext)
-      this.reqContext = await this.signin();
 
     // TODO enable this later
     // const cachedDb = await this.openCachedBriefcaseDb(false);
@@ -170,14 +188,14 @@ export class BaseApp {
     // }
 
     const req = { contextId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
-    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.reqContext, req);
+    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext, req);
 
     if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
-      await BriefcaseDb.upgradeSchemas(this.reqContext, bcProps);
+      await BriefcaseDb.upgradeSchemas(this.authReqContext, bcProps);
 
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
-    const db = await BriefcaseDb.open(this.reqContext, openArgs);
-    return db;
+    const db = await BriefcaseDb.open(this.authReqContext, openArgs);
+    return db!;
   }
 }
 
@@ -207,43 +225,48 @@ export class IntegrationTestApp extends BaseApp {
   /*
    * Sign in through your iModelHub test user account. This call would grab your use credentials from environment variables.
    */
-  public async silentSignin() {
+  public async signin(): Promise<AuthorizedBackendRequestContext> {
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (email && password) {
       const cred: TestUserCredentials = { email, password };
       const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
-      this.reqContext = new AuthorizedBackendRequestContext(token);
+      this._authReqContext = new AuthorizedBackendRequestContext(token);
     } else {
       throw new Error("Specify imjs_test_regular_user_name & imjs_test_regular_user_password env variables to enable slient sign-in.");
     }
+    return this.authReqContext;
   }
 
-  public async openBriefcaseDb() {
+  public async openBriefcaseDb(): Promise<BriefcaseDb> {
     if (this._testBriefcaseDbPath)
-      await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.reqContext);
-    const db = await super.openBriefcaseDb();
-    this._testBriefcaseDbPath = db.pathName;
+      await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.authReqContext);
+    let db: BriefcaseDb | undefined = undefined;
+    await utils.retryLoop(async () => {
+      db = await super.openBriefcaseDb();
+      this._testBriefcaseDbPath = db.pathName;
+    })
+    if (!db)
+      throw new Error("Failed to open test BriefcaseDb");
     return db;
   }
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
-    if (!this.reqContext)
+    if (!this.authReqContext)
       throw new Error("not signed in");
 
     const testIModelName = `Integration Test IModel (${process.platform})`;
-    const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.reqContext, this.hubArgs.projectId, testIModelName, { description: `Description for ${testIModelName}` });
+    const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.authReqContext, this.hubArgs.projectId, testIModelName, { description: `Description for ${testIModelName}` });
     const testIModelId = iModel.wsgId;
     this.hubArgs.iModelId = testIModelId;
     return testIModelId;
   }
 
-  public async purgeTestBriefcaseDb() {
-    if (!this.reqContext)
-      throw new Error("not signed in");
-
-    await IModelHost.iModelClient.iModels.delete(this.reqContext, this.hubArgs.projectId, this.hubArgs.iModelId);
+  public async purgeTestBriefcaseDb(): Promise<void> {
+    await utils.retryLoop(async () => {
+      await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, this.hubArgs.iModelId);
+    });
     if (this._testBriefcaseDbPath)
-      await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.reqContext);
+      await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.authReqContext);
   }
 }
