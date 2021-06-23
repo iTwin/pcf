@@ -34,7 +34,7 @@ describe("Unit Tests", () => {
   });
 
   const tempSrcPath = path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json");
-  const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath!, path.extname(tempSrcPath!))}.bim`);
+  const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath, path.extname(tempSrcPath))}.bim`);
 
   for (const testCase of testCases) {
     it(testCase.title, async () => {
@@ -68,10 +68,12 @@ describe("Unit Tests", () => {
     const jsonLoader = new JSONLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, config);
     await jsonLoader.open();
     const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
+    await jsonLoader.close();
 
     const sqliteLoader = new SQLiteLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")}, config);
     await sqliteLoader.open();
     const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
+    await sqliteLoader.close();
 
     if (!pcf.IRModel.compare(modelFromJSON, modelFromSQLite))
       chai.assert.fail("IR Model from JSON != IR Model from SQLite");

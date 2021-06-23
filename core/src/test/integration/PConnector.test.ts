@@ -30,7 +30,7 @@ describe("Integration Tests", () => {
     await bk.IModelHost.startup();
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
-    await app.signin();
+    await app.silentSignin();
   });
 
   after(async () => {

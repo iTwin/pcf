@@ -4,7 +4,7 @@ import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClient
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
 import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { HubIModel } from "@bentley/imodelhub-client";
+import { HubIModel, IModelQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { DataConnection, LoaderClass } from "./loaders";
 import * as path from "path";
@@ -119,7 +119,7 @@ export class BaseApp {
   }
 
   /*
-   * resets app settings based on new jobArgs and hubArgs.
+   * resets app settings based on new jobArgs and hubArgs. every public method should call this first.
    */
   protected _reset() {
     const envStr = String(this.hubArgs.env);
@@ -161,8 +161,10 @@ export class BaseApp {
       });
       return BentleyStatus.ERROR;
     } finally {
-      if (db)
+      if (db) {
+        db.abandonChanges();
         db.close();
+      }
       await IModelHost.shutdown();
     }
     return BentleyStatus.SUCCESS;
@@ -172,6 +174,7 @@ export class BaseApp {
    * Sign in through your iModelHub account. This call would open up a page in your browser and prompt you to sign in.
    */
   public async signin(): Promise<AuthorizedBackendRequestContext> {
+    this._reset();
     if (this._authReqContext)
       return this._authReqContext;
     const token = await this.getToken();
@@ -180,9 +183,9 @@ export class BaseApp {
   }
 
   public async getToken(): Promise<AccessToken> {
+    this._reset();
     const client = new ElectronAuthorizationBackend();
     await client.initialize(this.hubArgs.clientConfig);
-
     return new Promise<AccessToken>((resolve, reject) => {
       NativeHost.onUserStateChanged.addListener((token) => {
         if (token !== undefined)
@@ -198,34 +201,31 @@ export class BaseApp {
    * Open a previously downloaded BriefcaseDb on disk if present.
    */
   public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
-    if (!this.hubArgs)
-      throw new Error("hubArgs is undefined")
+    this._reset();
 
-    const briefcases = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
-    const briefcaseEntry = briefcases[0];
-    if (briefcaseEntry === undefined)
+    const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
+    const cachedDb = cachedDbs[0];
+    if (!cachedDb)
       return undefined;
 
-    const briefcase = await BriefcaseDb.open(new ClientRequestContext(), {
-      fileName: briefcases[0].fileName,
+    const db = await BriefcaseDb.open(this.authReqContext, {
+      fileName: cachedDb.fileName,
       readonly: readonlyMode,
     });
-
-    return briefcase;
+    await db.pullAndMergeChanges(this.authReqContext);
+    db.saveChanges();
+    return db;
   }
 
   /*
    * Downloads and opens a BriefcaseDb from iModel Hub.
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
+    this._reset();
 
-    // TODO enable this later
-    // const cachedDb = await this.openCachedBriefcaseDb(false);
-    // if (cachedDb) {
-    //   await cachedDb.pullAndMergeChanges(this.authReqContext);
-    //   cachedDb.saveChanges();
-    //   return cachedDb;
-    // }
+    const cachedDb = await this.openCachedBriefcaseDb(false);
+    if (cachedDb)
+      return cachedDb;
 
     const req = { contextId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
     const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext, req);
@@ -235,7 +235,7 @@ export class BaseApp {
 
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
     const db = await BriefcaseDb.open(this.authReqContext, openArgs);
-    return db!;
+    return db;
   }
 }
 
@@ -245,22 +245,14 @@ export class BaseApp {
 export class IntegrationTestApp extends BaseApp {
 
   protected _testBriefcaseDbPath?: string;
-  public email: string;
-  public password: string;
 
   constructor(testJobArgs: JobArgs) {
     const projectId = process.env.imjs_test_project_id;
     const clientId = process.env.imjs_test_client_id;
-    const email = process.env.imjs_test_regular_user_name;
-    const password = process.env.imjs_test_regular_user_password;
     if (!projectId)
       throw new Error("environment variable 'imjs_test_project_id' is not defined");
     if (!clientId)
       throw new Error("environment variable 'imjs_test_client_id' is not defined");
-    if (!email)
-      throw new Error("environment variable 'imjs_test_regular_user_name' is not defined");
-    if (!password)
-      throw new Error("environment variable 'imjs_test_regular_user_password' is not defined");
     const testHubArgs = new HubArgs({
       projectId,
       iModelId: "not used",
@@ -275,21 +267,28 @@ export class IntegrationTestApp extends BaseApp {
     super(testJobArgs, testHubArgs);
     this.jobArgs = testJobArgs;
     this.hubArgs = testHubArgs;
-    this.email = email;
-    this.password = password;
+    this._reset();
   }
 
   /*
    * Sign in through your iModelHub test user account. This call would grab your use credentials from environment variables.
    */
-  public async signin(): Promise<AuthorizedBackendRequestContext> {
-    const cred: TestUserCredentials = { email: this.email, password: this.password };
+  public async silentSignin(): Promise<AuthorizedBackendRequestContext> {
+    this._reset();
+    const email = process.env.imjs_test_regular_user_name;
+    const password = process.env.imjs_test_regular_user_password;
+    if (!email)
+      throw new Error("environment variable 'imjs_test_regular_user_name' is not defined for silent signin");
+    if (!password)
+      throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
+    const cred: TestUserCredentials = { email, password };
     const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
     this._authReqContext = new AuthorizedBackendRequestContext(token);
     return this._authReqContext;
   }
 
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
+    this._reset();
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.authReqContext);
     let db: BriefcaseDb | undefined = undefined;
@@ -303,8 +302,14 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
-    // TODO delete existing if present
+    this._reset();
     const testIModelName = `Integration Test IModel (${process.platform})`;
+    const existingTestIModels: HubIModel[] = await IModelHost.iModelClient.iModels.get(this.authReqContext, this.hubArgs.projectId, new IModelQuery().byName(testIModelName));
+    for (const testIModel of existingTestIModels) {
+      await utils.retryLoop(async () => {
+        await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, testIModel.wsgId);
+      });
+    }
     const iModel: HubIModel = await IModelHost.iModelClient.iModels.create(this.authReqContext, this.hubArgs.projectId, testIModelName, { description: `Description for ${testIModelName}` });
     const testIModelId = iModel.wsgId;
     this.hubArgs.iModelId = testIModelId;
@@ -312,6 +317,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async purgeTestBriefcaseDb(): Promise<void> {
+    this._reset();
     await utils.retryLoop(async () => {
       await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, this.hubArgs.iModelId);
     });
