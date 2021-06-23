@@ -103,9 +103,9 @@ One reason that a highly-customizable connector, PConnector, is definitely neede
 
 ```
 
-Without pcf: data format A == Connector for A => iModel
+Without pcf: data source A == Connector for A => iModel
 
-With pcf:    data format A == Loader for A    => IR Model == parametric connector => iModel 
+With    pcf: data source A == Loader    for A => IR Model == PConnector => iModel 
 
 ```
 
