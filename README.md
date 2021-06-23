@@ -9,6 +9,7 @@ Table of Contents
 * [Advance Topics](#advance-topics)
   * [What is the difference between a Connector and a Loader?](#what-is-the-difference-between-a-connector-and-a-loader)
   * [How to write a Loader?](#how-to-write-a-loader)
+* [Contributing](#contributing)
 * [Road Map](#road-map)
 
 # What is itwin-pcf?
