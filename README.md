@@ -92,6 +92,8 @@ Currently, all the documentations and API references of this project are embedde
     * Neither itwin-connector-framework nor pcf support Code reuse as of now. (e.g. inserting an element with the same Code as previously deleted element will fail)
 * itwin-connector-framework integration 
     * pcf uses itwin-connector-framework under the hood. "fwk" folder is copied from [itwin-connector-framework](https://github.com/imodeljs/imodeljs/tree/master/core/imodel-bridge/src) with a few modifications.
+* "Too Many Requests"
+    * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing. 
 
 # Advance Topics
 
@@ -129,7 +131,7 @@ npm ci
 npm run build
 ```
 
-### try pcf locally with your connector:
+### Option 1: try pcf locally with your connector:
 ```console
 # create global symlink
 npm link
@@ -139,12 +141,12 @@ cd <your connector project dir>
 npm link @itwin/pcf
 ```
 
-### run pcf unit tests:
+### Option 2: run pcf unit tests:
 ```console
 npm run test
 ```
 
-### run pcf integration tests:
+### Option 3: run pcf integration tests:
 ```console
 
 # 1. Use your project ID and client ID in https://github.com/iTwin/pcf/blob/main/core/src/test/integration/PConnector.test.ts
@@ -162,10 +164,12 @@ set "imjs_test_regular_user_password=<your test user password>"
 # 3. rebuild
 npm run build
 
-# 4. integration tests
+# 4. integration tests 
+# creates a test iModel and purges it at the end of the test
 npm run test:integration
 
 ```
+
 
 # Road Map
 
