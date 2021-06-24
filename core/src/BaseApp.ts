@@ -115,13 +115,13 @@ export class BaseApp {
   constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
     this.hubArgs = hubArgs;
     this.jobArgs = jobArgs;
-    this._reset();
+    this.init();
   }
 
   /*
-   * resets app settings based on new jobArgs and hubArgs. every public method should call this first.
+   * initialize app settings based on current jobArgs and hubArgs. every public method should call this first.
    */
-  protected _reset() {
+  public init() {
     const envStr = String(this.hubArgs.env);
     Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
 
@@ -142,14 +142,15 @@ export class BaseApp {
    * Safely executes a connector job to synchronizer a BriefcaseDb.
    */
   public async run(): Promise<BentleyStatus> {
-    this._reset();
+    this.init();
     let db: BriefcaseDb | undefined = undefined;
     await IModelHost.startup();
     await this.signin();
     try {
       db = await this.openBriefcaseDb();
       const connector = require(this.jobArgs.connectorPath).default();
-      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
+      connector.init({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
+      await connector.runJob();
     } catch(err) {
       console.error(err);
       if ((err as any).status === 403) // out of call volumn quota
@@ -174,7 +175,7 @@ export class BaseApp {
    * Sign in through your iModelHub account. This call would open up a page in your browser and prompt you to sign in.
    */
   public async signin(): Promise<AuthorizedBackendRequestContext> {
-    this._reset();
+    this.init();
     if (this._authReqContext)
       return this._authReqContext;
     const token = await this.getToken();
@@ -183,7 +184,7 @@ export class BaseApp {
   }
 
   public async getToken(): Promise<AccessToken> {
-    this._reset();
+    this.init();
     const client = new ElectronAuthorizationBackend();
     await client.initialize(this.hubArgs.clientConfig);
     return new Promise<AccessToken>((resolve, reject) => {
@@ -201,7 +202,7 @@ export class BaseApp {
    * Open a previously downloaded BriefcaseDb on disk if present.
    */
   public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
-    this._reset();
+    this.init();
 
     const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
     const cachedDb = cachedDbs[0];
@@ -221,7 +222,7 @@ export class BaseApp {
    * Downloads and opens a BriefcaseDb from iModel Hub.
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    this._reset();
+    this.init();
 
     const cachedDb = await this.openCachedBriefcaseDb(false);
     if (cachedDb)
@@ -267,14 +268,14 @@ export class IntegrationTestApp extends BaseApp {
     super(testJobArgs, testHubArgs);
     this.jobArgs = testJobArgs;
     this.hubArgs = testHubArgs;
-    this._reset();
+    this.init();
   }
 
   /*
    * Sign in through your iModelHub test user account. This call would grab your use credentials from environment variables.
    */
   public async silentSignin(): Promise<AuthorizedBackendRequestContext> {
-    this._reset();
+    this.init();
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (!email)
@@ -288,7 +289,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    this._reset();
+    this.init();
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.authReqContext);
     let db: BriefcaseDb | undefined = undefined;
@@ -302,7 +303,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
-    this._reset();
+    this.init();
     const testIModelName = `Integration Test IModel (${process.platform})`;
     const existingTestIModels: HubIModel[] = await IModelHost.iModelClient.iModels.get(this.authReqContext, this.hubArgs.projectId, new IModelQuery().byName(testIModelName));
     for (const testIModel of existingTestIModels) {
@@ -317,7 +318,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async purgeTestBriefcaseDb(): Promise<void> {
-    this._reset();
+    this.init();
     await utils.retryLoop(async () => {
       await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, this.hubArgs.iModelId);
     });

@@ -69,25 +69,25 @@ export abstract class PConnector {
 
   public tree: pcf.Tree;
   public nodeMap: { [nodeKey: string]: pcf.Node };
+  protected _config?: PConnectorConfig;
 
   public dynamicSchema?: MetaSchema;
 
-  // initialized by initJob()
+  // initialized by runJob()
   protected _db?: IModelDb;
   protected _loader?: Loader;
-  protected _authReqContext?: AuthorizedBackendRequestContext;
   protected _jobArgs?: JobArgs;
   protected _synchronizer?: Synchronizer;
   protected _subject?: Subject;
   protected _irModel?: pcf.IRModel;
-  protected _config?: PConnectorConfig;
+  protected _authReqContext?: AuthorizedBackendRequestContext;
 
   constructor() {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
-    this.nodeMap = {};
     this.seenIds = new Set<Id64String>();
+    this.nodeMap = {};
     this.tree = new pcf.Tree();
   }
 
@@ -152,7 +152,12 @@ export abstract class PConnector {
     return this._irModel;
   }
 
-  public async runJob(props: { db: IModelDb, jobArgs: JobArgs, authReqContext?: AuthorizedBackendRequestContext }): Promise<void> {
+  public init(props: { db: IModelDb, jobArgs: JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
+    this.modelCache = {};
+    this.elementCache = {};
+    this.aspectCache = {};
+    this.seenIds = new Set<Id64String>();
+
     this._db = props.db;
     this._jobArgs = props.jobArgs;
     this._authReqContext = props.authReqContext;
@@ -164,7 +169,9 @@ export abstract class PConnector {
     } else {
       this._synchronizer = new Synchronizer(this.db, false);
     }
+  }
 
+  public async runJob(): Promise<void> {
     const srcState = await this._getSrcState();
     if (srcState !== ItemState.Unchanged) {
       await this._loadIRModel();
@@ -229,7 +236,6 @@ export abstract class PConnector {
             ConnectorType: "pcf connector",
           },
           Connector: connectorName,
-          Comments: "",
         }
       },
     }
@@ -297,6 +303,10 @@ export abstract class PConnector {
     this._updateCodeSpecs();
     await this.tree.update();
     await this.persistChanges("Data Changes", ChangesType.Regular);
+  }
+
+  public async detectChanges() {
+
   }
 
   protected async _updateDeletedElements(): Promise<void> {

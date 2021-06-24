@@ -55,7 +55,8 @@ describe("Unit Tests", () => {
         const db = bk.StandaloneDb.openFile(targetPath);
 
         const connector: PConnector = require(jobArgs.connectorPath).default();
-        await connector.runJob({ db, jobArgs });
+        connector.init({ db, jobArgs });
+        await connector.runJob();
         db.close();
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);
