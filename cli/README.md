@@ -21,3 +21,9 @@ npm install -g @itwin/pcf-cli
 pcf -h
 ```
 
+# Contributing
+
+```console
+# install your version globally
+npm install -g .
+```
