@@ -236,6 +236,7 @@ export class ElementNode extends Node {
     const syncResults: sync.SynchronizationResults = { element, itemState: changeResults.state };
     this.pc.synchronizer.updateIModel(syncResults, modelId, sourceItem, this.key);
     this.pc.elementCache[this.key] = element.id;
+    this.pc.seenIds.add(element.id);
   }
 
   public toJSON(): any {
@@ -306,6 +307,7 @@ export class MultiElementNode extends Node {
       const syncResults: sync.SynchronizationResults = { element, itemState: changeResults.state };
       this.pc.synchronizer.updateIModel(syncResults, modelId, sourceItem, this.dmo.entity);
       this.pc.elementCache[instance.codeValue()] = element.id;
+      this.pc.seenIds.add(element.id);
     }
   }
 

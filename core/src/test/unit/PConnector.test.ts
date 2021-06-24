@@ -13,7 +13,8 @@ describe("Unit Tests", () => {
   const testCases: any = [
     {
       title: "Should create empty snapshotDb and synchronize source data (JSON)",
-      sourceFiles: ["v1.json"],
+      sourceFiles: ["v1.json", "v2.json"],
+      connectorFiles: ["JSONConnector.js", "JSONConnectorV2.js"],
     },
   ];
 
@@ -43,18 +44,25 @@ describe("Unit Tests", () => {
 
       bk.StandaloneDb.createEmpty(targetPath, { rootSubject: { name: "TestRootSubject" } }).close();
 
-      for (const srcFile of testCase.sourceFiles) {
-        const srcPath = path.join(KnownTestLocations.testAssetsDir, srcFile);
+      for (let i = 0; i < testCase.sourceFiles.length; i++) {
+        const srcFile = testCase.sourceFiles[i];
+        const srcPath = path.join(KnownTestLocations.testAssetsDir, testCase.sourceFiles[i]);
         bk.IModelJsFs.copySync(srcPath, tempSrcPath, { overwrite: true });
 
+        const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCase.connectorFiles[i]);
+        jobArgs.connectorPath = connectorPath;
+
         const db = bk.StandaloneDb.openFile(targetPath);
-        const connector: PConnector = require(jobArgs.connectorPath).default;
+
+        const connector: PConnector = require(jobArgs.connectorPath).default();
         await connector.runJob({ db, jobArgs });
         db.close();
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);
-        await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
+        const mismatches = await pcf.verifyIModel(updatedDb, TestResults[srcFile]);
         updatedDb.close();
+        if (mismatches.length > 0)
+          chai.assert.fail(`verifyIModel failed. See mismatches: ${JSON.stringify(mismatches, null, 4)}`);
       }
 
       fs.unlinkSync(targetPath);
@@ -62,7 +70,7 @@ describe("Unit Tests", () => {
   }
 
   it("Loader Tests", async () => {
-    const connector: PConnector = require(jobArgs.connectorPath).default;
+    const connector: PConnector = require(jobArgs.connectorPath).default();
     const config = connector.config.loader;
 
     const jsonLoader = new JSONLoader({ kind: "FileConnection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, config);

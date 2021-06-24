@@ -1,5 +1,5 @@
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
+import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ExternalSourceAspect, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
 import { Code, CodeScopeSpec, CodeSpec, IModel, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
@@ -65,6 +65,7 @@ export abstract class PConnector {
   public modelCache: { [modelNodeKey: string]: Id64String };
   public elementCache: { [elementNodeKey: string]: Id64String };
   public aspectCache: { [aspectNodeKey: string]: Id64String };
+  public seenIds: Set<Id64String>;
 
   public tree: pcf.Tree;
   public nodeMap: { [nodeKey: string]: pcf.Node };
@@ -86,6 +87,7 @@ export abstract class PConnector {
     this.elementCache = {};
     this.aspectCache = {};
     this.nodeMap = {};
+    this.seenIds = new Set<Id64String>();
     this.tree = new pcf.Tree();
   }
 
@@ -184,7 +186,6 @@ export abstract class PConnector {
   protected async _getSrcState(): Promise<ItemState> {
     if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
-
     let srcState;
     const { con } = this.jobArgs;
     switch(con.kind) {
@@ -299,10 +300,34 @@ export abstract class PConnector {
   }
 
   protected async _updateDeletedElements(): Promise<void> {
-    if (this.db.isBriefcaseDb()) {
-      await this.enterSubjectChannel();
-      this.synchronizer.detectDeletedElements();
+    if (!this.jobArgs.enableDelete)
+      return;
+
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const rows = await utils.getRows(this.db, ecsql);
+
+    const elementIds: Id64String[] = [];
+    const defElementIds: Id64String[] = [];
+
+    for (const row of rows) {
+      const elementId = row.elementId;
+      if (this.seenIds.has(elementId))
+        continue;
+      if (this.db.isBriefcaseDb()) {
+        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
+        if (elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot)
+          continue;
+      }
+      const element = this.db.elements.getElement(elementId);
+      if (element instanceof DefinitionElement)
+        defElementIds.push(elementId);
+      else
+        elementIds.push(elementId);
     }
+
+    this.db.elements.deleteElement(elementIds);
+    this.db.elements.deleteDefinitionElements(defElementIds);
+
     await this.persistChanges("Deleted Elements", ChangesType.Regular);
   }
 

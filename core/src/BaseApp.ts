@@ -148,7 +148,7 @@ export class BaseApp {
     await this.signin();
     try {
       db = await this.openBriefcaseDb();
-      const connector = require(this.jobArgs.connectorPath).default;
+      const connector = require(this.jobArgs.connectorPath).default();
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
     } catch(err) {
       console.error(err);

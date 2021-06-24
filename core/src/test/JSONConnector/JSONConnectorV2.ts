@@ -2,7 +2,7 @@ import { PrimitiveType } from "@bentley/ecschema-metadata";
 import * as pcf from "../../pcf";
 
 const connectorV2 = (() => {
-  const connector = require("./JSONConnector").default;
+  const connector = require("./JSONConnector").default();
   connector.tree.models.forEach((model: pcf.ModelNode) => {
     // delete a category manually
     model.elements = model.elements.filter((node: pcf.Node) => node.key !== "SpatialCategory2")
@@ -24,4 +24,4 @@ const connectorV2 = (() => {
   return connector;
 })();
 
-export default connectorV2;
+export default () => connectorV2;

@@ -7,7 +7,7 @@ import * as pcf from "../../pcf";
 import * as path from "path";
 import { PConnectorConfig } from "../../PConnector";
 
-class JSONConnector extends pcf.PConnector {
+export class JSONConnector extends pcf.PConnector {
   constructor() {
     super();
 
@@ -74,4 +74,4 @@ class JSONConnector extends pcf.PConnector {
   }
 }
 
-export default new JSONConnector();
+export default () => new JSONConnector();
