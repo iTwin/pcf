@@ -19,4 +19,6 @@ pcf -h
 npm ci
 # install your version globally
 npm install -g .
+# test pcf-cli
+pcf <your command> 
 ```
