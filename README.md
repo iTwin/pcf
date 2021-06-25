@@ -22,11 +22,11 @@ itwin-pcf is tool for synchronizing external data with your digital twin, iModel
 
 
 ## Declarative Synchronization
-pcf allows you to define an entire synchronization job with two constructs: **DMO's** and **Nodes** (see definitions below). It handles the necessary logic & topological order of inserting/updating/deleting elements and relationships into an iModel.
+pcf allows you to represent your external source data in an iModel with two constructs: **DMO's** and **Nodes** (see definitions below). It handles the necessary logic & topological order of inserting/updating/deleting elements and relationships into an iModel.
 
 
 ## Minimized Runtime Error & Testing
-Given that **DMO** and **Nodes** are the main inputs to your connector, so long as their definitions are correct, your synchronization job is guaranteed to succeed with pcf. 
+Given that **DMO** and **Nodes** are the main inputs to your connector, so long as their definitions are correct, each synchronization job is guaranteed to succeed with pcf. 
 
 To minimize runtime errors, your inputs are strictly checked both at compile time and runtime before your synchronization job actually gets executed by pcf (Most errors are caught at compile time by TypeScript interface linting). Functionalities such as code-completion and code-refactoring available in most modern IDE's (e.g Visual Studio Code) will help you to write the correct definitions for them. Since most runtime errors are avoided at compile time and pcf is rigorously tested, you don't have to write any tests for your connector.
 
@@ -76,7 +76,6 @@ npm run start
 ```
 
 Currently, all the documentations and API references of this project are embedded in source files. Use your IDE/language server to look them up through go-to-definitions.
-
 
 # What you should know
 
