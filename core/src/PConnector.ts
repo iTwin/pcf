@@ -1,7 +1,7 @@
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ExternalSourceAspect, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects } from "@bentley/imodeljs-backend";
+import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects, Element as BisElement } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { Code, CodeScopeSpec, CodeSpec, IModel, SubjectProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { ItemState, SourceItem, Synchronizer } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
@@ -11,7 +11,7 @@ import * as utils from "./Utils";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import { JobArgs } from "./pcf";
+import { IRInstance, JobArgs } from "./pcf";
 
 export interface PConnectorConfigProps {
   appId: string;
@@ -287,8 +287,8 @@ export abstract class PConnector {
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
         throw new Error("Failed to find dynamically generated schema.");
-      this.dynamicSchema = generatedSchema
 
+      this.dynamicSchema = generatedSchema
       if (schemaState === ItemState.New)
         await this.persistChanges("Added a Dynamic Schema", ChangesType.Schema);
       else if (schemaState === ItemState.Changed)
@@ -299,14 +299,43 @@ export abstract class PConnector {
   protected async _updateData() {
     if (this.db.isBriefcaseDb())
       await this.enterSubjectChannel();
-
     this._updateCodeSpecs();
     await this.tree.update();
     await this.persistChanges("Data Changes", ChangesType.Regular);
   }
 
-  public async detectChanges() {
+  public updateElement(element: BisElement, scope: Id64String, kind: string, instance: IRInstance): ItemState {
+    const identifier = instance.key;
+    const version = instance.version;
+    const checksum = instance.checksum;
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
+    if (!aspectId) {
+      element.insert();
+      this.db.elements.insertAspect({
+        classFullName: ExternalSourceAspect.classFullName,
+        element: { id: element.id },
+        scope: { id: scope },
+        identifier,
+        kind,
+        checksum,
+        version,
+      } as ExternalSourceAspectProps);
+      return ItemState.New;
+    }
 
+    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
+    const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
+    const current = (version ?? "") + (checksum ?? "");
+    if (existing === current)
+      return ItemState.Unchanged;
+
+    xsa.version = version;
+    xsa.checksum = checksum;
+
+    element.update();
+    this.db.elements.updateAspect(xsa as ElementAspect);
+
+    return ItemState.Changed;
   }
 
   protected async _updateDeletedElements(): Promise<void> {
@@ -325,7 +354,8 @@ export abstract class PConnector {
         continue;
       if (this.db.isBriefcaseDb()) {
         const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
-        if (elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot)
+        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
+        if (elementNotInChannelRoot)
           continue;
       }
       const element = this.db.elements.getElement(elementId);
@@ -402,7 +432,7 @@ export abstract class PConnector {
     if (this.db.codeSpecs.hasName(codeSpecName))
       return;
     const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
-    const codeSpecId = this.db.codeSpecs.insert(newCodeSpec);
+    this.db.codeSpecs.insert(newCodeSpec);
   }
 
   public get defaultCodeSpec(): CodeSpec {

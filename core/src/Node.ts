@@ -1,7 +1,6 @@
 import * as bk from "@bentley/imodeljs-backend";
 import * as common from "@bentley/imodeljs-common";
-import * as sync from "./fwk/Synchronizer";
-import { DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, validateElementDMO, validateRelatedElementDMO, validateRelationshipDMO } from "./pcf";
+import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, validateElementDMO, validateRelatedElementDMO, validateRelationshipDMO } from "./pcf";
 
 export interface TreeProps {
   models: ModelNode[];
@@ -214,27 +213,24 @@ export class ElementNode extends Node {
   protected async _updateElement() {
     const modelId = this.pc.modelCache[this.parent.key];
     const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
-
     const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: this.key });
-    const sourceItem: sync.SourceItem = { id: this.key, checksum: this.key };
-    const changeResults: sync.ChangeResults = this.pc.synchronizer.detectChanges(modelId, this.key, sourceItem);
 
+    const classFullName = this.bisClass.classFullName;
     const props: common.ElementProps = {
       code,
       federationGuid: this.key,
       userLabel: this.key,
       model: modelId,
-      classFullName: this.bisClass.classFullName,
+      classFullName,
     };
 
     const existingElementId = this.pc.db.elements.queryElementIdByCode(code);
     const element = this.pc.db.elements.createElement(props);
-
     if (existingElementId)
       element.id = existingElementId;
 
-    const syncResults: sync.SynchronizationResults = { element, itemState: changeResults.state };
-    this.pc.synchronizer.updateIModel(syncResults, modelId, sourceItem, this.key);
+    const instance = new IRInstance({ pkey: "nodeKey", entityKey: classFullName, data: { nodeKey: this.key } });
+    this.pc.updateElement(element, modelId, this.key, instance);
     this.pc.elementCache[this.key] = element.id;
     this.pc.seenIds.add(element.id);
   }
@@ -278,15 +274,12 @@ export class MultiElementNode extends Node {
       const modelId = this.pc.modelCache[this.parent.key];
       const categoryId = this.category ? this.pc.elementCache[this.category.key] : undefined;
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
-
-      const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue() });
-      const sourceItem: sync.SourceItem = { id: instance.codeValue(), checksum: instance.checksum() };
-      const changeResults: sync.ChangeResults = this.pc.synchronizer.detectChanges(modelId, this.dmo.entity, sourceItem);
+      const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
       const props: common.ElementProps = {
         code,
-        federationGuid: instance.codeValue(),
-        userLabel: instance.userLabel(),
+        federationGuid: instance.codeValue,
+        userLabel: instance.userLabel,
         model: modelId,
         classFullName: this.dmo.classFullName,
         jsonProperties: instance.data,
@@ -304,9 +297,8 @@ export class MultiElementNode extends Node {
       if (existingElementId)
         element.id = existingElementId;
 
-      const syncResults: sync.SynchronizationResults = { element, itemState: changeResults.state };
-      this.pc.synchronizer.updateIModel(syncResults, modelId, sourceItem, this.dmo.entity);
-      this.pc.elementCache[instance.codeValue()] = element.id;
+      this.pc.updateElement(element, modelId, this.dmo.entity, instance);
+      this.pc.elementCache[instance.codeValue] = element.id;
       this.pc.seenIds.add(element.id);
     }
   }
@@ -360,7 +352,7 @@ export class MultiRelationshipNode extends Node {
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      const relationshipId = this.pc.db.relationships.insertInstance(props);
+      this.pc.db.relationships.insertInstance(props);
     }
   }
 
@@ -405,7 +397,6 @@ export class MultiRelatedElementNode extends Node {
         continue;
 
       const [sourceId, targetId] = pair;
-      const sourceElement = this.pc.db.elements.getElement(sourceId);
       const targetElement = this.pc.db.elements.getElement(targetId);
       const props: common.RelatedElementProps = { id: sourceId, relClassName: this.dmo.classFullName };
 

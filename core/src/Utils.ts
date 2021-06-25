@@ -38,8 +38,10 @@ export async function verifyIModel(db: IModelDb, qtc: QueryToCount): Promise<Mis
     const rows = await getRows(db, ecsql);
     const actualCount = rows.length;
     Logger.logInfo(LogCategory.PCF, `${ecsql} => ${actualCount} rows`);
-    if (expectedCount !== actualCount)
+    if (expectedCount !== actualCount) {
       mismatches.push({ ecsql, expectedCount, actualCount });
+      console.log(rows);
+    }
   }
   return mismatches;
 }

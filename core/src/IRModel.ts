@@ -11,6 +11,7 @@ export class IRModel {
 
   public entityMap: {[key: string]: IREntity};
   public relMap: {[key: string]: IRRelationship};
+  public static version: string = "1.0.0";
 
   constructor(entities: IREntity[], relationships: IRRelationship[]) {
     this.entityMap = {};
@@ -160,7 +161,6 @@ export type IRInstanceCodeValue = `${IREntityKey}-${PrimaryKeyValue}`;
  */
 export class IRInstance {
 
-  public key: IRInstanceCodeValue;
   public pkey: string;
   public entityKey: string;
   public data: {[attr: string]: any};
@@ -169,16 +169,23 @@ export class IRInstance {
     this.pkey = props.pkey;
     this.entityKey = props.entityKey;
     this.data = props.data ?? {};
-    this.key = this.codeValue();
     this.validate();
   }
 
-  public codeValue(): IRInstanceCodeValue {
+  public get version(): string {
+    return IRModel.version;
+  }
+
+  public get key(): IRInstanceCodeValue {
+    return this.codeValue;
+  }
+
+  public get codeValue(): IRInstanceCodeValue {
     const pkv = this.get(this.pkey);
     return `${this.entityKey}-${pkv}` as IRInstanceCodeValue;
   }
 
-  public userLabel(): string {
+  public get userLabel(): string {
     const pkv = this.get(this.pkey);
     return pkv;
   }
@@ -189,7 +196,7 @@ export class IRInstance {
     return this.data[attr];
   }
 
-  public checksum(): string {
+  public get checksum(): string {
     return hash.MD5(JSON.stringify(this.data));
   }
 
