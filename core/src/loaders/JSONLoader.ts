@@ -19,7 +19,7 @@ export class JSONLoader extends Loader {
   public json: any = {};
 
   public async open(): Promise<void> {
-    this.json = JSON.parse(fs.readFileSync(this.con.filepath, "utf8"));
+    this.json = JSON.parse(fs.readFileSync(this.connection.filepath, "utf8"));
   }
 
   public async close(): Promise<void> {}

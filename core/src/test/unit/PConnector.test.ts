@@ -30,7 +30,7 @@ describe("Unit Tests", () => {
 
   const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
-    con: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
+    connection: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
     loaderClass: JSONLoader,
   });
 

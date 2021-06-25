@@ -9,7 +9,7 @@ export async function main() {
 
   const jobArgs = new pcf.JobArgs({ 
     connectorPath: path.join(__dirname, "JSONConnector"),
-    con: {
+    connection: {
       kind: "FileConnection",
       filepath: path.join(__dirname, "../assets/temp.json"),
     },

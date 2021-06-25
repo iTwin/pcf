@@ -1,9 +1,9 @@
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, IModelJsFs, Subject, SubjectOwnsSubjects, Element as BisElement } from "@bentley/imodeljs-backend";
+import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, Subject, SubjectOwnsSubjects, RepositoryLink } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, SubjectProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, RepositoryLinkProps, ElementProps, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
-import { ItemState, SourceItem, Synchronizer } from "./fwk/Synchronizer";
+import { ItemState } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
 import { Loader, LoaderConfig } from "./loaders";
@@ -161,7 +161,7 @@ export abstract class PConnector {
     this._db = props.db;
     this._jobArgs = props.jobArgs;
     this._authReqContext = props.authReqContext;
-    this._loader = new props.jobArgs.loaderClass(this.jobArgs.con, this.config.loader);
+    this._loader = new props.jobArgs.loaderClass(this.jobArgs.connection, this.config.loader);
 
     if (this.db.isBriefcaseDb()) {
       this.db.concurrencyControl.startBulkMode();
@@ -172,7 +172,7 @@ export abstract class PConnector {
   }
 
   public async runJob(): Promise<void> {
-    const srcState = await this._getSrcState();
+    const srcState = await this._updateRepoLink();
     if (srcState !== ItemState.Unchanged) {
       await this._loadIRModel();
       await this._updateJobSubject();
@@ -190,27 +190,50 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  protected async _getSrcState(): Promise<ItemState> {
+  protected async _updateRepoLink(): Promise<ItemState> {
+    const updateFileConnection = () => {
+      const stats = fs.statSync(connection.filepath);
+      if (!stats)
+        throw new Error(`DataConnection.filepath not found - ${connection}`);
+      const instance = new IRInstance({
+        pkey: "LowerCasedFileBaseName",
+        entityKey: connection.kind,
+        version: stats.mtime.toString(),
+        data: {
+          "LowerCasedFileBaseName": path.basename(connection.filepath).toLowerCase(),
+        },
+      });
+      const modelId = IModel.repositoryModelId;
+      const code = RepositoryLink.createCode(this.db, modelId, instance.codeValue);
+      const existingRepoLink = this.db.elements.tryGetElement(code) as RepositoryLink;
+
+      const repoLink = this.db.elements.createElement({
+        classFullName: RepositoryLink.classFullName,
+        model: modelId,
+        code,
+        userLabel: instance.userLabel,
+      } as RepositoryLinkProps);
+      const fileState = this.updateElement(repoLink, modelId, instance);
+      return fileState;
+    };
+
     if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
-    let srcState;
-    const { con } = this.jobArgs;
-    switch(con.kind) {
-      case "FileConnection":
-        let timestamp = Date.now();
-        const stat = IModelJsFs.lstatSync(con.filepath);
-        if (stat)
-          timestamp = stat.mtimeMs;
-        const sourceItem: SourceItem = { id: con.filepath, version: timestamp.toString() };
-        const results = this.synchronizer.recordDocument(IModelDb.rootSubjectId, sourceItem);
-        srcState = results.itemState;
+
+    let repoLinkState;
+    const { connection } = this.jobArgs;
+    switch(connection.kind) {
+      case "pcf-file-connection":
+        repoLinkState = updateFileConnection();
         break;
       default:
-        throw new Error(`${con.kind} is not supported yet.`);
+        throw new Error(`${connection.kind} is not supported yet.`);
     }
-    if (srcState !== ItemState.Unchanged)
+
+    if (repoLinkState !== ItemState.Unchanged)
       await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
-    return srcState;
+
+    return repoLinkState;
   }
 
   protected async _updateJobSubject() {
@@ -302,40 +325,6 @@ export abstract class PConnector {
     this._updateCodeSpecs();
     await this.tree.update();
     await this.persistChanges("Data Changes", ChangesType.Regular);
-  }
-
-  public updateElement(element: BisElement, scope: Id64String, kind: string, instance: IRInstance): ItemState {
-    const identifier = instance.key;
-    const version = instance.version;
-    const checksum = instance.checksum;
-    const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
-    if (!aspectId) {
-      element.insert();
-      this.db.elements.insertAspect({
-        classFullName: ExternalSourceAspect.classFullName,
-        element: { id: element.id },
-        scope: { id: scope },
-        identifier,
-        kind,
-        checksum,
-        version,
-      } as ExternalSourceAspectProps);
-      return ItemState.New;
-    }
-
-    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
-    const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
-    const current = (version ?? "") + (checksum ?? "");
-    if (existing === current)
-      return ItemState.Unchanged;
-
-    xsa.version = version;
-    xsa.checksum = checksum;
-
-    element.update();
-    this.db.elements.updateAspect(xsa as ElementAspect);
-
-    return ItemState.Changed;
   }
 
   protected async _updateDeletedElements(): Promise<void> {

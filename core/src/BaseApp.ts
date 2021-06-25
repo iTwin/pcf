@@ -19,7 +19,7 @@ export enum Environment {
 
 export interface JobArgsProps {
   connectorPath: string;
-  con: DataConnection;
+  connection: DataConnection;
   loaderClass: LoaderClass;
   subjectName?: string;
   outputDir?: string;
@@ -31,11 +31,11 @@ export interface JobArgsProps {
 export class JobArgs implements JobArgsProps {
   // relative path to compiler connector module (.js)
   public connectorPath: string;
-  // used to connect to source data
-  public con: DataConnection;
+  // info needed to connect to source data
+  public connection: DataConnection;
   // choose an available loader to use. you can also point this to your own Loader.
   public loaderClass: LoaderClass;
-  // dataConnection.filepath is used if undefined.
+  // connection.filepath is used if undefined.
   public subjectName: string;
   // relative path to the directory for storing output files
   public outputDir: string = path.join(__dirname, "output");
@@ -48,12 +48,12 @@ export class JobArgs implements JobArgsProps {
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
-    this.con = props.con;
+    this.connection = props.connection;
     this.loaderClass = props.loaderClass;
     if (props.subjectName !== undefined)
       this.subjectName = props.subjectName;
     else
-      this.subjectName = props.con.filepath;
+      this.subjectName = props.connection.filepath;
     if (props.outputDir)
       this.outputDir = props.outputDir;
     if (props.logLevel !== undefined)

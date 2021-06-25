@@ -20,7 +20,7 @@ describe("Integration Tests", () => {
 
   const testJobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "JSONConnector.js"),
-    con: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
+    connection: { kind: "FileConnection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
     loaderClass: JSONLoader,
   });
 
@@ -34,7 +34,7 @@ describe("Integration Tests", () => {
   });
 
   after(async () => {
-    if (app.hubArgs.iModelId !== "")
+connection   if (app.hubArgs.iModelId !== "")
       await app.purgeTestBriefcaseDb();
     await bk.IModelHost.shutdown();
   });

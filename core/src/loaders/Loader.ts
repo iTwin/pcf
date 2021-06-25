@@ -30,7 +30,7 @@ export interface LoaderConfig {
  * Defined by users. A loader uses this to retrieve data.
  */
 interface FileConnection {
-  kind: "FileConnection";
+  kind: "pcf-file-connection";
   filepath: string;
 }
 
@@ -38,11 +38,11 @@ export type DataConnection = FileConnection;
 
 export abstract class Loader {
 
-  public con: DataConnection;
+  public connection: DataConnection;
   public config: LoaderConfig;
 
   constructor(con: DataConnection, config: LoaderConfig) {
-    this.con = con;
+    this.connection = con;
     this.config = config;
   }
 

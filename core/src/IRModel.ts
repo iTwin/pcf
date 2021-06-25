@@ -148,6 +148,7 @@ export class IRAttribute {
 export interface IRInstanceProps {
   pkey: string;
   entityKey: string;
+  version?: string;
   data?: {[attr: string]: any};
 }
 
@@ -159,21 +160,19 @@ export type IRInstanceCodeValue = `${IREntityKey}-${PrimaryKeyValue}`;
  * Represents an external object / instance of an external object class.
  * Corresponds to an EC Instance
  */
-export class IRInstance {
+export class IRInstance implements IRInstanceProps {
 
   public pkey: string;
   public entityKey: string;
   public data: {[attr: string]: any};
+  public version: string;
 
   constructor(props: IRInstanceProps) {
     this.pkey = props.pkey;
     this.entityKey = props.entityKey;
     this.data = props.data ?? {};
+    this.version = props.version ?? "";
     this.validate();
-  }
-
-  public get version(): string {
-    return IRModel.version;
   }
 
   public get key(): IRInstanceCodeValue {
