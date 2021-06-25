@@ -15,6 +15,8 @@ pcf -h
 # Contributing
 
 ```console
+# install dependencies
+npm ci
 # install your version globally
 npm install -g .
 ```
