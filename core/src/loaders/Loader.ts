@@ -30,7 +30,7 @@ export interface LoaderConfig {
  * Defined by users. A loader uses this to retrieve data.
  */
 interface FileConnection {
-  kind: "pcf-file-connection";
+  kind: "pcf_file_connection";
   filepath: string;
 }
 

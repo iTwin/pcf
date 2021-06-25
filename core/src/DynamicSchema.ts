@@ -4,8 +4,7 @@ import { IModelSchemaLoader } from "@bentley/imodeljs-backend/lib/IModelSchemaLo
 import { MutableSchema } from "@bentley/ecschema-metadata/lib/Metadata/Schema";
 import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { ClientRequestContext } from "@bentley/bentleyjs-core";
-import { ItemState } from "./fwk/Synchronizer";
-import { DMOMap } from "./pcf";
+import { ItemState, DMOMap } from "./pcf";
 import { DOMParser, XMLSerializer } from "xmldom";
 
 export interface DynamicSchemaProps {

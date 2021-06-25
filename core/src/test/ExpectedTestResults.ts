@@ -2,6 +2,7 @@ import { QueryToCount } from "../Utils";
 
 const TestResults: {[fileName: string]: QueryToCount} = {
   "v1.json": { // from empty
+    "select * from BisCore:RepositoryLink": 1,
     "select * from BisCore:DefinitionPartition": 2,
     "select * from BisCore:GroupInformationPartition": 1,
     "select * from BisCore:PhysicalPartition": 2,

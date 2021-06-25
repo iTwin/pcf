@@ -187,17 +187,64 @@ export class ModelNode extends Node implements ModelNodeProps {
 
 // ELEMENT
 
+type SupportedElements = typeof bk.DefinitionElement;
+export interface ElementNodeProps extends NodeProps {
+  bisClass: SupportedElements;
+  parent: ModelNode;
+}
+
+export class ElementNode extends Node {
+
+  public bisClass: SupportedElements;
+  public parent: ModelNode;
+
+  constructor(pc: PConnector, props: ElementNodeProps) {
+    super(pc, props);
+    this.bisClass = props.bisClass;
+    this.parent = props.parent;
+    props.parent.elements.push(this);
+  }
+
+  public async update() {
+    await this._updateElement();
+  }
+
+  protected async _updateElement() {
+    const modelId = this.pc.modelCache[this.parent.key];
+    const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
+    const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: this.key });
+
+    const classFullName = this.bisClass.classFullName;
+    const props: common.ElementProps = {
+      code,
+      federationGuid: this.key,
+      userLabel: this.key,
+      model: modelId,
+      classFullName,
+    };
+
+    const instance = new IRInstance({ pkey: "nodeKey", entityKey: classFullName, data: { nodeKey: this.key } });
+    const { elementId } = this.pc.updateElement(props, instance);
+    this.pc.elementCache[this.key] = elementId;
+    this.pc.seenIds.add(elementId);
+  }
+
+  public toJSON(): any {
+    return { key: this.key, classFullName: this.bisClass.classFullName };
+  }
+}
+
 export interface MultiElementNodeProps extends NodeProps {
   dmo: ElementDMO;
   parent: ModelNode;
-  category?: MultiElementNode;
+  category?: ElementNode;
 }
 
 export class MultiElementNode extends Node {
 
   public dmo: ElementDMO;
   public parent: ModelNode;
-  public category?: MultiElementNode | undefined;
+  public category?: ElementNode | undefined;
 
   constructor(pc: PConnector, props: MultiElementNodeProps) {
     super(pc, props);
@@ -236,45 +283,9 @@ export class MultiElementNode extends Node {
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      const identifier = instance.codeValue;
-      const version = instance.version;
-      const checksum = instance.checksum;
-
-      const existingElement = this.pc.db.elements.tryGetElement(new Code(props.code));
-      const element = this.pc.db.elements.createElement(props);
-      if (existingElement)
-        element.id = existingElement.id;
-
-      if (!aspectId) {
-        const { aspectId } = ExternalSourceAspect.findBySource(this.pc.db, element.model, instance.entityKey, identifier);
-        element.insert();
-        this.pc.db.elements.insertAspect({
-          classFullName: ExternalSourceAspect.classFullName,
-          element: { id: element.id },
-          scope: { id: element.model },
-          identifier,
-          kind: instance.entityKey,
-          checksum,
-          version,
-        } as ExternalSourceAspectProps);
-        continue;
-      }
-
-      const xsa: ExternalSourceAspect = this.pc.db.elements.getAspect(aspectId) as ExternalSourceAspect;
-      const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
-      const current = (version ?? "") + (checksum ?? "");
-      if (existing === current)
-        continue;
-
-      xsa.version = version;
-      xsa.checksum = checksum;
-
-      element.update();
-      this.pc.db.elements.updateAspect(xsa as ElementAspect);
-
-      this.pc.updateElement(props, instance);
-      this.pc.elementCache[instance.codeValue] = element.id;
-      this.pc.seenIds.add(element.id);
+      const { elementId } = this.pc.updateElement(props, instance);
+      this.pc.elementCache[instance.codeValue] = elementId;
+      this.pc.seenIds.add(elementId);
     }
   }
 

@@ -3,7 +3,6 @@ import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, Co
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, RepositoryLinkProps, ElementProps, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
-import { ItemState } from "./fwk/Synchronizer";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceCodeValue } from "./IRModel";
 import { Loader, LoaderConfig } from "./loaders";
@@ -12,6 +11,12 @@ import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
 import { IRInstance, JobArgs } from "./pcf";
+
+export enum ItemState {
+  Unchanged,
+  New,
+  Changed,
+}
 
 export interface PConnectorConfigProps {
   appId: string;
@@ -77,7 +82,6 @@ export abstract class PConnector {
   protected _db?: IModelDb;
   protected _loader?: Loader;
   protected _jobArgs?: JobArgs;
-  protected _synchronizer?: Synchronizer;
   protected _subject?: Subject;
   protected _irModel?: pcf.IRModel;
   protected _authReqContext?: AuthorizedBackendRequestContext;
@@ -134,12 +138,6 @@ export abstract class PConnector {
     return new BackendRequestContext();
   }
 
-  public get synchronizer() {
-    if (!this._synchronizer) 
-      throw new Error("synchronizer is not initilized");
-    return this._synchronizer;
-  }
-
   public get subject() {
     if (!this._subject) 
       throw new Error("subject is undefined. call updateJobSubject to populate its value.");
@@ -163,12 +161,8 @@ export abstract class PConnector {
     this._authReqContext = props.authReqContext;
     this._loader = new props.jobArgs.loaderClass(this.jobArgs.connection, this.config.loader);
 
-    if (this.db.isBriefcaseDb()) {
+    if (this.db.isBriefcaseDb())
       this.db.concurrencyControl.startBulkMode();
-      this._synchronizer = new Synchronizer(this.db, false, this.authReqContext);
-    } else {
-      this._synchronizer = new Synchronizer(this.db, false);
-    }
   }
 
   public async runJob(): Promise<void> {
@@ -213,8 +207,8 @@ export abstract class PConnector {
         code,
         userLabel: instance.userLabel,
       } as RepositoryLinkProps);
-      const fileState = this.updateElement(repoLink, modelId, instance);
-      return fileState;
+      const { state } = this.updateElement(repoLink, instance);
+      return state;
     };
 
     if (this.db.isBriefcaseDb())
@@ -223,7 +217,7 @@ export abstract class PConnector {
     let repoLinkState;
     const { connection } = this.jobArgs;
     switch(connection.kind) {
-      case "pcf-file-connection":
+      case "pcf_file_connection":
         repoLinkState = updateFileConnection();
         break;
       default:
@@ -234,6 +228,44 @@ export abstract class PConnector {
       await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
 
     return repoLinkState;
+  }
+
+  public updateElement(props: ElementProps, instance: IRInstance): { elementId: Id64String, state: ItemState } {
+    const identifier = instance.codeValue;
+    const version = instance.version;
+    const checksum = instance.checksum;
+    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
+    const element = this.db.elements.createElement(props);
+    if (existingElement)
+      element.id = existingElement.id;
+
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
+    if (!aspectId) {
+      element.insert();
+      this.db.elements.insertAspect({
+        classFullName: ExternalSourceAspect.classFullName,
+        element: { id: element.id },
+        scope: { id: element.model },
+        identifier,
+        kind: instance.entityKey,
+        checksum,
+        version,
+      } as ExternalSourceAspectProps);
+      return { elementId: element.id, state: ItemState.New };
+    }
+
+    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
+    const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
+    const current = (version ?? "") + (checksum ?? "");
+    if (existing === current)
+      return { elementId: element.id, state: ItemState.Unchanged };
+
+    xsa.version = version;
+    xsa.checksum = checksum;
+
+    element.update();
+    this.db.elements.updateAspect(xsa as ElementAspect);
+    return { elementId: element.id, state: ItemState.Changed };
   }
 
   protected async _updateJobSubject() {
