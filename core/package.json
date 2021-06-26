@@ -9,7 +9,7 @@
     "build": "tsc && npm run copyFiles",
     "clean": "rimraf lib",
     "lint": "tslint --project .",
-    "test": "tsc && npm run test:unit",
+    "test": "npm run test:unit",
     "test:unit": "mocha --opts ./src/test/unit/mocha.opts \"./src/test/unit/**/*.test.ts*\"",
     "test:integration": "mocha --opts ./src/test/unit/mocha.opts \"./src/test/integration/**/*.test.ts*\"",
     "copyFiles": "npx babel src --out-dir lib --copy-files",

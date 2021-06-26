@@ -6,7 +6,7 @@ import { ChangesType } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceKey } from "./IRModel";
 import { Loader } from "./loaders";
-import * as utils from "./Utils";
+import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
@@ -140,7 +140,7 @@ export abstract class PConnector {
 
   public get subject() {
     if (!this._subject) 
-      throw new Error("subject is undefined. call updateJobSubject to populate its value.");
+      throw new Error("subject is undefined. call updateSubject to populate its value.");
     return this._subject;
   }
 
@@ -167,7 +167,7 @@ export abstract class PConnector {
   public async runJob(): Promise<void> {
     const srcState = await this._updateRepoLink();
     if (srcState !== ItemState.Unchanged) {
-      await this._updateJobSubject();
+      await this._updateSubject();
       await this._loadIRModel();
       await this._updateDomainSchema();
       await this._updateDynamicSchema();
@@ -210,7 +210,10 @@ export abstract class PConnector {
           userLabel: sourceKey,
           format,
         } as RepositoryLinkProps;
-        repoLinkState = this.updateElement(repoLinkProps, instance).state;
+        const { elementId, state } = this.updateElement(repoLinkProps, instance);
+        this.elementCache[instance.key] = elementId;
+        this.seenIds.add(elementId);
+        repoLinkState = state;
         break;
       default:
         throw new Error(`${con.kind} is not supported yet.`);
@@ -258,7 +261,7 @@ export abstract class PConnector {
     return { elementId: element.id, state: ItemState.Changed };
   }
 
-  protected async _updateJobSubject() {
+  protected async _updateSubject() {
     const { subjectName } = this.jobArgs;
     const code = Subject.createCode(this.db, IModel.rootSubjectId, subjectName);
     const existingSubId = this.db.elements.queryElementIdByCode(code);
@@ -276,11 +279,9 @@ export abstract class PConnector {
     const jsonProperties = {
       Subject: {
         Job: {
-          Properties: {
-            ConnectorVersion: appVersion,
-            ConnectorType: "pcf connector",
-          },
-          Connector: connectorName,
+          ConnectorType: "pcf-connector",
+          ConnectorVersion: appVersion,
+          ConnectorName: connectorName,
         }
       },
     }
@@ -354,8 +355,8 @@ export abstract class PConnector {
     if (!this.jobArgs.enableDelete)
       return;
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
-    const rows = await utils.getRows(this.db, ecsql);
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect`;
+    const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
     const defElementIds: Id64String[] = [];
@@ -459,14 +460,14 @@ export abstract class PConnector {
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const comment = `${header} - ${changeDesc}`;
     if (this.db.isBriefcaseDb()) {
-      await utils.retryLoop(async () => {
+      await util.retryLoop(async () => {
         await (this.db as BriefcaseDb).concurrencyControl.request(this.authReqContext);
       });
-      await utils.retryLoop(async () => {
+      await util.retryLoop(async () => {
         await (this.db as BriefcaseDb).pullAndMergeChanges(this.authReqContext);
       });
       this.db.saveChanges(comment);
-      await utils.retryLoop(async () => {
+      await util.retryLoop(async () => {
         await (this.db as BriefcaseDb).pushChanges(this.authReqContext, comment, ctype);
       });
     } else {
@@ -475,13 +476,13 @@ export abstract class PConnector {
   }
 
   public async enterSubjectChannel() {
-    await utils.retryLoop(async () => {
+    await util.retryLoop(async () => {
       await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, this.subject.id);
     });
   }
 
   public async enterRepoChannel() {
-    await utils.retryLoop(async () => {
+    await util.retryLoop(async () => {
       await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, IModelDb.repositoryModelId);
     });
   }

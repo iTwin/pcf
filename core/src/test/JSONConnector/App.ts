@@ -1,7 +1,6 @@
 import * as bk from "@bentley/imodeljs-backend";
 import * as path from "path";
 import * as pcf from "../../pcf";
-import { JSONLoader } from "../../loaders";
 import { LogLevel } from "@bentley/bentleyjs-core";
 
 export async function main() {

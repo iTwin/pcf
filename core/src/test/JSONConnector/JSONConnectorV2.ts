@@ -16,8 +16,10 @@ const connectorV2 = (() => {
         }
       }
     });
-
   });
+
+  connector.loader.props.sourceKey = "sourceKey1";
+
   return connector;
 })();
 

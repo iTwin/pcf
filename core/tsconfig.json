@@ -5,7 +5,8 @@
     "module": "commonjs",
     "baseUrl": "./node_modules",
     "outDir": "./lib",
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "noUnusedLocals": false
   },
   "include": [
     "./src/**/*"

@@ -27,7 +27,7 @@ export class JSONConnector extends pcf.PConnector {
     });
 
     const loader = new pcf.JSONLoader(this, {
-      sourceKey: "tempSrcFile",
+      sourceKey: "sourceKey1",
       format: "json",
       entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
       relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],

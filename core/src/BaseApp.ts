@@ -6,9 +6,9 @@ import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcase
 import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { HubIModel, IModelQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
-import { DataConnection, LoaderClass } from "./loaders";
+import { DataConnection } from "./loaders";
 import * as path from "path";
-import * as utils from "./Utils";
+import * as util from "./Util";
 
 // QA and Dev are for Bentley Developer only
 export enum Environment {
@@ -49,7 +49,7 @@ export class JobArgs implements JobArgsProps {
     if (props.subjectName !== undefined)
       this.subjectName = props.subjectName;
     else
-      this.subjectName = props.connection.filepath;
+      this.subjectName = props.connection.sourceKey;
     if (props.outputDir)
       this.outputDir = props.outputDir;
     if (props.logLevel !== undefined)
@@ -151,7 +151,7 @@ export class BaseApp {
       console.error(err);
       if ((err as any).status === 403) // out of call volumn quota
         return BentleyStatus.ERROR;
-      await utils.retryLoop(async () => {
+      await util.retryLoop(async () => {
         if (db && db.isBriefcaseDb()) {
           await db.concurrencyControl.abandonResources(this.authReqContext);
         }
@@ -246,7 +246,7 @@ export class BaseApp {
       rl.question("$: ", function(input: string) {
         if (input === "exit")
           return;
-        utils.getRows(db, input);
+        util.getRows(db, input);
       });
     }
   }
@@ -305,7 +305,7 @@ export class IntegrationTestApp extends BaseApp {
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.authReqContext);
     let db: BriefcaseDb | undefined = undefined;
-    await utils.retryLoop(async () => {
+    await util.retryLoop(async () => {
       db = await super.openBriefcaseDb();
       this._testBriefcaseDbPath = db.pathName;
     })
@@ -319,7 +319,7 @@ export class IntegrationTestApp extends BaseApp {
     const testIModelName = `Integration Test IModel (${process.platform})`;
     const existingTestIModels: HubIModel[] = await IModelHost.iModelClient.iModels.get(this.authReqContext, this.hubArgs.projectId, new IModelQuery().byName(testIModelName));
     for (const testIModel of existingTestIModels) {
-      await utils.retryLoop(async () => {
+      await util.retryLoop(async () => {
         await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, testIModel.wsgId);
       });
     }
@@ -331,7 +331,7 @@ export class IntegrationTestApp extends BaseApp {
 
   public async purgeTestBriefcaseDb(): Promise<void> {
     this.init();
-    await utils.retryLoop(async () => {
+    await util.retryLoop(async () => {
       await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, this.hubArgs.iModelId);
     });
     if (this._testBriefcaseDbPath)

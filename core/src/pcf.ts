@@ -1,5 +1,5 @@
 export * from "./loaders";
-export * from "./Utils";
+export * from "./Util";
 export * from "./Node";
 export * from "./DMO";
 export * from "./DynamicSchema";
