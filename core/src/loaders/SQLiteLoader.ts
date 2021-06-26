@@ -1,14 +1,14 @@
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { Loader } from "./Loader";
+import { FileConnection, Loader } from "./Loader";
 
 export class SQLiteLoader extends Loader {
 
   public db?: any;
 
-  public async open(): Promise<void> {
-    this.db = await sqlite.open({ filename: this.connection.filepath, driver: sqlite3.Database });
+  public async open(con: FileConnection): Promise<void> {
+    this.db = await sqlite.open({ filename: con.filepath, driver: sqlite3.Database });
   }
 
   public async close(): Promise<void> {
@@ -16,11 +16,11 @@ export class SQLiteLoader extends Loader {
   }
 
   public async getEntities(): Promise<IREntity[]> {
-    return this._getEntities(this.config.entityKeys);
+    return this._getEntities(this.props.entities);
   }
 
   public async getRelationships(): Promise<IRRelationship[]> {
-    return this._getEntities(this.config.relKeys);
+    return this._getEntities(this.props.relationships);
   }
 
   protected async _getEntities(usedKeys: string[]): Promise<IREntity[]> {

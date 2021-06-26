@@ -7,6 +7,7 @@ import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import { JSONLoader, SQLiteLoader } from "../../loaders";
 import { PConnector } from "../../PConnector";
+import * as utils from "../../Utils";
 
 describe("Unit Tests", () => {
 
@@ -30,8 +31,7 @@ describe("Unit Tests", () => {
 
   const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js"),
-    connection: { kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
-    loaderClass: JSONLoader,
+    connection: { sourceKey: "v1", kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
   });
 
   const tempSrcPath = path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json");
@@ -70,14 +70,12 @@ describe("Unit Tests", () => {
     });
   }
 
+    /*
   it("Loader Tests", async () => {
     const connector: PConnector = require(jobArgs.connectorPath).default();
-    const config = connector.config.loader;
-
-    const jsonLoader = new JSONLoader({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")}, config);
-    await jsonLoader.open();
-    const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
-    await jsonLoader.close();
+    await connector.loader.open({ sourceKey: "v1", kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")});
+    const modelFromJSON = await pcf.IRModel.fromLoader(connector.loader);
+    await connector.loader.close();
 
     const sqliteLoader = new SQLiteLoader({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")}, config);
     await sqliteLoader.open();
@@ -87,4 +85,5 @@ describe("Unit Tests", () => {
     if (!pcf.IRModel.compare(modelFromJSON, modelFromSQLite))
       chai.assert.fail("IR Model from JSON != IR Model from SQLite");
   });
+    */
 });

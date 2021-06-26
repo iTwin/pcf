@@ -61,7 +61,6 @@ export class IRModel {
   }
 
   public static async fromLoader(loader: Loader) {
-    await loader.open();
     const entities = await loader.getEntities();
     let relationships: IRRelationship[] = [];
     if (typeof loader.getRelationships === "function")

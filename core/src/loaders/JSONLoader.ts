@@ -1,8 +1,9 @@
 import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { Loader, LoaderConfig, DataConnection } from "./Loader";
+import { FileConnection, Loader } from "./Loader";
 import * as fs from "fs";
 
-// sample json format
+// json must be formatted like this:
+// 
 // {
 //      <EntityKey>: [ // Instances
 //          {
@@ -18,18 +19,18 @@ export class JSONLoader extends Loader {
 
   public json: any = {};
 
-  public async open(): Promise<void> {
-    this.json = JSON.parse(fs.readFileSync(this.connection.filepath, "utf8"));
+  public async open(con: FileConnection): Promise<void> {
+    this.json = JSON.parse(fs.readFileSync(con.filepath, "utf8"));
   }
 
   public async close(): Promise<void> {}
 
   public async getEntities(): Promise<IREntity[]> {
-    return this._getEntities(this.config.entityKeys);
+    return this._getEntities(this.props.entities);
   }
 
   public async getRelationships(): Promise<IRRelationship[]> {
-    return this._getEntities(this.config.relKeys);
+    return this._getEntities(this.props.relationships);
   }
 
   protected async _getEntities(usedKeys: string[]): Promise<IREntity[]> {

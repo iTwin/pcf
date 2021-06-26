@@ -1,22 +1,57 @@
 import { IREntity, IRAttribute, IRInstance, IRRelationship } from "../IRModel";
+import { PConnector } from "../PConnector";
+
+export interface BaseConnection {
+  /*
+   * sourceKey is a unique identifier of a single data source (RepositoryLink) in an iModel.
+   */
+  sourceKey: string;
+}
+
+export interface FileConnection {
+
+  /*
+   * Marks that this is a connection to a file.
+   */
+  kind: "pcf_file_connection";
+
+  /* 
+   * Absolute path to your local source file.
+   */ 
+  filepath: string;
+}
+
+export type DataConnection = BaseConnection & (FileConnection);
 
 /*
  * Defined by users. A Loader fetches data according to this object.
  */
-export interface LoaderConfig {
+export interface LoaderProps {
 
   /*
-   * Used Entity Keys
+   * The identifier of the source file (RepositoryLink) used in iModel. 
+   * Modifying this value would cause the old RepositoryLink to be deleted and a new one would be created.
    */
-  entityKeys: string[];
+  sourceKey: string;
 
   /*
-   * Used Relationship Keys
+   * The format of the source file used in iModel.
+   * (e.g. "json", "sqlite", and "xlsx").
    */
-  relKeys: string[];
+  format: string;
 
   /*
-   * Entity Key => Primary Key
+   * Used IR Entity Keys. Only the IR Entities listed here will be imported to your iModel.
+   */
+  entities: string[];
+
+  /*
+   * Used IR Relationship Keys. Only the IR Relationships listed here will be imported to your iModel.
+   */
+  relationships: string[];
+
+  /*
+   * IR Entity Key => Primary Key
    */
   primaryKeyMap?: {[entityKey: string]: string}; 
 
@@ -26,30 +61,25 @@ export interface LoaderConfig {
   defaultPrimaryKey?: string;
 }
 
+export type LoaderClass = new (pc: PConnector, props: LoaderProps) => Loader;
+
 /*
- * Defined by users. A loader uses this to retrieve data.
+ * A Loader converts a data format into an IR Model to be consumed by PConnector while pertaining data integrity.
+ * Each PConnector instance needs a Loader to access a specific end data source.
  */
-interface FileConnection {
-  kind: "pcf_file_connection";
-  filepath: string;
-}
-
-export type DataConnection = FileConnection; 
-
 export abstract class Loader {
 
-  public connection: DataConnection;
-  public config: LoaderConfig;
+  public props: LoaderProps;
 
-  constructor(con: DataConnection, config: LoaderConfig) {
-    this.connection = con;
-    this.config = config;
+  constructor(pc: PConnector, props: LoaderProps) {
+    this.props = props;
+    pc.loader = this;
   }
 
   /*
    * Open connection to a data source. Must be called before loading data.
    */
-  public abstract open(): Promise<void>;
+  public abstract open(con: DataConnection): Promise<void>;
 
   /*
    * Close connection. Do nothing if open already read in the entire source file.
@@ -80,12 +110,10 @@ export abstract class Loader {
    * Returns the primary key of an entity. Data integrity may be compromised if primary key is neglected.
    */
   public getPKey(entityKey: string): string {
-    if (this.config.primaryKeyMap && entityKey in this.config.primaryKeyMap)
-      return this.config.primaryKeyMap[entityKey];
-    if (this.config.defaultPrimaryKey)
-      return this.config.defaultPrimaryKey;
+    if (this.props.primaryKeyMap && entityKey in this.props.primaryKeyMap)
+      return this.props.primaryKeyMap[entityKey];
+    if (this.props.defaultPrimaryKey)
+      return this.props.defaultPrimaryKey;
     return "id";
   };
 }
-
-export type LoaderClass = new (con: DataConnection, config: LoaderConfig) => Loader;

@@ -24,10 +24,13 @@ export class JSONConnector extends pcf.PConnector {
       connectorName: "TestConnector",
       appId: "TestConnector",
       appVersion: "1.0.0.0",
-      loader: {
-        entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
-        relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
-      }
+    });
+
+    const loader = new pcf.JSONLoader(this, {
+      sourceKey: "tempSrcFile",
+      format: "json",
+      entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
+      relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
     });
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });

@@ -5,7 +5,7 @@ import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, Repos
 import { ChangesType } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceKey } from "./IRModel";
-import { Loader, LoaderConfig } from "./loaders";
+import { Loader } from "./loaders";
 import * as utils from "./Utils";
 import * as pcf from "./pcf";
 import * as fs from "fs";
@@ -22,7 +22,6 @@ export interface PConnectorConfigProps {
   appId: string;
   appVersion: string;
   connectorName: string;
-  loader: LoaderConfig;
   domainSchemaPaths?: string[];
   dynamicSchema?: {
     schemaName: string;
@@ -38,8 +37,6 @@ export class PConnectorConfig implements PConnectorConfigProps {
   public appVersion: string;
   // the name of your connector (e.g. COBieConnector)
   public connectorName: string;
-  // every PConnector must have a loader to access a data source
-  public loader: LoaderConfig;
   // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
   public domainSchemaPaths: string[] = [];
   // dynamic schema settings
@@ -54,7 +51,6 @@ export class PConnectorConfig implements PConnectorConfigProps {
     this.appId = props.appId;
     this.appVersion = props.appVersion;
     this.connectorName = props.connectorName;
-    this.loader = props.loader;
     if (props.domainSchemaPaths !== undefined)
       this.domainSchemaPaths = props.domainSchemaPaths;
     if (props.dynamicSchema !== undefined)
@@ -117,6 +113,10 @@ export abstract class PConnector {
     return this._loader;
   }
 
+  public set loader(loader: Loader) {
+    this._loader = loader;
+  }
+
   public get jobArgs() {
     if (!this._jobArgs) 
       throw new Error("JobArgs is undefined");
@@ -159,7 +159,6 @@ export abstract class PConnector {
     this._db = props.db;
     this._jobArgs = props.jobArgs;
     this._authReqContext = props.authReqContext;
-    this._loader = new props.jobArgs.loaderClass(this.jobArgs.connection, this.config.loader);
 
     if (this.db.isBriefcaseDb())
       this.db.concurrencyControl.startBulkMode();
@@ -185,38 +184,36 @@ export abstract class PConnector {
   }
 
   protected async _updateRepoLink(): Promise<ItemState> {
-
     if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
 
     let repoLinkState;
-    const { connection } = this.jobArgs;
-    switch(connection.kind) {
+    const con = this.jobArgs.connection;
+    switch(con.kind) {
       case "pcf_file_connection":
-        const stats = fs.statSync(connection.filepath);
+        const stats = fs.statSync(con.filepath);
         if (!stats)
-          throw new Error(`DataConnection.filepath not found - ${connection}`);
+          throw new Error(`DataConnection.filepath not found - ${con}`);
+        const { sourceKey, format } = this.loader.props;
         const instance = new IRInstance({
-          pkey: "LowerCasedFileBaseName",
+          pkey: "sourceKey",
           entityKey: "DocumentWithBeGuid",
           version: stats.mtime.toString(),
-          data: {
-            "LowerCasedFileBaseName": path.basename(connection.filepath).toLowerCase(),
-          },
+          data: { sourceKey, format },
         });
         const modelId = IModel.repositoryModelId;
-        const code = RepositoryLink.createCode(this.db, modelId, instance.codeValue);
+        const code = RepositoryLink.createCode(this.db, modelId, sourceKey);
         const repoLinkProps = {
           classFullName: RepositoryLink.classFullName,
           model: modelId,
           code,
-          userLabel: instance.userLabel,
+          userLabel: sourceKey,
+          format,
         } as RepositoryLinkProps;
-        const { state } = this.updateElement(repoLinkProps, instance);
-        repoLinkState = state;
+        repoLinkState = this.updateElement(repoLinkProps, instance).state;
         break;
       default:
-        throw new Error(`${connection.kind} is not supported yet.`);
+        throw new Error(`${con.kind} is not supported yet.`);
     }
 
     await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
@@ -224,7 +221,7 @@ export abstract class PConnector {
   }
 
   public updateElement(props: ElementProps, instance: IRInstance): { elementId: Id64String, state: ItemState } {
-    const identifier = instance.codeValue;
+    const identifier = props.code.value!;
     const version = instance.version;
     const checksum = instance.checksum;
     const existingElement = this.db.elements.tryGetElement(new Code(props.code));
@@ -315,6 +312,7 @@ export abstract class PConnector {
   }
 
   protected async _loadIRModel() {
+    await this.loader.open(this.jobArgs.connection);
     this._irModel = await pcf.IRModel.fromLoader(this.loader);
   }
 

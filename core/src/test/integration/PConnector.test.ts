@@ -20,8 +20,7 @@ describe("Integration Tests", () => {
 
   const testJobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "JSONConnector.js"),
-    connection: { kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
-    loaderClass: JSONLoader,
+    connection: { sourceKey: "v1", kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") },
   });
 
   const app = new pcf.IntegrationTestApp(testJobArgs);

@@ -131,7 +131,6 @@ export class ModelNode extends Node implements ModelNodeProps {
     this.bisClass = props.bisClass;
     this.partitionClass = props.partitionClass;
     this.elements = [];
-
     this.pc.tree.models.push(this);
   }
 

@@ -10,11 +10,11 @@ export async function main() {
   const jobArgs = new pcf.JobArgs({ 
     connectorPath: path.join(__dirname, "JSONConnector"),
     connection: {
+      sourceKey: "v1",
       kind: "pcf_file_connection",
       filepath: path.join(__dirname, "../assets/temp.json"),
     },
     logLevel: LogLevel.Info,
-    loaderClass: JSONLoader,
   });
 
   const hubArgs = new pcf.HubArgs({
