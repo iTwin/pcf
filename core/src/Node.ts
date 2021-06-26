@@ -4,15 +4,15 @@ import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, Relation
 
 export interface TreeProps {
   models: ModelNode[];
-  relationships: MultiRelationshipNode[];
-  relatedElements: MultiRelatedElementNode[];
+  relationships: RelationshipNode[];
+  relatedElements: RelatedElementNode[];
 }
 
 export class Tree implements TreeProps {
 
   public models: ModelNode[];
-  public relationships: MultiRelationshipNode[];
-  public relatedElements: MultiRelatedElementNode[];
+  public relationships: RelationshipNode[];
+  public relatedElements: RelatedElementNode[];
 
   constructor() {
     this.models = [];
@@ -27,11 +27,11 @@ export class Tree implements TreeProps {
       relatedElements: [],
     };
     function build(node: Node) {
-      if (node instanceof MultiElementNode)
+      if (node instanceof ElementNode)
         map.elements.push(node.dmo);
-      else if (node instanceof MultiRelationshipNode)
+      else if (node instanceof RelationshipNode)
         map.relationships.push(node.dmo);
-      else if (node instanceof MultiRelatedElementNode)
+      else if (node instanceof RelatedElementNode)
         map.relatedElements.push(node.dmo);
     }
     this.walk(build);
@@ -56,8 +56,8 @@ export class Tree implements TreeProps {
   public toJSON(): any {
     return {
       modelNodes: this.models.map((model: ModelNode) => model.toJSON()),
-      relationshipNodes: this.relationships.map((relationship: MultiRelationshipNode) => relationship.toJSON()),
-      relatedElementNodes: this.relatedElements.map((related: MultiRelatedElementNode) => related.toJSON()),
+      relationshipNodes: this.relationships.map((relationship: RelationshipNode) => relationship.toJSON()),
+      relatedElementNodes: this.relatedElements.map((related: RelatedElementNode) => related.toJSON()),
     };
   }
 
@@ -124,7 +124,7 @@ export class ModelNode extends Node implements ModelNodeProps {
 
   public bisClass: typeof bk.Model;
   public partitionClass: typeof bk.InformationPartitionElement;
-  public elements: Array<MultiElementNode | ElementNode>;
+  public elements: ElementNode[];
 
   constructor(pc: PConnector, props: ModelNodeProps) {
     super(pc, props);
@@ -187,66 +187,19 @@ export class ModelNode extends Node implements ModelNodeProps {
 
 // ELEMENT
 
-type SupportedElements = typeof bk.DefinitionElement;
 export interface ElementNodeProps extends NodeProps {
-  bisClass: SupportedElements;
+  dmo: ElementDMO;
   parent: ModelNode;
+  category?: ElementNode;
 }
 
 export class ElementNode extends Node {
 
-  public bisClass: SupportedElements;
-  public parent: ModelNode;
-
-  constructor(pc: PConnector, props: ElementNodeProps) {
-    super(pc, props);
-    this.bisClass = props.bisClass;
-    this.parent = props.parent;
-    props.parent.elements.push(this);
-  }
-
-  public async update() {
-    await this._updateElement();
-  }
-
-  protected async _updateElement() {
-    const modelId = this.pc.modelCache[this.parent.key];
-    const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
-    const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: this.key });
-
-    const classFullName = this.bisClass.classFullName;
-    const props: common.ElementProps = {
-      code,
-      federationGuid: this.key,
-      userLabel: this.key,
-      model: modelId,
-      classFullName,
-    };
-
-    const instance = new IRInstance({ pkey: "nodeKey", entityKey: classFullName, data: { nodeKey: this.key } });
-    const { elementId } = this.pc.updateElement(props, instance);
-    this.pc.elementCache[this.key] = elementId;
-    this.pc.seenIds.add(elementId);
-  }
-
-  public toJSON(): any {
-    return { key: this.key, classFullName: this.bisClass.classFullName };
-  }
-}
-
-export interface MultiElementNodeProps extends NodeProps {
-  dmo: ElementDMO;
-  parent: ModelNode;
-  category?: MultiElementNode;
-}
-
-export class MultiElementNode extends Node {
-
   public dmo: ElementDMO;
   public parent: ModelNode;
-  public category?: MultiElementNode | undefined;
+  public category?: ElementNode | undefined;
 
-  constructor(pc: PConnector, props: MultiElementNodeProps) {
+  constructor(pc: PConnector, props: ElementNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.category = props.category;
@@ -257,10 +210,10 @@ export class MultiElementNode extends Node {
   }
 
   public async update() {
-    await this._updateMultiElement();
+    await this._updateElements();
   }
 
-  protected async _updateMultiElement() {
+  protected async _updateElements() {
     const instances = this.pc.irModel.getEntityInstances(this.dmo);
     for (const instance of instances) {
       const modelId = this.pc.modelCache[this.parent.key];
@@ -298,19 +251,19 @@ export class MultiElementNode extends Node {
 
 // RELATIONSHIP
 
-export interface MultiRelationshipNodeProps extends NodeProps {
+export interface RelationshipNodeProps extends NodeProps {
   dmo: RelationshipDMO;
-  source: MultiElementNode;
-  target?: MultiElementNode;
+  source: ElementNode;
+  target?: ElementNode;
 }
 
-export class MultiRelationshipNode extends Node {
+export class RelationshipNode extends Node {
 
   public dmo: RelationshipDMO;
-  public source: MultiElementNode;
-  public target?: MultiElementNode | undefined;
+  public source: ElementNode;
+  public target?: ElementNode | undefined;
 
-  constructor(pc: PConnector, props: MultiRelationshipNodeProps) {
+  constructor(pc: PConnector, props: RelationshipNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.source = props.source;
@@ -321,10 +274,10 @@ export class MultiRelationshipNode extends Node {
   }
 
   public async update() {
-    await this._updateMultiRelationship();
+    await this._updateRelationships();
   }
 
-  protected async _updateMultiRelationship() {
+  protected async _updateRelationships() {
     const instances = this.pc.irModel.getRelInstances(this.dmo);
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
@@ -351,19 +304,19 @@ export class MultiRelationshipNode extends Node {
 
 // RELATED ELEMENT
 
-export interface MultiRelatedElementNodeProps extends NodeProps {
+export interface RelatedElementNodeProps extends NodeProps {
   dmo: RelatedElementDMO;
-  source: MultiElementNode;
-  target?: MultiElementNode;
+  source: ElementNode;
+  target?: ElementNode;
 }
 
-export class MultiRelatedElementNode extends Node {
+export class RelatedElementNode extends Node {
 
   public dmo: RelatedElementDMO;
-  public source: MultiElementNode;
-  public target?: MultiElementNode | undefined;
+  public source: ElementNode;
+  public target?: ElementNode | undefined;
 
-  constructor(pc: PConnector, props: MultiRelatedElementNodeProps) {
+  constructor(pc: PConnector, props: RelatedElementNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.source = props.source;
@@ -374,10 +327,10 @@ export class MultiRelatedElementNode extends Node {
   }
 
   public async update() {
-    await this._updateMultiRelatedElement();
+    await this._updateRelatedElements();
   }
 
-  protected async _updateMultiRelatedElement() {
+  protected async _updateRelatedElements() {
     const instances = this.pc.irModel.getRelInstances(this.dmo);
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);

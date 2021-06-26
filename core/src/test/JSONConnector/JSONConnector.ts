@@ -36,33 +36,33 @@ export class JSONConnector extends pcf.PConnector {
     const grpModel = new pcf.ModelNode(this, { key: "GroupModel1", bisClass: bk.GroupModel, partitionClass: bk.GroupInformationPartition });
     const sptModel = new pcf.ModelNode(this, { key: "SpatialLocationModel1", bisClass: bk.SpatialLocationModel, partitionClass: bk.SpatialLocationPartition });
 
-    const sptCategory = new pcf.MultiElementNode(this, { key: "SpatialCategory1", parent: defModel, dmo: elements.ExtSpatialCategory });
-    const extPhysicalType = new pcf.MultiElementNode(this, { key: "ExtPhysicalType", parent: defModel, dmo: elements.ExtPhysicalType });
-    const space = new pcf.MultiElementNode(this, { key: "ExtSpace", parent: sptModel, dmo: elements.ExtSpace, category: sptCategory });
-    const extPhysicalElement = new pcf.MultiElementNode(this, { key: "ExtPhysicalElement", parent: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
-    const extGroupInformationElement = new pcf.MultiElementNode(this, { key: "ExtGroupInformationElement", parent: grpModel, dmo: elements.ExtGroupInformationElement });
+    const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", parent: defModel, dmo: elements.ExtSpatialCategory });
+    const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", parent: defModel, dmo: elements.ExtPhysicalType });
+    const space = new pcf.ElementNode(this, { key: "ExtSpace", parent: sptModel, dmo: elements.ExtSpace, category: sptCategory });
+    const extPhysicalElement = new pcf.ElementNode(this, { key: "ExtPhysicalElement", parent: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
+    const extGroupInformationElement = new pcf.ElementNode(this, { key: "ExtGroupInformationElement", parent: grpModel, dmo: elements.ExtGroupInformationElement });
 
-    new pcf.MultiRelationshipNode(this, {
+    new pcf.RelationshipNode(this, {
       key: "ExtElementRefersToElements",
       dmo: relationships.ExtElementRefersToElements,
       source: extPhysicalElement,
       target: extPhysicalElement,
     });
 
-    new pcf.MultiRelationshipNode(this, {
+    new pcf.RelationshipNode(this, {
       key: "ExtElementRefersToExistingElements",
       dmo: relationships.ExtElementRefersToExistingElements,
       source: extPhysicalElement,
     });
 
-    new pcf.MultiRelationshipNode(this, {
+    new pcf.RelationshipNode(this, {
       key: "ExtElementGroupMembers",
       dmo: relationships.ExtElementGroupsMembers,
       source: extGroupInformationElement,
       target: extPhysicalElement,
     });
 
-    new pcf.MultiRelatedElementNode(this, {
+    new pcf.RelatedElementNode(this, {
       key: "ExtPhysicalElementAssemblesElements",
       dmo: relatedElements.ExtPhysicalElementAssemblesElements,
       source: extPhysicalElement,

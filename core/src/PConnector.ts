@@ -399,7 +399,7 @@ export abstract class PConnector {
     await this.persistChanges("Updated Project Extents", ChangesType.Regular);
   }
 
-  public async getSourceTargetIdPair(node: pcf.MultiRelatedElementNode | pcf.MultiRelationshipNode, instance: pcf.IRInstance): Promise<string[] | void> {
+  public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<string[] | void> {
 
     let sourceId;
     if (node.dmo.fromType === "IREntity") {
