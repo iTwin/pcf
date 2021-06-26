@@ -166,10 +166,10 @@ export abstract class PConnector {
   }
 
   public async runJob(): Promise<void> {
+    await this._updateJobSubject();
     const srcState = await this._updateRepoLink();
     if (srcState !== ItemState.Unchanged) {
       await this._loadIRModel();
-      await this._updateJobSubject();
       await this._updateDomainSchema();
       await this._updateDynamicSchema();
       await this._updateData();
@@ -185,31 +185,6 @@ export abstract class PConnector {
   }
 
   protected async _updateRepoLink(): Promise<ItemState> {
-    const updateFileConnection = () => {
-      const stats = fs.statSync(connection.filepath);
-      if (!stats)
-        throw new Error(`DataConnection.filepath not found - ${connection}`);
-      const instance = new IRInstance({
-        pkey: "LowerCasedFileBaseName",
-        entityKey: connection.kind,
-        version: stats.mtime.toString(),
-        data: {
-          "LowerCasedFileBaseName": path.basename(connection.filepath).toLowerCase(),
-        },
-      });
-      const modelId = IModel.repositoryModelId;
-      const code = RepositoryLink.createCode(this.db, modelId, instance.codeValue);
-      const existingRepoLink = this.db.elements.tryGetElement(code) as RepositoryLink;
-
-      const repoLink = this.db.elements.createElement({
-        classFullName: RepositoryLink.classFullName,
-        model: modelId,
-        code,
-        userLabel: instance.userLabel,
-      } as RepositoryLinkProps);
-      const { state } = this.updateElement(repoLink, instance);
-      return state;
-    };
 
     if (this.db.isBriefcaseDb())
       await this.enterRepoChannel();
@@ -218,15 +193,35 @@ export abstract class PConnector {
     const { connection } = this.jobArgs;
     switch(connection.kind) {
       case "pcf_file_connection":
-        repoLinkState = updateFileConnection();
+        const stats = fs.statSync(connection.filepath);
+        if (!stats)
+          throw new Error(`DataConnection.filepath not found - ${connection}`);
+        const instance = new IRInstance({
+          pkey: "LowerCasedFileBaseName",
+          entityKey: connection.kind,
+          version: stats.mtime.toString(),
+          data: {
+            "LowerCasedFileBaseName": path.basename(connection.filepath).toLowerCase(),
+          },
+        });
+        const modelId = IModel.repositoryModelId;
+        const code = RepositoryLink.createCode(this.db, modelId, instance.codeValue);
+        const repoLinkProps = {
+          classFullName: RepositoryLink.classFullName,
+          model: modelId,
+          code,
+          url: instance.codeValue,
+          userLabel: instance.userLabel,
+          repositoryGuid: instance.codeValue,
+        } as RepositoryLinkProps;
+        const { state } = this.updateElement(repoLinkProps, instance);
+        repoLinkState = state;
         break;
       default:
         throw new Error(`${connection.kind} is not supported yet.`);
     }
 
-    if (repoLinkState !== ItemState.Unchanged)
-      await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
-
+    await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
     return repoLinkState;
   }
 

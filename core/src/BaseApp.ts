@@ -1,5 +1,5 @@
-import { BentleyStatus, ClientRequestContext, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
-import { AuthorizedBackendRequestContext, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
+import { BentleyStatus, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
+import { AuthorizedBackendRequestContext, StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@bentley/oidc-signin-tool";
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
@@ -237,6 +237,22 @@ export class BaseApp {
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
     const db = await BriefcaseDb.open(this.authReqContext, openArgs);
     return db;
+  }
+
+  public static repl(dbpath: string) {
+    const readline = require("readline");
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+    const db = StandaloneDb.openFile(dbpath);
+    while (true) {
+      rl.question("$: ", function(input: string) {
+        if (input === "exit")
+          return;
+        utils.getRows(db, input);
+      });
+    }
   }
 }
 
