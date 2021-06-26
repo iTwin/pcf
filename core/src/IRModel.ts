@@ -154,7 +154,7 @@ export interface IRInstanceProps {
 
 type IREntityKey = string;
 type PrimaryKeyValue = string;
-export type IRInstanceCodeValue = `${IREntityKey}-${PrimaryKeyValue}`;
+export type IRInstanceKey = `${IREntityKey}-${PrimaryKeyValue}`;
 
 /*
  * Represents an external object / instance of an external object class.
@@ -175,13 +175,17 @@ export class IRInstance implements IRInstanceProps {
     this.validate();
   }
 
-  public get key(): IRInstanceCodeValue {
+  public static createKey(entityKey: string, pkv: string): IRInstanceKey {
+    return `${entityKey}-${pkv}` as IRInstanceKey;
+  }
+
+  public get key(): IRInstanceKey {
     return this.codeValue;
   }
 
-  public get codeValue(): IRInstanceCodeValue {
+  public get codeValue(): IRInstanceKey {
     const pkv = this.get(this.pkey);
-    return `${this.entityKey}-${pkv}` as IRInstanceCodeValue;
+    return `${this.entityKey}-${pkv}` as IRInstanceKey;
   }
 
   public get userLabel(): string {

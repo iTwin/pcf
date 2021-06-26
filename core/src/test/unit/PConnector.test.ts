@@ -7,7 +7,6 @@ import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import { JSONLoader, SQLiteLoader } from "../../loaders";
 import { PConnector } from "../../PConnector";
-import * as utils from "../../Utils";
 
 describe("Unit Tests", () => {
 

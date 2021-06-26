@@ -40,7 +40,6 @@ export async function verifyIModel(db: IModelDb, qtc: QueryToCount): Promise<Mis
     Logger.logInfo(LogCategory.PCF, `${ecsql} => ${actualCount} rows`);
     if (expectedCount !== actualCount) {
       mismatches.push({ ecsql, expectedCount, actualCount });
-      console.log(rows);
     }
   }
   return mismatches;

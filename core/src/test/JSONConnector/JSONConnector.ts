@@ -25,7 +25,7 @@ export class JSONConnector extends pcf.PConnector {
       appId: "TestConnector",
       appVersion: "1.0.0.0",
       loader: {
-        entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtCategory"],
+        entityKeys: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
         relKeys: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
       }
     });
@@ -36,11 +36,8 @@ export class JSONConnector extends pcf.PConnector {
     const grpModel = new pcf.ModelNode(this, { key: "GroupModel1", bisClass: bk.GroupModel, partitionClass: bk.GroupInformationPartition });
     const sptModel = new pcf.ModelNode(this, { key: "SpatialLocationModel1", bisClass: bk.SpatialLocationModel, partitionClass: bk.SpatialLocationPartition });
 
-    const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", parent: defModel, bisClass: bk.SpatialCategory });
-    const sptCategory2 = new pcf.ElementNode(this,  { key: "SpatialCategory2", parent: defModel, bisClass: bk.SpatialCategory });
-
+    const sptCategory = new pcf.MultiElementNode(this, { key: "SpatialCategory1", parent: defModel, dmo: elements.ExtSpatialCategory });
     const extPhysicalType = new pcf.MultiElementNode(this, { key: "ExtPhysicalType", parent: defModel, dmo: elements.ExtPhysicalType });
-    const drwCategory = new pcf.MultiElementNode(this, { key: "DrawingCategory1", parent: defModel, dmo: elements.ExtCategory });
     const space = new pcf.MultiElementNode(this, { key: "ExtSpace", parent: sptModel, dmo: elements.ExtSpace, category: sptCategory });
     const extPhysicalElement = new pcf.MultiElementNode(this, { key: "ExtPhysicalElement", parent: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
     const extGroupInformationElement = new pcf.MultiElementNode(this, { key: "ExtGroupInformationElement", parent: grpModel, dmo: elements.ExtGroupInformationElement });

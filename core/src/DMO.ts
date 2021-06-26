@@ -30,6 +30,9 @@ export interface ElementDMO extends DMO {
 
   // add custom properties or override the default properties (props) of current EC element. IRInstance contains the external data corresponding to current EC element.
   modifyProps?<T extends ElementProps>(props: T, instance: IRInstance): void;
+
+  // column used to identify the category of an IR instance 
+  categoryAttr?: string;
 }
 
 interface BaseRelationshipDMO extends DMO {

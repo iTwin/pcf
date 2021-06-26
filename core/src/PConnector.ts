@@ -4,7 +4,7 @@ import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, RepositoryLinkProps, ElementProps, SubjectProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
-import { IRInstanceCodeValue } from "./IRModel";
+import { IRInstanceKey } from "./IRModel";
 import { Loader, LoaderConfig } from "./loaders";
 import * as utils from "./Utils";
 import * as pcf from "./pcf";
@@ -166,9 +166,9 @@ export abstract class PConnector {
   }
 
   public async runJob(): Promise<void> {
-    await this._updateJobSubject();
     const srcState = await this._updateRepoLink();
     if (srcState !== ItemState.Unchanged) {
+      await this._updateJobSubject();
       await this._loadIRModel();
       await this._updateDomainSchema();
       await this._updateDynamicSchema();
@@ -198,7 +198,7 @@ export abstract class PConnector {
           throw new Error(`DataConnection.filepath not found - ${connection}`);
         const instance = new IRInstance({
           pkey: "LowerCasedFileBaseName",
-          entityKey: connection.kind,
+          entityKey: "DocumentWithBeGuid",
           version: stats.mtime.toString(),
           data: {
             "LowerCasedFileBaseName": path.basename(connection.filepath).toLowerCase(),
@@ -210,9 +210,7 @@ export abstract class PConnector {
           classFullName: RepositoryLink.classFullName,
           model: modelId,
           code,
-          url: instance.codeValue,
           userLabel: instance.userLabel,
-          repositoryGuid: instance.codeValue,
         } as RepositoryLinkProps;
         const { state } = this.updateElement(repoLinkProps, instance);
         repoLinkState = state;
@@ -438,8 +436,8 @@ export abstract class PConnector {
     return [sourceId, targetId];
   }
 
-  public getCode(entityName: string, modelId: Id64String, value: string): Code {
-    const codeValue = `${entityName}-${value}` as IRInstanceCodeValue;
+  public getCode(entityKey: string, modelId: Id64String, value: string): Code {
+    const codeValue = `${entityKey}-${value}` as IRInstanceKey;
     return new Code({spec: this.defaultCodeSpec.id, scope: modelId, value: codeValue});
   }
 

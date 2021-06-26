@@ -237,14 +237,14 @@ export class ElementNode extends Node {
 export interface MultiElementNodeProps extends NodeProps {
   dmo: ElementDMO;
   parent: ModelNode;
-  category?: ElementNode;
+  category?: MultiElementNode;
 }
 
 export class MultiElementNode extends Node {
 
   public dmo: ElementDMO;
   public parent: ModelNode;
-  public category?: ElementNode | undefined;
+  public category?: MultiElementNode | undefined;
 
   constructor(pc: PConnector, props: MultiElementNodeProps) {
     super(pc, props);
@@ -264,27 +264,29 @@ export class MultiElementNode extends Node {
     const instances = this.pc.irModel.getEntityInstances(this.dmo);
     for (const instance of instances) {
       const modelId = this.pc.modelCache[this.parent.key];
-      const categoryId = this.category ? this.pc.elementCache[this.category.key] : undefined;
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
       const props: common.ElementProps = {
         code,
-        federationGuid: instance.codeValue,
+        federationGuid: instance.key,
         userLabel: instance.userLabel,
         model: modelId,
         classFullName: this.dmo.classFullName,
         jsonProperties: instance.data,
       };
 
-      if (categoryId)
+      if (this.category && this.dmo.categoryAttr) {
+        const instanceKey = IRInstance.createKey(this.category.dmo.entity, instance.get(this.dmo.categoryAttr));
+        const categoryId = this.pc.elementCache[instanceKey];
         (props as any).category = categoryId;
+      }
 
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
       const { elementId } = this.pc.updateElement(props, instance);
-      this.pc.elementCache[instance.codeValue] = elementId;
+      this.pc.elementCache[instance.key] = elementId;
       this.pc.seenIds.add(elementId);
     }
   }

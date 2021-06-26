@@ -10,7 +10,6 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BisCore:PhysicalModel": 2,
     "select * from BisCore:GroupInformationModel": 1,
     "select * from BisCore:SpatialCategory": 2,
-    "select * from BisCore:DrawingCategory": 2,
     "select * from TestSchema:ExtPhysicalType": 2,
     "select * from TestSchema:ExtPhysicalElement": 3,
     "select * from TestSchema:ExtPhysicalElement where RoomNumber=\'1\'": 1,
@@ -32,7 +31,6 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BisCore:PhysicalModel": 2,
     "select * from BisCore:GroupInformationModel": 1,
     "select * from BisCore:SpatialCategory": 1,                       // -1 (from v1)
-    "select * from BisCore:DrawingCategory": 1,                       // -1 (from v1)
     "select * from TestSchema:ExtPhysicalType": 3,                    // +1 (from v1)
     "select * from TestSchema:ExtPhysicalElement": 3,                 // -1+1 (from v1)
     "select * from TestSchema:ExtGroupInformationElement": 1,         // -1 (from v1)

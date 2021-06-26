@@ -4,9 +4,6 @@ import * as pcf from "../../pcf";
 const connectorV2 = (() => {
   const connector = require("./JSONConnector").default();
   connector.tree.models.forEach((model: pcf.ModelNode) => {
-    // delete a category manually
-    model.elements = model.elements.filter((node: pcf.Node) => node.key !== "SpatialCategory2")
-
     // add a new dynamic property
     model.elements.forEach((elementNode: pcf.Node) => {
       if (elementNode.key === "ExtPhysicalElement") {
