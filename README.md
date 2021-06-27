@@ -44,15 +44,14 @@ Sometimes you may want to define and update your own schema (called "dynamic sch
 
 # Constructs
 
-You will interact with **at most** four pcf constructs:
+You will interact with mostly three pcf constructs:
 
 
 | Name          | Definition                                                                                                   |
 |-------------- | -------------------------------------------------------------------------------------------------------------|
-|**PConnector** | A high-customizable [iModel Connector](https://www.itwinjs.org/learning/imodel-connectors/?term=connector) that synchronizes data based on configurations. | 
-|**Loader**     | A Loader allows read from a data format. It essentially converts the source data format to the IR Model (intermediate representation model) to be consumed by **PConnector**. |
-|**DMO**        | A DMO (Dynamic Mapping Object) defines the mapping between the source schema and the EC schema. |
-|**Node**       | A Node represents a unit of synchronization. An iModel is synchronized based on user-defined Nodes and linkages between them. A Node either have a "bisClass" or "dmo" property - Nodes with "dmo" could populate more than one EC Instance (= # of external instances) while Nodes with "bisClass" populate exactly one. |
+|**Loader**     | A Loader allows read from a data format. It converts the source data format to an IR Model (intermediate representation model). You can use an existing Loader or write your own. |
+|**DMO**        | A DMO (Dynamic Mapping Object) defines the mappings between the IR Model and the EC schema. |
+|**Node**       | A Node represents a unit of synchronization and uses DMO. An iModel is synchronized based on user-defined Nodes and linkages between them. |
 
 
 # Getting started
@@ -81,8 +80,8 @@ Currently, all the documentations and API references of this project are embedde
 # What you should know
 
 * Nodes
-    * The following Entities cannot be deleted from your iModel once created: Partitions, Models.
-    * A new Model would be created if you have modified the key of ModelNode.
+    * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
+    * A new Subject/Model would be created if you have modified the key of Subject/ModelNode.
 * Dynamic Schema
     * Only Primitive EC Properties can be added to DMO.classProps.
     * EC Properties defined in DMO.classProps can only be added, not deleted.
@@ -90,8 +89,6 @@ Currently, all the documentations and API references of this project are embedde
     * Currently supported loaders: JSON, XLSX, SQLite Loader.
 * Codes
     * Neither itwin-connector-framework nor pcf support Code reuse as of now. (e.g. inserting an element with the same Code as previously deleted element will fail)
-* itwin-connector-framework integration 
-    * pcf uses itwin-connector-framework under the hood. "fwk" folder is copied from [itwin-connector-framework](https://github.com/imodeljs/imodeljs/tree/master/core/imodel-bridge/src) with a few modifications.
 * "Too Many Requests"
     * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing. 
 
