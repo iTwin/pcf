@@ -77,7 +77,7 @@ export class HubArgs implements HubArgsProps {
   public iModelId: Id64String;
   // you may obtain client configurations from https://developer.bentley.com by creating a SPA app
   public clientConfig: NativeAppAuthorizationConfiguration;
-  // do not override this value if you're not a Bentley developer.
+  // do not override this value in production
   public env: Environment = Environment.Prod;
 
   public updateDbProfile: boolean = false;
