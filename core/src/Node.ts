@@ -224,12 +224,12 @@ export class ElementNode extends Node {
         federationGuid: instance.key,
         userLabel: instance.userLabel,
         model: modelId,
-        classFullName: this.dmo.classFullName,
+        classFullName: this.dmo.ecEntity,
         jsonProperties: instance.data,
       };
 
       if (this.category && this.dmo.categoryAttr) {
-        const instanceKey = IRInstance.createKey(this.category.dmo.entity, instance.get(this.dmo.categoryAttr));
+        const instanceKey = IRInstance.createKey(this.category.dmo.irEntity, instance.get(this.dmo.categoryAttr));
         const categoryId = this.pc.elementCache[instanceKey];
         (props as any).category = categoryId;
       }
@@ -284,11 +284,11 @@ export class RelationshipNode extends Node {
         continue;
 
       const [sourceId, targetId] = pair;
-      const existing = this.pc.db.relationships.tryGetInstance(this.dmo.classFullName, { sourceId, targetId });
+      const existing = this.pc.db.relationships.tryGetInstance(this.dmo.ecEntity, { sourceId, targetId });
       if (existing)
         continue;
 
-      const props: common.RelationshipProps = { sourceId, targetId, classFullName: this.dmo.classFullName };
+      const props: common.RelationshipProps = { sourceId, targetId, classFullName: this.dmo.ecEntity };
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
@@ -338,7 +338,7 @@ export class RelatedElementNode extends Node {
 
       const [sourceId, targetId] = pair;
       const targetElement = this.pc.db.elements.getElement(targetId);
-      const props: common.RelatedElementProps = { id: sourceId, relClassName: this.dmo.classFullName };
+      const props: common.RelatedElementProps = { id: sourceId, relClassName: this.dmo.ecEntity };
 
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);

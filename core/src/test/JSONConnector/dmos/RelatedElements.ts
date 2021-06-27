@@ -4,12 +4,12 @@ import * as pcf from "../../../pcf";
 import * as elements from "./Elements";
 
 export const ExtPhysicalElementAssemblesElements: pcf.RelatedElementDMO = {
-    entity: "ExtPhysicalElementAssemblesElements",
+    irEntity: "ExtPhysicalElementAssemblesElements",
     fromAttr: "ExtPhysicalElementKey1",
     fromType: "IREntity",
     toAttr: "ExtPhysicalElementKey2",
     toType: "IREntity",
-    classFullName: "TestSchema:ExtPhysicalElementAssemblesElements",
+    ecEntity: "TestSchema:ExtPhysicalElementAssemblesElements",
     relatedPropName: "parent",
     classProps: {
         name: "ExtPhysicalElementAssemblesElements",
@@ -21,14 +21,14 @@ export const ExtPhysicalElementAssemblesElements: pcf.RelatedElementDMO = {
             multiplicity: "(0..1)",
             roleLabel: "assmbles",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.classFullName],
+            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
         },
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
             roleLabel: "is assembled by",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.classFullName],
+            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
         },
     },
 };

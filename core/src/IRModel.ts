@@ -25,26 +25,26 @@ export class IRModel {
   }
 
   public getEntityInstances(dmo: ElementDMO): IRInstance[] {
-    if (!(dmo.entity in this.entityMap))
+    if (!(dmo.irEntity in this.entityMap))
       return [];
-    let instances = this.entityMap[dmo.entity].instances;
+    let instances = this.entityMap[dmo.irEntity].instances;
     if (typeof dmo.doSyncInstance === "function")
       instances = instances.filter(dmo.doSyncInstance);
     return instances;
   }
 
   public getRelInstances(dmo: RelationshipDMO | RelatedElementDMO): IRInstance[] {
-    if (!(dmo.entity in this.relMap))
+    if (!(dmo.irEntity in this.relMap))
       return [];
-    let instances = this.relMap[dmo.entity].instances;
+    let instances = this.relMap[dmo.irEntity].instances;
     if (typeof dmo.doSyncInstance === "function")
       instances = instances.filter(dmo.doSyncInstance);
     return instances;
   }
 
   public getAttributes(dmo: DMO): IRAttribute[] {
-    if (dmo.entity in this.entityMap)
-      return this.entityMap[dmo.entity].attributes;
+    if (dmo.irEntity in this.entityMap)
+      return this.entityMap[dmo.irEntity].attributes;
     return [];
   }
 

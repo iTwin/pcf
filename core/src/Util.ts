@@ -37,10 +37,8 @@ export async function verifyIModel(db: IModelDb, qtc: QueryToCount): Promise<Mis
     const expectedCount = qtc[ecsql];
     const rows = await getRows(db, ecsql);
     const actualCount = rows.length;
-    Logger.logInfo(LogCategory.PCF, `${ecsql} => ${actualCount} rows`);
-    if (expectedCount !== actualCount) {
+    if (expectedCount !== actualCount)
       mismatches.push({ ecsql, expectedCount, actualCount });
-    }
   }
   return mismatches;
 }
@@ -65,7 +63,7 @@ export async function searchElement(db: IModelDb, searchKey: string): Promise<Se
       searchObj[k.toLowerCase()] = obj[k];
     }
   } catch(err) {
-    return { error: `Failed to parse searchKey. Invalid syntax.` };
+    return { error: `Failed to parse SearchKey. Invalid syntax.` };
   }
 
   const table = "ecclassid" in searchObj ? searchObj.ecclassid : "bis.element";
@@ -88,13 +86,13 @@ export async function searchElement(db: IModelDb, searchKey: string): Promise<Se
   try {
     rows = await getRows(db, ecsql);
   } catch (err) {
-    return { error: `At least one of the specified properties in SearchKey is unrecognized.`, ecsql };
+    return { error: `At least one of the properties defined in SearchKey is unrecognized.`, ecsql };
   }
 
   if (rows.length === 0)
-    return { error: "No target element found.", ecsql };
+    return { error: "No target EC entity found.", ecsql };
   if (rows.length > 1)
-    return { error: "More than one target element found", ecsql };
+    return { error: "More than one entity found. You should define a stricter rule in SearchKey to uniquely identify an EC target entity.", ecsql };
 
   return { elementId: rows[0].id, ecsql };
 }

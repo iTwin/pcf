@@ -3,8 +3,8 @@ import { GroupInformationElement, PhysicalElement, PhysicalType } from "@bentley
 import * as pcf from "../../../pcf";
 
 export const ExtPhysicalElement: pcf.ElementDMO = {
-  entity: "ExtPhysicalElement",
-  classFullName: "TestSchema:ExtPhysicalElement",
+  irEntity: "ExtPhysicalElement",
+  ecEntity: "TestSchema:ExtPhysicalElement",
   classProps: {
     name: "ExtPhysicalElement",
     baseClass: PhysicalElement.classFullName,
@@ -31,8 +31,8 @@ export const ExtPhysicalElement: pcf.ElementDMO = {
 };
 
 export const ExtSpace: pcf.ElementDMO = {
-  entity: "ExtSpace",
-  classFullName: "BuildingSpatial:Space",
+  irEntity: "ExtSpace",
+  ecEntity: "BuildingSpatial:Space",
   modifyProps(props: any, instance: pcf.IRInstance) {
     props.footprintArea = 10;
   },
@@ -40,8 +40,8 @@ export const ExtSpace: pcf.ElementDMO = {
 };
 
 export const ExtGroupInformationElement: pcf.ElementDMO = {
-  entity: "ExtGroupInformationElement",
-  classFullName: "TestSchema:ExtGroupInformationElement",
+  irEntity: "ExtGroupInformationElement",
+  ecEntity: "TestSchema:ExtGroupInformationElement",
   classProps: {
     name: "ExtGroupInformationElement",
     baseClass: GroupInformationElement.classFullName,
@@ -49,8 +49,8 @@ export const ExtGroupInformationElement: pcf.ElementDMO = {
 };
 
 export const ExtPhysicalType: pcf.ElementDMO = {
-  entity: "ExtPhysicalType",
-  classFullName: "TestSchema:ExtPhysicalType",
+  irEntity: "ExtPhysicalType",
+  ecEntity: "TestSchema:ExtPhysicalType",
   classProps: {
     name: "ExtPhysicalType",
     baseClass: PhysicalType.classFullName,
@@ -58,7 +58,7 @@ export const ExtPhysicalType: pcf.ElementDMO = {
 };
 
 export const ExtSpatialCategory: pcf.ElementDMO = {
-  entity: "ExtSpatialCategory",
-  classFullName: "BisCore:SpatialCategory",
+  irEntity: "ExtSpatialCategory",
+  ecEntity: "BisCore:SpatialCategory",
 };
 

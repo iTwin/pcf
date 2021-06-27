@@ -165,16 +165,18 @@ export abstract class PConnector {
   }
 
   public async runJob(): Promise<void> {
+    Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
     const srcState = await this._updateRepoLink();
+    await this._loadIRModel();
+    await this._updateSubject();
+    await this._updateDomainSchema();
+    await this._updateDynamicSchema();
     if (srcState !== ItemState.Unchanged) {
-      await this._updateSubject();
-      await this._loadIRModel();
-      await this._updateDomainSchema();
-      await this._updateDynamicSchema();
       await this._updateData();
       await this._updateDeletedElements();
       await this._updateProjectExtents();
     }
+    Logger.logInfo(LogCategory.PCF, "Your Connector Job has finished");
   }
 
   public async save() {
@@ -189,12 +191,12 @@ export abstract class PConnector {
 
     let repoLinkState;
     const con = this.jobArgs.connection;
+    const { sourceKey, format } = this.loader.props;
     switch(con.kind) {
       case "pcf_file_connection":
         const stats = fs.statSync(con.filepath);
         if (!stats)
           throw new Error(`DataConnection.filepath not found - ${con}`);
-        const { sourceKey, format } = this.loader.props;
         const instance = new IRInstance({
           pkey: "sourceKey",
           entityKey: "DocumentWithBeGuid",
@@ -219,7 +221,14 @@ export abstract class PConnector {
         throw new Error(`${con.kind} is not supported yet.`);
     }
 
-    await this.persistChanges("Repository Link Update", ChangesType.GlobalProperties);
+    if (repoLinkState === ItemState.New)
+      await this.persistChanges(`Inserted a Repository Link - ${sourceKey}`, ChangesType.GlobalProperties);
+    else if (repoLinkState === ItemState.Changed)
+      await this.persistChanges(`Updated a Repository Link - ${sourceKey}`, ChangesType.GlobalProperties);
+    else
+      await this.persistChanges("No Changes to Repository Link", ChangesType.GlobalProperties);
+    
+    Logger.logInfo(LogCategory.PCF, `Repository Link ${sourceKey} state: ${ItemState[repoLinkState]}`);
     return repoLinkState;
   }
 
@@ -266,9 +275,8 @@ export abstract class PConnector {
     const code = Subject.createCode(this.db, IModel.rootSubjectId, subjectName);
     const existingSubId = this.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
-      const existingSub = this.db.elements.tryGetElement<Subject>(existingSubId);
-      if (existingSub)
-        this._subject = existingSub;
+      this._subject = this.db.elements.getElement<Subject>(existingSubId);
+      Logger.logInfo(LogCategory.PCF, `Found an existing subject ${subjectName}`);
       return;
     }
 
@@ -298,7 +306,7 @@ export abstract class PConnector {
     const newSubId = this.db.elements.insertElement(subProps);
     this._subject = this.db.elements.getElement<Subject>(newSubId);
 
-    await this.persistChanges("Inserted Connector Job Subject", ChangesType.GlobalProperties);
+    await this.persistChanges(`Inserted a New Subject - ${subjectName}`, ChangesType.GlobalProperties);
   }
 
   protected async _updateDomainSchema(): Promise<any> {
@@ -318,13 +326,14 @@ export abstract class PConnector {
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
-    if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
-
     const dmoMap = this.tree.buildDMOMap();
     const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
 
     if (shouldGenerateSchema) {
+
+      if (this.db.isBriefcaseDb())
+        await this.enterRepoChannel();
+
       if (!this.config.dynamicSchema)
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
 
@@ -340,6 +349,8 @@ export abstract class PConnector {
         await this.persistChanges("Added a Dynamic Schema", ChangesType.Schema);
       else if (schemaState === ItemState.Changed)
         await this.persistChanges("Updated Existing Dynamic Schema", ChangesType.Schema);
+      else 
+        await this.persistChanges("No Changes to Dynamic Schema", ChangesType.Schema);
     }
   }
 
@@ -352,8 +363,13 @@ export abstract class PConnector {
   }
 
   protected async _updateDeletedElements(): Promise<void> {
-    if (!this.jobArgs.enableDelete)
+    if (!this.jobArgs.enableDelete) {
+      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
       return;
+    }
+
+    if (this.db.isBriefcaseDb())
+      await this.enterSubjectChannel();
 
     const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect`;
     const rows = await util.getRows(this.db, ecsql);
@@ -404,7 +420,7 @@ export abstract class PConnector {
     if (node.dmo.fromType === "IREntity") {
       const sourceModelId = this.modelCache[node.source.parent.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
-      const sourceCode = this.getCode(node.source.dmo.entity, sourceModelId, sourceValue);
+      const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     }
 
@@ -412,23 +428,23 @@ export abstract class PConnector {
     if (node.dmo.toType === "IREntity") {
       const targetModelId = this.modelCache[node.target!.parent.key];
       const targetValue = instance.get(node.dmo.toAttr);
-      const targetCode = this.getCode(node.target!.dmo.entity, targetModelId, targetValue);
+      const targetCode = this.getCode(node.target!.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {
       const result = await pcf.searchElement(this.db, instance.data[node.dmo.toAttr]) as pcf.SearchResult;
       if (result.error) {
-        Logger.logWarning(LogCategory.PCF, `Could not find source ID for instance = ${instance.key}\n${result.error}`);
+        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return;
       }
       targetId = result.elementId;
     }
 
     if (!sourceId) {
-      Logger.logWarning(LogCategory.PCF, `Could not find source ID for instance = ${instance.key}`);
+      Logger.logWarning(LogCategory.PCF, `Could not find the source IR entity for relationship instance = ${instance.key}`);
       return;
     }
     if (!targetId) {
-      Logger.logWarning(LogCategory.PCF, `Could not find target ID for instance = ${instance.key}`);
+      Logger.logWarning(LogCategory.PCF, `Could not find target IR entity for relationship instance = ${instance.key}`);
       return;
     }
 
@@ -473,18 +489,21 @@ export abstract class PConnector {
     } else {
       this.db.saveChanges(comment);
     }
+    Logger.logInfo(LogCategory.PCF, comment);
   }
 
   public async enterSubjectChannel() {
     await util.retryLoop(async () => {
       await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, this.subject.id);
     });
+    Logger.logInfo(LogCategory.PCF, "Entered subject channel");
   }
 
   public async enterRepoChannel() {
     await util.retryLoop(async () => {
       await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, IModelDb.repositoryModelId);
     });
+    Logger.logInfo(LogCategory.PCF, "Entered repository channel");
   }
 
   public static async enterChannel(db: BriefcaseDb, authReqContext: AuthorizedClientRequestContext, rootId: Id64String) {

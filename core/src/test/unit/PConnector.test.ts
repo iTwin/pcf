@@ -10,6 +10,8 @@ import { PConnector } from "../../PConnector";
 
 describe("Unit Tests", () => {
 
+  const tempSrcPath = path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json");
+
   const testCases = [
     {
       title: "synchronize StandaloneDb",
@@ -20,7 +22,7 @@ describe("Unit Tests", () => {
           connection: { 
             sourceKey: "sourceKey1", 
             kind: "pcf_file_connection", 
-            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") 
+            filepath: tempSrcPath,
           } 
         },
         { 
@@ -29,14 +31,13 @@ describe("Unit Tests", () => {
           connection: { 
             sourceKey: "sourceKey1", 
             kind: "pcf_file_connection", 
-            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") 
+            filepath: tempSrcPath,
           } 
-        }
+        },
       ]
     },
   ]
 
-  const tempSrcPath = path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json");
   const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath, path.extname(tempSrcPath))}.bim`);
 
   before(async () => {

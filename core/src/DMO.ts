@@ -1,5 +1,5 @@
 import { EntityClassProps, RelationshipClassProps } from "@bentley/ecschema-metadata";
-import { ElementProps, RelatedElementProps, RelationshipProps } from "@bentley/imodeljs-common";
+import { ModelProps, ElementProps, RelatedElementProps, RelationshipProps } from "@bentley/imodeljs-common";
 import { IRInstance } from "./pcf";
 
 export type ClassFullName = `${string}:${string}` | `${string}.${string}`;
@@ -10,10 +10,10 @@ export type ClassFullName = `${string}:${string}` | `${string}.${string}`;
 export interface DMO {
 
   // references the key of an IR Entity which represents an external class (e.g. Excel sheet, database table).
-  entity: string;
+  irEntity: string;
 
-  // dynamic / domain class name (e.g. BisCore:PhysicalElement).
-  classFullName: ClassFullName;
+  // dynamic / domain class full name (e.g. BisCore:PhysicalElement).
+  ecEntity: ClassFullName;
 
   // define a condition to determine if an element should be created from an IR instance.
   // the instance will not be synchronized if false is returned,
@@ -21,11 +21,19 @@ export interface DMO {
 }
 
 /*
+ * Dynamic Mapping Object for EC Model Class
+ */
+export interface ModelDMO extends DMO {
+  modifyProps?<T extends ModelProps>(props: T, instance: IRInstance): void;
+}
+
+/*
  * Dynamic Mapping Object for EC Element Class
  */
 export interface ElementDMO extends DMO {
 
-  // Dynamic Class Properties: must be defined if classFullName references a dynamic class.
+  // Dynamic EC Class Properties: must be defined if classFullName references a dynamic class.
+  // A dynamic schema will be generated if this is defined.
   classProps?: EntityClassProps & { name: string, baseClass: string };
 
   // add custom properties or override the default properties (props) of current EC element. IRInstance contains the external data corresponding to current EC element.
@@ -95,9 +103,9 @@ export interface DMOMap {
 }
 
 function validateDMO(dmo: ElementDMO | RelationshipDMO | RelatedElementDMO) {
-  const [schemaName, className] = dmo.classFullName.split(":");
+  const [schemaName, className] = dmo.ecEntity.split(":");
   if (dmo.classProps && dmo.classProps.name !== className)
-    throw new Error(`${dmo.classFullName}: DMO.classProps.name must be equal to the className defined in DMO.classFullName`);
+    throw new Error(`${dmo.ecEntity}: DMO.classProps.name must be equal to the className defined in DMO.classFullName`);
 }
 
 export function validateElementDMO(dmo: ElementDMO) {

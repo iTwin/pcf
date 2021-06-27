@@ -31,6 +31,15 @@ describe("Integration Tests", () => {
             kind: "pcf_file_connection", 
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") 
           } 
+        },
+        { 
+          sourceFile: "v2.json", 
+          connectorFile: "JSONConnectorV2.js", 
+          connection: { 
+            sourceKey: "sourceKey2", 
+            kind: "pcf_file_connection", 
+            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") 
+          } 
         }
       ]
     },
@@ -40,16 +49,16 @@ describe("Integration Tests", () => {
   const testConnectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCases[0].jobs[0].connectorFile);
   const app = new pcf.IntegrationTestApp({ connectorPath: testConnectorPath, connection: testConnection } as JobArgs);
 
-  beforeEach(async () => {
+  before(async () => {
     await bk.IModelHost.startup();
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
     await app.signin();
   });
 
-  afterEach(async () => {
-    if (app.hubArgs.iModelId !== "")
-      await app.purgeTestBriefcaseDb();
+  after(async () => {
+    // if (app.hubArgs.iModelId !== "")
+    //   await app.purgeTestBriefcaseDb();
     await bk.IModelHost.shutdown();
   });
 

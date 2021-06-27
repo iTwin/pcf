@@ -4,12 +4,12 @@ import * as pcf from "../../../pcf";
 import * as elements from "./Elements";
 
 export const ExtElementRefersToElements: pcf.RelationshipDMO = {
-    entity: "ExtElementRefersToElements",
+    irEntity: "ExtElementRefersToElements",
     fromAttr: "ExtPhysicalElementKey1",
     fromType: "IREntity",
     toAttr: "ExtPhysicalElementKey2",
     toType: "IREntity",
-    classFullName: "TestSchema:ExtElementRefersToElements",
+    ecEntity: "TestSchema:ExtElementRefersToElements",
     classProps: {
         name: "ExtElementRefersToElements",
         baseClass: ElementRefersToElements.classFullName,
@@ -20,25 +20,25 @@ export const ExtElementRefersToElements: pcf.RelationshipDMO = {
             multiplicity: "(0..*)",
             roleLabel: "From ExtPhysicalElementKey",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.classFullName],
+            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
         },
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
             roleLabel: "To ExtPhysicalElementKey",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.classFullName],
+            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
         },
     },
 };
 
 export const ExtElementRefersToExistingElements: pcf.RelationshipDMO = {
-    entity: "ExtElementRefersToExistingElements",
+    irEntity: "ExtElementRefersToExistingElements",
     fromAttr: "ExtPhysicalElementKey",
     fromType: "IREntity",
     toAttr: "ExistingElementSearchKey",
     toType: "ECEntity",
-    classFullName: "TestSchema:ExtElementRefersToExistingElements",
+    ecEntity: "TestSchema:ExtElementRefersToExistingElements",
     classProps: {
         name: "ExtElementRefersToExistingElements",
         baseClass: ElementRefersToElements.classFullName,
@@ -49,7 +49,7 @@ export const ExtElementRefersToExistingElements: pcf.RelationshipDMO = {
             multiplicity: "(0..*)",
             roleLabel: "From ExtPhysicalElementKey",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.classFullName],
+            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
         },
         target: {
             polymorphic: true,
@@ -62,12 +62,12 @@ export const ExtElementRefersToExistingElements: pcf.RelationshipDMO = {
 };
 
 export const ExtElementGroupsMembers: pcf.RelationshipDMO = {
-    entity: "ExtElementGroupsMembers",
+    irEntity: "ExtElementGroupsMembers",
     fromAttr: "ExtGroupInformationElementKey",
     fromType: "IREntity",
     toAttr: "ExtPhysicalElementKey",
     toType: "IREntity",
-    classFullName: "TestSchema:ExtElementGroupsMembers",
+    ecEntity: "TestSchema:ExtElementGroupsMembers",
     classProps: {
         name: "ExtElementGroupsMembers",
         baseClass: ElementGroupsMembers.classFullName,
@@ -78,14 +78,14 @@ export const ExtElementGroupsMembers: pcf.RelationshipDMO = {
             multiplicity: "(0..*)",
             roleLabel: "ExtGroupInformationElement",
             abstractConstraint: GroupInformationElement.classFullName,
-            constraintClasses: [elements.ExtGroupInformationElement.classFullName],
+            constraintClasses: [elements.ExtGroupInformationElement.ecEntity],
         },
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
             roleLabel: "ExtPhysicalElement",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.classFullName],
+            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
         },
     },
 };
