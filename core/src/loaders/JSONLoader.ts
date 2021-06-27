@@ -1,4 +1,4 @@
-import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
+import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { FileConnection, Loader } from "./Loader";
 import * as fs from "fs";
 
@@ -26,11 +26,11 @@ export class JSONLoader extends Loader {
   public async close(): Promise<void> {}
 
   public async getEntities(): Promise<IREntity[]> {
-    return this._getEntities(this.props.entities);
+    return this._getEntities(this.entities);
   }
 
   public async getRelationships(): Promise<IRRelationship[]> {
-    return this._getEntities(this.props.relationships);
+    return this._getEntities(this.relationships);
   }
 
   protected async _getEntities(usedKeys: string[]): Promise<IREntity[]> {
@@ -39,36 +39,11 @@ export class JSONLoader extends Loader {
     for (const key of keys) {
       if (!usedKeys.includes(key))
         continue;
-      const attributes = await this.getAttributes(key);
       const instances = await this.getInstances(key);
-      const entity = new IREntity({ key, attributes, instances });
+      const entity = new IREntity({ key, instances });
       entities.push(entity);
     }
     return entities;
-  }
-
-  public async getAttributes(entityKey: string): Promise<IRAttribute[]> {
-    if (!(entityKey in this.json))
-      throw new Error(`Source data does not have any entity named - ${entityKey}`);
-
-    const objs = this.json[entityKey];
-    const firstObj = objs[0];
-    if (!firstObj)
-      return [];
-
-    const attrs: IRAttribute[] = [];
-    const subkeys = Object.keys(firstObj);
-    for (const subkey of subkeys) {
-      const isPrimary = this.getPKey(entityKey) === subkey ? true : false;
-      const attr = new IRAttribute({
-        key: subkey,
-        entityKey,
-        tsType: typeof firstObj[subkey],
-        isPrimary,
-      });
-      attrs.push(attr);
-    }
-    return attrs;
   }
 
   public async getInstances(entityKey: string): Promise<IRInstance[]> {

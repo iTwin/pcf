@@ -8,8 +8,9 @@ export async function main() {
 
   const jobArgs = new pcf.JobArgs({ 
     connectorPath: path.join(__dirname, "JSONConnector"),
+    subjectKey: "Subject1",
     connection: {
-      sourceKey: "v1",
+      loaderKey: "json-loader-1",
       kind: "pcf_file_connection",
       filepath: path.join(__dirname, "../assets/temp.json"),
     },

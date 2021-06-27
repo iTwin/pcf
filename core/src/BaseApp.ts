@@ -10,46 +10,66 @@ import { DataConnection } from "./loaders";
 import * as path from "path";
 import * as util from "./Util";
 
-// QA and Dev are for Bentley Developer only
 export enum Environment {
   Prod = 0,
+
+  // QA and Dev are for Bentley Developer only
   QA = 102,
   Dev = 103,
 }
 
 export interface JobArgsProps {
+
+  /* 
+   * relative path to compiler connector module (.js)
+   */
   connectorPath: string;
+
+  /*
+   * info needed to connect to source data
+   */
   connection: DataConnection;
-  subjectName?: string;
+
+  /*
+   * subjectName is a unique identifier of a subject element in an iModel.
+   * pcf will synchronize all the data stored under this subject with source file.
+   */
+  subjectKey: string;
+
+  /*
+   * relative path to the directory for storing output files
+   */
   outputDir?: string;
+
+  /*
+   * change log level to debug your connector (rarely needed)
+   */
   logLevel?: LogLevel;
+
+  /* 
+   * allows elements to be deleted if they no longer exist in the source file. (only works for BriefcaseDb)
+   */
   enableDelete?: boolean;
+
+  /*
+   * header of save/push comments.
+   */
   revisionHeader?: string;
 }
 
 export class JobArgs implements JobArgsProps {
-  // relative path to compiler connector module (.js)
   public connectorPath: string;
-  // info needed to connect to source data
   public connection: DataConnection;
-  // connection.filepath is used if undefined.
-  public subjectName: string;
-  // relative path to the directory for storing output files
+  public subjectKey: string;
   public outputDir: string = path.join(__dirname, "output");
-  // change log level to debug your connector (rarely needed)
   public logLevel: LogLevel = LogLevel.None;
-  // allows elements to be deleted if they no longer exist in the source file. (only works for BriefcaseDb)
   public enableDelete: boolean = true;
-  // header of save/push comments.
   public revisionHeader: string = "itwin-pcf";
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
     this.connection = props.connection;
-    if (props.subjectName !== undefined)
-      this.subjectName = props.subjectName;
-    else
-      this.subjectName = props.connection.sourceKey;
+    this.subjectKey = props.subjectKey;
     if (props.outputDir)
       this.outputDir = props.outputDir;
     if (props.logLevel !== undefined)
@@ -64,22 +84,32 @@ export class JobArgs implements JobArgsProps {
 }
 
 export interface HubArgsProps {
+  /*
+   * your project's GUID ID
+   */
   projectId: Id64String;
+
+  /*
+   * your iModel's GUID ID
+   */
   iModelId: Id64String;
+
+  /* 
+   * you may obtain client configurations from https://developer.bentley.com by creating a SPA app
+   */
   clientConfig: NativeAppAuthorizationConfiguration;
+
+  /* 
+   * do not override this value in production
+   */
   env?: Environment;
 }
 
 export class HubArgs implements HubArgsProps {
-  // your project's GUID ID
   public projectId: Id64String;
-  // your iModel's GUID ID
   public iModelId: Id64String;
-  // you may obtain client configurations from https://developer.bentley.com by creating a SPA app
   public clientConfig: NativeAppAuthorizationConfiguration;
-  // do not override this value in production
   public env: Environment = Environment.Prod;
-
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
 

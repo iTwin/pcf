@@ -1,5 +1,5 @@
 import * as hash from "object-hash";
-import { DMO, ElementDMO, RelatedElementDMO, RelationshipDMO } from "./pcf";
+import { ElementDMO, RelatedElementDMO, RelationshipDMO } from "./pcf";
 import { Loader } from "./loaders/Loader";
 
 /*
@@ -42,12 +42,6 @@ export class IRModel {
     return instances;
   }
 
-  public getAttributes(dmo: DMO): IRAttribute[] {
-    if (dmo.irEntity in this.entityMap)
-      return this.entityMap[dmo.irEntity].attributes;
-    return [];
-  }
-
   public static normalized(entity: IREntity): IREntity {
     const m: {[k: string]: IRInstance} = {};
     for (const instance of entity.instances) {
@@ -86,7 +80,6 @@ export class IRModel {
 
 export interface IREntityProps {
   key: string;
-  attributes?: IRAttribute[];
   instances?: IRInstance[];
 }
 
@@ -97,12 +90,10 @@ export interface IREntityProps {
 export class IREntity {
 
   public key: string;
-  public attributes: IRAttribute[];
   public instances: IRInstance[];
 
   constructor(props: IREntityProps) {
     this.key = props.key;
-    this.attributes = props.attributes ?? [];
     this.instances = props.instances ?? [];
   }
 }
@@ -116,31 +107,6 @@ export interface IRRelationshipProps extends IREntityProps {}
 export class IRRelationship extends IREntity {
   constructor(props: IRRelationshipProps) {
     super(props);
-  }
-}
-
-export interface IRAttributeProps {
-  key: string;
-  entityKey: string;
-  tsType: string;
-  isPrimary: boolean;
-}
-
-/*
- * Represents an attribute of an external object class. (e.g. columns of a database table)
- * Corresponds to an EC Property
- */
-export class IRAttribute {
-
-  public key: string;
-  public entityKey: string;
-  public tsType: string;
-  public isPrimary: boolean;
-
-  constructor(props: IRAttributeProps) {
-    this.key = props.key; this.entityKey = props.entityKey;
-    this.tsType = props.tsType;
-    this.isPrimary = props.isPrimary;
   }
 }
 

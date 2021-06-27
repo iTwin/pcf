@@ -1,23 +1,42 @@
+import { Id64String } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
 import * as common from "@bentley/imodeljs-common";
-import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, validateElementDMO, validateRelatedElementDMO, validateRelationshipDMO } from "./pcf";
+import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, validateElementDMO, validateRelatedElementDMO, validateRelationshipDMO, Loader, JobArgs, ItemState } from "./pcf";
 
-export interface TreeProps {
-  models: ModelNode[];
-  relationships: RelationshipNode[];
-  relatedElements: RelatedElementNode[];
-}
-
-export class Tree implements TreeProps {
-
-  public models: ModelNode[];
-  public relationships: RelationshipNode[];
+export class RepoTree {
+  public loaders: Loader[];
+  public subjects: SubjectNode[];
   public relatedElements: RelatedElementNode[];
+  public relationships: RelationshipNode[];
 
   constructor() {
-    this.models = [];
-    this.relationships = [];
+    this.loaders = [];
+    this.subjects = [];
     this.relatedElements = [];
+    this.relationships = [];
+  }
+
+  public validate(jobArgs: JobArgs): void {
+    if (this.subjects.length === 0)
+      throw new Error(`At least one subject node must be defined in your connector class.`);
+    if (this.loaders.length === 0)
+      throw new Error(`At least one loader must be defined in your connector class.`);
+    this.getLoader(jobArgs.connection.loaderKey);
+    this.getSubjectNode(jobArgs.subjectKey);
+  }
+
+  public getLoader(key: string) {
+    const loader = this.loaders.find((loader: Loader) => loader.key === key);
+    if (!loader)
+      throw new Error(`Loader with key "${key}" is not defined in your connector class.`);
+    return loader;
+  }
+
+  public getSubjectNode(key: string) {
+    const subject = this.subjects.find((node: SubjectNode) => node.key === key);
+    if (!subject)
+      throw new Error(`SubjectNode with key "${key}" is not defined in your connector class.`);
+    return subject;
   }
 
   public buildDMOMap(): DMOMap {
@@ -39,10 +58,13 @@ export class Tree implements TreeProps {
   }
 
   public walk(callback: (node: Node) => void) {
-    for (const modelNode of this.models) {
-      callback(modelNode);
-      for (const elementNode of modelNode.elements) {
-        callback(elementNode);
+    for (const subject of this.subjects) {
+      callback(subject);
+      for (const modelNode of subject.models) {
+        callback(modelNode);
+        for (const elementNode of modelNode.elements) {
+          callback(elementNode);
+        }
       }
     }
     for (const relationship of this.relationships) {
@@ -53,36 +75,13 @@ export class Tree implements TreeProps {
     }
   }
 
-  public toJSON(): any {
-    return {
-      modelNodes: this.models.map((model: ModelNode) => model.toJSON()),
+  public toJSON() {
+    return { 
+      subjectNodes: this.subjects.map((subject: SubjectNode) => subject.toJSON()),
+      loaders: this.loaders.map((loader: Loader) => loader.toJSON()),
       relationshipNodes: this.relationships.map((relationship: RelationshipNode) => relationship.toJSON()),
       relatedElementNodes: this.relatedElements.map((related: RelatedElementNode) => related.toJSON()),
     };
-  }
-
-  public async update() {
-    await this._updateModels();
-    await this._updateRelationships();
-    await this._updateRelatedElements();
-  }
-
-  protected async _updateModels() {
-    for (const model of this.models) {
-      await model.update();
-    }
-  }
-
-  protected async _updateRelationships() {
-    for (const relationship of this.relationships) {
-      await relationship.update();
-    }
-  }
-
-  protected async _updateRelatedElements() {
-    for (const relatedElement of this.relatedElements) {
-      await relatedElement.update();
-    }
   }
 }
 
@@ -93,54 +92,108 @@ export interface NodeProps {
   key: string;
 }
 
+export interface UpdateResult {
+  entityId: Id64String;
+  state: ItemState;
+}
+
 export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
-  public parent: Node;
+  public parentNode: Node;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
     this.key = props.key;
-    this.parent = this;
+    this.parentNode = this;
 
     if (props.key in this.pc.nodeMap)
       throw new Error(`${props.key} already exists in NodeMap. Each Node must have a unique key.`);
     this.pc.nodeMap[props.key] = this;
   }
 
-  public abstract update(): void;
+  public abstract update(): Promise<UpdateResult | UpdateResult[]>;
   public abstract toJSON(): any;
+}
+
+// SUBJECT
+
+export interface SubjectNodeProps extends NodeProps {}
+
+export class SubjectNode extends Node implements SubjectNodeProps {
+
+  public models: ModelNode[];
+  public relationships: RelationshipNode[];
+  public relatedElements: RelatedElementNode[];
+
+  constructor(pc: PConnector, props: SubjectNodeProps) {
+    super(pc, props);
+    this.models = [];
+    this.relationships = [];
+    this.relatedElements = [];
+    pc.tree.subjects.push(this);
+  }
+
+  public toJSON(): any {
+    return { modelNodes: this.models.map((model: ModelNode) => model.toJSON()) };
+  }
+
+  public async update() {
+    const subjectName = this.key;
+    const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, subjectName);
+    const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
+    if (existingSubId) {
+      const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
+      this.pc.jobSubject = existingSub;
+      return { entityId: existingSub.id, state: ItemState.Unchanged};
+    }
+
+    const { appVersion, connectorName } = this.pc.config;
+    const jsonProperties = { appVersion, connectorName };
+
+    const root = this.pc.db.elements.getRootSubject();
+    const subProps: common.SubjectProps = {
+      classFullName: bk.Subject.classFullName,
+      model: root.model,
+      code,
+      jsonProperties,
+      parent: new bk.SubjectOwnsSubjects(root.id),
+    };
+
+    const newSubId = this.pc.db.elements.insertElement(subProps);
+    const newSub = this.pc.db.elements.getElement<bk.Subject>(newSubId);
+    this.pc.jobSubject = newSub;
+    return { entityId: newSub.id, state: ItemState.New };
+  }
 }
 
 // MODEL
 
 export interface ModelNodeProps extends NodeProps {
-  bisClass: typeof bk.Model;
+  modelClass: typeof bk.Model;
   partitionClass: typeof bk.InformationPartitionElement;
+  parentNode: SubjectNode;
 }
 
 export class ModelNode extends Node implements ModelNodeProps {
 
-  public bisClass: typeof bk.Model;
+  public modelClass: typeof bk.Model;
   public partitionClass: typeof bk.InformationPartitionElement;
   public elements: ElementNode[];
+  public parentNode: SubjectNode;
 
   constructor(pc: PConnector, props: ModelNodeProps) {
     super(pc, props);
-    this.bisClass = props.bisClass;
+    this.modelClass = props.modelClass;
     this.partitionClass = props.partitionClass;
     this.elements = [];
-    this.pc.tree.models.push(this);
+    this.parentNode = props.parentNode;
+    this.parentNode.models.push(this);
   }
 
   public async update() {
-    await this._updateModel();
-    await this._updateElements();
-  }
-
-  protected async _updateModel() {
-    const codeScope = this.pc.subject.id;
+    const codeScope = this.pc.jobSubject.id;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, codeScope, codeValue);
 
@@ -156,31 +209,29 @@ export class ModelNode extends Node implements ModelNodeProps {
     const existingPartitionId = this.pc.db.elements.queryElementIdByCode(code);
 
     let modelId;
+    let modelState;
 
     if (existingPartitionId) {
       modelId = existingPartitionId;
+      modelState = ItemState.Unchanged;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
       const modelProps: common.ModelProps = {
-        classFullName: this.bisClass.classFullName,
+        classFullName: this.modelClass.classFullName,
         modeledElement: { id: partitionId },
         name: this.key,
       };
       modelId = this.pc.db.models.insertModel(modelProps);
+      modelState = ItemState.New;
     }
 
     this.pc.modelCache[this.key] = modelId;
-  }
-
-  protected async _updateElements() {
-    for (const node of this.elements) {
-      await node.update();
-    }
+    return { entityId: modelId, state: modelState };
   }
 
   public toJSON(): any {
     const elementJSONArray = this.elements.map((element: any) => element.toJSON());
-    return { key: this.key, classFullName: this.bisClass.classFullName, elementNodes: elementJSONArray };
+    return { key: this.key, classFullName: this.modelClass.classFullName, elementNodes: elementJSONArray };
   }
 }
 
@@ -188,34 +239,31 @@ export class ModelNode extends Node implements ModelNodeProps {
 
 export interface ElementNodeProps extends NodeProps {
   dmo: ElementDMO;
-  parent: ModelNode;
+  parentNode: ModelNode;
   category?: ElementNode;
 }
 
 export class ElementNode extends Node {
 
   public dmo: ElementDMO;
-  public parent: ModelNode;
+  public parentNode: ModelNode;
   public category?: ElementNode | undefined;
 
   constructor(pc: PConnector, props: ElementNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.category = props.category;
-    this.parent = props.parent;
+    this.parentNode = props.parentNode;
 
     validateElementDMO(this.dmo);
-    props.parent.elements.push(this);
+    this.parentNode.elements.push(this);
   }
 
   public async update() {
-    await this._updateElements();
-  }
-
-  protected async _updateElements() {
+    const results: UpdateResult[] = [];
     const instances = this.pc.irModel.getEntityInstances(this.dmo);
     for (const instance of instances) {
-      const modelId = this.pc.modelCache[this.parent.key];
+      const modelId = this.pc.modelCache[this.parentNode.key];
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
@@ -237,10 +285,12 @@ export class ElementNode extends Node {
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      const { elementId } = this.pc.updateElement(props, instance);
-      this.pc.elementCache[instance.key] = elementId;
-      this.pc.seenIds.add(elementId);
+      const result = this.pc.updateElement(props, instance);
+      this.pc.elementCache[instance.key] = result.entityId;
+      this.pc.seenIds.add(result.entityId);
+      results.push(result);
     }
+    return results;
   }
 
   public toJSON(): any {
@@ -273,10 +323,7 @@ export class RelationshipNode extends Node {
   }
 
   public async update() {
-    await this._updateRelationships();
-  }
-
-  protected async _updateRelationships() {
+    const results: UpdateResult[] = [];
     const instances = this.pc.irModel.getRelInstances(this.dmo);
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
@@ -292,8 +339,10 @@ export class RelationshipNode extends Node {
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      this.pc.db.relationships.insertInstance(props);
+      const relId = this.pc.db.relationships.insertInstance(props);
+      results.push({ entityId: relId, state: ItemState.New });
     }
+    return results;
   }
 
   public toJSON(): any {
@@ -326,10 +375,7 @@ export class RelatedElementNode extends Node {
   }
 
   public async update() {
-    await this._updateRelatedElements();
-  }
-
-  protected async _updateRelatedElements() {
+    const results: UpdateResult[] = [];
     const instances = this.pc.irModel.getRelInstances(this.dmo);
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
@@ -349,7 +395,9 @@ export class RelatedElementNode extends Node {
 
       (targetElement as any)[this.dmo.relatedPropName] = relatedElement;
       targetElement.update();
+      results.push({ entityId: relatedElement.id, state: ItemState.New });
     }
+    return results;
   }
 
   public toJSON(): any {

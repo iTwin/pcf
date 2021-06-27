@@ -1,11 +1,16 @@
-import { IREntity, IRAttribute, IRInstance, IRRelationship } from "../IRModel";
+import { RepositoryLink } from "@bentley/imodeljs-backend";
+import { IModel, RepositoryLinkProps } from "@bentley/imodeljs-common";
+import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { PConnector } from "../PConnector";
+import { Node, NodeProps, UpdateResult } from "../Node";
+import * as fs from "fs";
 
 export interface BaseConnection {
   /*
-   * sourceKey is a unique identifier of a single data source (RepositoryLink) in an iModel.
+   * loaderKey is a unique identifier of a Repository Link element in an iModel.
+   * pcf will synchronize all the data stored under this subject with source file.
    */
-  sourceKey: string;
+  loaderKey: string;
 }
 
 export interface FileConnection {
@@ -26,13 +31,7 @@ export type DataConnection = BaseConnection & (FileConnection);
 /*
  * Defined by users. A Loader fetches data according to this object.
  */
-export interface LoaderProps {
-
-  /*
-   * The identifier of the source file (RepositoryLink) used in iModel. 
-   * Modifying this value would cause the old RepositoryLink to be deleted and a new one would be created.
-   */
-  sourceKey: string;
+export interface LoaderProps extends NodeProps {
 
   /*
    * The format of the source file used in iModel.
@@ -67,13 +66,23 @@ export type LoaderClass = new (pc: PConnector, props: LoaderProps) => Loader;
  * A Loader converts a data format into an IR Model to be consumed by PConnector while pertaining data integrity.
  * Each PConnector instance needs a Loader to access a specific end data source.
  */
-export abstract class Loader {
+export abstract class Loader extends Node implements LoaderProps {
 
-  public props: LoaderProps;
+  public format: string;
+  public entities: string[];
+  public relationships: string[];
+  public primaryKeyMap: {[entityKey: string]: string}; 
+  public defaultPrimaryKey: string = "id";
 
   constructor(pc: PConnector, props: LoaderProps) {
-    this.props = props;
-    pc.loader = this;
+    super(pc, props);
+    this.format = props.format;
+    this.entities = props.entities;
+    this.relationships = props.relationships;
+    this.primaryKeyMap = props.primaryKeyMap ?? {};
+    if (props.defaultPrimaryKey)
+      this.defaultPrimaryKey = props.defaultPrimaryKey;
+    pc.tree.loaders.push(this);
   }
 
   /*
@@ -92,9 +101,9 @@ export abstract class Loader {
   public abstract getEntities(): Promise<IREntity[]>;
 
   /*
-   * Returns all the attributes of an entity (e.g. headers in xlsx, tables in database)
+   * Returns all relationship instances (e.g. the rows of link tables)
    */
-  public abstract getAttributes(entityKey: string): Promise<IRAttribute[]>;
+  public abstract getRelationships(): Promise<IRRelationship[]>;
 
   /*
    * Returns all non-relationship instances (e.g. the rows of non-link tables)
@@ -102,18 +111,52 @@ export abstract class Loader {
   public abstract getInstances(entityKey: string): Promise<IRInstance[]>;
 
   /*
-   * Returns all relationship instances (e.g. the rows of link tables)
-   */
-  public abstract getRelationships(): Promise<IRRelationship[]>;
-
-  /*
    * Returns the primary key of an entity. Data integrity may be compromised if primary key is neglected.
    */
   public getPKey(entityKey: string): string {
-    if (this.props.primaryKeyMap && entityKey in this.props.primaryKeyMap)
-      return this.props.primaryKeyMap[entityKey];
-    if (this.props.defaultPrimaryKey)
-      return this.props.defaultPrimaryKey;
-    return "id";
+    if (this.primaryKeyMap && entityKey in this.primaryKeyMap)
+      return this.primaryKeyMap[entityKey];
+    if (this.defaultPrimaryKey)
+      return this.defaultPrimaryKey;
+    return this.defaultPrimaryKey
   };
+
+  public toJSON() {
+    const { key, format, entities, relationships, primaryKeyMap, defaultPrimaryKey } = this;
+    return { key, format, entities, relationships, primaryKeyMap, defaultPrimaryKey };
+  }
+
+  public async update() {
+    let result: UpdateResult;
+    const con = this.pc.jobArgs.connection;
+    switch(con.kind) {
+      case "pcf_file_connection":
+        const stats = fs.statSync(con.filepath);
+        if (!stats)
+          throw new Error(`DataConnection.filepath not found - ${con}`);
+        const instance = new IRInstance({
+          pkey: "key",
+          entityKey: "DocumentWithBeGuid",
+          version: stats.mtime.toString(),
+          data: this.toJSON(),
+        });
+        const modelId = IModel.repositoryModelId;
+        const code = RepositoryLink.createCode(this.pc.db, modelId, this.key);
+        const repoLinkProps = {
+          classFullName: RepositoryLink.classFullName,
+          model: modelId,
+          code,
+          userLabel: this.key,
+          format: this.format,
+        } as RepositoryLinkProps;
+        result = this.pc.updateElement(repoLinkProps, instance);
+        this.pc.elementCache[instance.key] = result.entityId;
+        this.pc.seenIds.add(result.entityId);
+        this.pc.srcState = result.state;
+        break;
+      default:
+        throw new Error(`${con.kind} is not supported yet.`);
+    }
+    return result;
+  }
 }

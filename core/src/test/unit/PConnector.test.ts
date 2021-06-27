@@ -19,8 +19,9 @@ describe("Unit Tests", () => {
         { 
           sourceFile: "v1.json", 
           connectorFile: "JSONConnector.js", 
+          subjectKey: "Subject1", 
           connection: { 
-            sourceKey: "sourceKey1", 
+            loaderKey: "json-loader-1",
             kind: "pcf_file_connection", 
             filepath: tempSrcPath,
           } 
@@ -28,8 +29,9 @@ describe("Unit Tests", () => {
         { 
           sourceFile: "v2.json", 
           connectorFile: "JSONConnectorV2.js", 
+          subjectKey: "Subject1", 
           connection: { 
-            sourceKey: "sourceKey1", 
+            loaderKey: "json-loader-1",
             kind: "pcf_file_connection", 
             filepath: tempSrcPath,
           } 
@@ -64,14 +66,14 @@ describe("Unit Tests", () => {
       bk.StandaloneDb.createEmpty(targetPath, { rootSubject: { name: "TestRootSubject" } }).close();
 
       for (const job of testCase.jobs) {
-        const { sourceFile, connection, connectorFile } = job;
+        const { subjectKey, sourceFile, connection, connectorFile } = job;
         const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, connectorFile);
 
         const sourcePath = path.join(KnownTestLocations.testAssetsDir, sourceFile);
         bk.IModelJsFs.copySync(sourcePath, tempSrcPath, { overwrite: true });
 
         const db = bk.StandaloneDb.openFile(targetPath);
-        const jobArgs = new pcf.JobArgs({ connectorPath, connection } as pcf.JobArgsProps);
+        const jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
         const connector: PConnector = require(jobArgs.connectorPath).default();
         connector.init({ db, jobArgs });
         await connector.runJob();
@@ -91,16 +93,24 @@ describe("Unit Tests", () => {
   it("Loader Tests", async () => {
     const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js");
     const connector: PConnector = require(connectorPath).default();
+    
+    const props = {
+      key: "loader1",
+      format: "json",
+      entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
+      relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
+    };
 
-    connector.loader = new JSONLoader(connector, connector.loader.props);
-    await connector.loader.open({ sourceKey: "json", kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")});
-    const modelFromJSON = await pcf.IRModel.fromLoader(connector.loader);
-    await connector.loader.close();
+    const jsonLoader = new JSONLoader(connector, props);
+    await jsonLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")});
+    const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
+    await jsonLoader.close();
 
-    connector.loader = new SQLiteLoader(connector, connector.loader.props);
-    await connector.loader.open({ sourceKey: "sqlite", kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")});
-    const modelFromSQLite = await pcf.IRModel.fromLoader(connector.loader);
-    await connector.loader.close();
+    props.key = "loader2";
+    const sqliteLoader = new SQLiteLoader(connector, props);
+    await sqliteLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")});
+    const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
+    await sqliteLoader.close();
 
     if (!pcf.IRModel.compare(modelFromJSON, modelFromSQLite))
       chai.assert.fail("IR Model from JSON != IR Model from SQLite");

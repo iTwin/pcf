@@ -3,7 +3,8 @@ import * as pcf from "../../pcf";
 
 const connectorV2 = (() => {
   const connector = require("./JSONConnector").default();
-  connector.tree.models.forEach((model: pcf.ModelNode) => {
+  const subjectNode = connector.tree.getSubjectNode("Subject1");
+  subjectNode.models.forEach((model: pcf.ModelNode) => {
     // add a new dynamic property
     model.elements.forEach((elementNode: pcf.Node) => {
       if (elementNode.key === "ExtPhysicalElement") {
@@ -17,9 +18,6 @@ const connectorV2 = (() => {
       }
     });
   });
-
-  connector.loader.props.sourceKey = "sourceKey1";
-
   return connector;
 })();
 

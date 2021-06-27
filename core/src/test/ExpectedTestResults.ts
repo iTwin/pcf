@@ -6,8 +6,8 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BisCore:Subject": 2,
     // RepoLink
     "select * from BisCore:RepositoryLink": 1,
-    "select * from BisCore:RepositoryLink where codeValue=\'sourceKey1\'": 1,
-    "select * from BisCore:ExternalSourceAspect where identifier=\'sourceKey1\'": 1,
+    "select * from BisCore:RepositoryLink where codeValue=\'json-loader-1\'": 1,
+    "select * from BisCore:ExternalSourceAspect where identifier=\'json-loader-1\'": 1,
     // Partition
     "select * from BisCore:DefinitionPartition": 2,
     "select * from BisCore:GroupInformationPartition": 1,

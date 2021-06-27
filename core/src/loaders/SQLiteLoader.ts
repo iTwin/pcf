@@ -1,6 +1,6 @@
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
-import { IRAttribute, IREntity, IRInstance, IRRelationship } from "../IRModel";
+import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { FileConnection, Loader } from "./Loader";
 
 export class SQLiteLoader extends Loader {
@@ -16,11 +16,11 @@ export class SQLiteLoader extends Loader {
   }
 
   public async getEntities(): Promise<IREntity[]> {
-    return this._getEntities(this.props.entities);
+    return this._getEntities(this.entities);
   }
 
   public async getRelationships(): Promise<IRRelationship[]> {
-    return this._getEntities(this.props.relationships);
+    return this._getEntities(this.relationships);
   }
 
   protected async _getEntities(usedKeys: string[]): Promise<IREntity[]> {
@@ -29,33 +29,14 @@ export class SQLiteLoader extends Loader {
     for (const table of tables) {
       if (!usedKeys.includes(table.name))
         continue;
-      const attributes = await this.getAttributes(table.name);
       const instances = await this.getInstances(table.name);
       const entity = new IREntity({
         key: table.name,
-        attributes,
         instances,
       });
       entities.push(entity);
     }
     return entities;
-  }
-
-  public async getAttributes(entityKey: string): Promise<IRAttribute[]> {
-    const cols: any[] = await this.db.all(`PRAGMA table_info(${entityKey})`);
-    const attrs: IRAttribute[] = [];
-    for (const col of cols) {
-      const tsType = this.getTsType(col.type);
-      const isPrimary = this.getPKey(entityKey) === col.name ? true : false;
-      const attr = new IRAttribute({
-        key: col.name,
-        entityKey,
-        tsType,
-        isPrimary,
-      });
-      attrs.push(attr);
-    }
-    return attrs;
   }
 
   public async getInstances(entityKey: string): Promise<IRInstance[]> {

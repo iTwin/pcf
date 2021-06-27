@@ -26,24 +26,26 @@ export class JSONConnector extends pcf.PConnector {
       appVersion: "1.0.0.0",
     });
 
-    const loader = new pcf.JSONLoader(this, {
-      sourceKey: "sourceKey1",
+    const subject1 = new pcf.SubjectNode(this, { key: "Subject1" });
+
+    new pcf.JSONLoader(this, {
+      key: "json-loader-1",
       format: "json",
       entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
       relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
     });
 
-    const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
-    const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
-    const phyModel2 = new pcf.ModelNode(this, { key: "PhysicalModel2", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
-    const grpModel = new pcf.ModelNode(this, { key: "GroupModel1", bisClass: bk.GroupModel, partitionClass: bk.GroupInformationPartition });
-    const sptModel = new pcf.ModelNode(this, { key: "SpatialLocationModel1", bisClass: bk.SpatialLocationModel, partitionClass: bk.SpatialLocationPartition });
+    const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", parentNode: subject1, modelClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
+    const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", parentNode: subject1, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
+    const phyModel2 = new pcf.ModelNode(this, { key: "PhysicalModel2", parentNode: subject1, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
+    const grpModel = new pcf.ModelNode(this, { key: "GroupModel1", parentNode: subject1, modelClass: bk.GroupModel, partitionClass: bk.GroupInformationPartition });
+    const sptModel = new pcf.ModelNode(this, { key: "SpatialLocationModel1", parentNode: subject1, modelClass: bk.SpatialLocationModel, partitionClass: bk.SpatialLocationPartition });
 
-    const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", parent: defModel, dmo: elements.ExtSpatialCategory });
-    const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", parent: defModel, dmo: elements.ExtPhysicalType });
-    const space = new pcf.ElementNode(this, { key: "ExtSpace", parent: sptModel, dmo: elements.ExtSpace, category: sptCategory });
-    const extPhysicalElement = new pcf.ElementNode(this, { key: "ExtPhysicalElement", parent: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
-    const extGroupInformationElement = new pcf.ElementNode(this, { key: "ExtGroupInformationElement", parent: grpModel, dmo: elements.ExtGroupInformationElement });
+    const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", parentNode: defModel, dmo: elements.ExtSpatialCategory });
+    const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", parentNode: defModel, dmo: elements.ExtPhysicalType });
+    const space = new pcf.ElementNode(this, { key: "ExtSpace", parentNode: sptModel, dmo: elements.ExtSpace, category: sptCategory });
+    const extPhysicalElement = new pcf.ElementNode(this, { key: "ExtPhysicalElement", parentNode: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
+    const extGroupInformationElement = new pcf.ElementNode(this, { key: "ExtGroupInformationElement", parentNode: grpModel, dmo: elements.ExtGroupInformationElement });
 
     new pcf.RelationshipNode(this, {
       key: "ExtElementRefersToElements",

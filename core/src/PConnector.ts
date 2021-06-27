@@ -1,7 +1,7 @@
-import { Id64String, Logger } from "@bentley/bentleyjs-core"; import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, Subject, SubjectOwnsSubjects, RepositoryLink } from "@bentley/imodeljs-backend";
+import { Id64String, Logger } from "@bentley/bentleyjs-core"; 
+import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, Subject, RepositoryLink } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, RepositoryLinkProps, ElementProps, SubjectProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, RepositoryLinkProps, ElementProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceKey } from "./IRModel";
@@ -10,7 +10,7 @@ import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import { IRInstance, JobArgs } from "./pcf";
+import { IRInstance, JobArgs, UpdateResult } from "./pcf";
 
 export enum ItemState {
   Unchanged,
@@ -63,12 +63,13 @@ export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
 
+  public subjectCache: { [subjectKey: string]: Id64String };
   public modelCache: { [modelNodeKey: string]: Id64String };
   public elementCache: { [elementNodeKey: string]: Id64String };
   public aspectCache: { [aspectNodeKey: string]: Id64String };
   public seenIds: Set<Id64String>;
 
-  public tree: pcf.Tree;
+  public tree: pcf.RepoTree;
   public nodeMap: { [nodeKey: string]: pcf.Node };
   protected _config?: PConnectorConfig;
 
@@ -76,19 +77,20 @@ export abstract class PConnector {
 
   // initialized by runJob()
   protected _db?: IModelDb;
-  protected _loader?: Loader;
   protected _jobArgs?: JobArgs;
-  protected _subject?: Subject;
+  protected _jobSubject?: Subject;
   protected _irModel?: pcf.IRModel;
   protected _authReqContext?: AuthorizedBackendRequestContext;
+  protected _srcState?: ItemState;
 
   constructor() {
+    this.subjectCache = {};
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
     this.seenIds = new Set<Id64String>();
     this.nodeMap = {};
-    this.tree = new pcf.Tree();
+    this.tree = new pcf.RepoTree();
   }
 
   public get config() {
@@ -105,16 +107,6 @@ export abstract class PConnector {
     if (!this._db) 
       throw new Error("IModelDb is undefined");
     return this._db;
-  }
-
-  public get loader() {
-    if (!this._loader) 
-      throw new Error("Loader is undefined");
-    return this._loader;
-  }
-
-  public set loader(loader: Loader) {
-    this._loader = loader;
   }
 
   public get jobArgs() {
@@ -138,16 +130,30 @@ export abstract class PConnector {
     return new BackendRequestContext();
   }
 
-  public get subject() {
-    if (!this._subject) 
-      throw new Error("subject is undefined. call updateSubject to populate its value.");
-    return this._subject;
+  public get jobSubject() {
+    if (!this._jobSubject) 
+      throw new Error("job subject is undefined. call updateSubject to populate its value.");
+    return this._jobSubject;
+  }
+
+  public set jobSubject(subject: Subject) {
+    this._jobSubject = subject;
   }
 
   public get irModel() {
     if (!this._irModel) 
       throw new Error("irModel has not been initialized. call loadIRModel to populate its value.");
     return this._irModel;
+  }
+
+  public get srcState() {
+    if (this._srcState === undefined) 
+      throw new Error("srcState is undefined. call updateLoader to populate its value.");
+    return this._srcState;
+  }
+
+  public set srcState(state: ItemState) {
+    this._srcState = state;
   }
 
   public init(props: { db: IModelDb, jobArgs: JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
@@ -165,17 +171,24 @@ export abstract class PConnector {
   }
 
   public async runJob(): Promise<void> {
+
+    this.tree.validate(this.jobArgs);
+    const subjectKey = this.jobArgs.subjectKey;
+
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
-    const srcState = await this._updateRepoLink();
-    await this._loadIRModel();
+
     await this._updateSubject();
     await this._updateDomainSchema();
     await this._updateDynamicSchema();
-    if (srcState !== ItemState.Unchanged) {
+
+    await this._updateLoader();
+    if (this.srcState !== ItemState.Unchanged) {
+      await this._loadIRModel();
       await this._updateData();
       await this._updateDeletedElements();
       await this._updateProjectExtents();
     }
+
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has finished");
   }
 
@@ -185,54 +198,17 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  protected async _updateRepoLink(): Promise<ItemState> {
+  protected async _updateLoader() {
     if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
+      await this.enterChannel(IModel.repositoryModelId);
 
-    let repoLinkState;
-    const con = this.jobArgs.connection;
-    const { sourceKey, format } = this.loader.props;
-    switch(con.kind) {
-      case "pcf_file_connection":
-        const stats = fs.statSync(con.filepath);
-        if (!stats)
-          throw new Error(`DataConnection.filepath not found - ${con}`);
-        const instance = new IRInstance({
-          pkey: "sourceKey",
-          entityKey: "DocumentWithBeGuid",
-          version: stats.mtime.toString(),
-          data: { sourceKey, format },
-        });
-        const modelId = IModel.repositoryModelId;
-        const code = RepositoryLink.createCode(this.db, modelId, sourceKey);
-        const repoLinkProps = {
-          classFullName: RepositoryLink.classFullName,
-          model: modelId,
-          code,
-          userLabel: sourceKey,
-          format,
-        } as RepositoryLinkProps;
-        const { elementId, state } = this.updateElement(repoLinkProps, instance);
-        this.elementCache[instance.key] = elementId;
-        this.seenIds.add(elementId);
-        repoLinkState = state;
-        break;
-      default:
-        throw new Error(`${con.kind} is not supported yet.`);
-    }
+    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
+    loader.update();
 
-    if (repoLinkState === ItemState.New)
-      await this.persistChanges(`Inserted a Repository Link - ${sourceKey}`, ChangesType.GlobalProperties);
-    else if (repoLinkState === ItemState.Changed)
-      await this.persistChanges(`Updated a Repository Link - ${sourceKey}`, ChangesType.GlobalProperties);
-    else
-      await this.persistChanges("No Changes to Repository Link", ChangesType.GlobalProperties);
-    
-    Logger.logInfo(LogCategory.PCF, `Repository Link ${sourceKey} state: ${ItemState[repoLinkState]}`);
-    return repoLinkState;
+    await this.persistChanges(`Updated Loader (Repository Link) - ${loader.key}`, ChangesType.GlobalProperties);
   }
 
-  public updateElement(props: ElementProps, instance: IRInstance): { elementId: Id64String, state: ItemState } {
+  public updateElement(props: ElementProps, instance: IRInstance): UpdateResult {
     const identifier = props.code.value!;
     const version = instance.version;
     const checksum = instance.checksum;
@@ -253,65 +229,37 @@ export abstract class PConnector {
         checksum,
         version,
       } as ExternalSourceAspectProps);
-      return { elementId: element.id, state: ItemState.New };
+      return { entityId: element.id, state: ItemState.New };
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return { elementId: element.id, state: ItemState.Unchanged };
+      return { entityId: element.id, state: ItemState.Unchanged };
 
     xsa.version = version;
     xsa.checksum = checksum;
 
     element.update();
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return { elementId: element.id, state: ItemState.Changed };
+    return { entityId: element.id, state: ItemState.Changed };
   }
 
   protected async _updateSubject() {
-    const { subjectName } = this.jobArgs;
-    const code = Subject.createCode(this.db, IModel.rootSubjectId, subjectName);
-    const existingSubId = this.db.elements.queryElementIdByCode(code);
-    if (existingSubId) {
-      this._subject = this.db.elements.getElement<Subject>(existingSubId);
-      Logger.logInfo(LogCategory.PCF, `Found an existing subject ${subjectName}`);
-      return;
-    }
-
     if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
+      await this.enterChannel(IModel.repositoryModelId);
 
-    const { appVersion, connectorName } = this.config;
-    const jsonProperties = {
-      Subject: {
-        Job: {
-          ConnectorType: "pcf-connector",
-          ConnectorVersion: appVersion,
-          ConnectorName: connectorName,
-        }
-      },
-    }
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+    subjectNode.update();
 
-    const root = this.db.elements.getRootSubject();
-    const subProps: SubjectProps = {
-      classFullName: Subject.classFullName,
-      model: root.model,
-      code,
-      jsonProperties,
-      parent: new SubjectOwnsSubjects(root.id),
-    };
-
-    const newSubId = this.db.elements.insertElement(subProps);
-    this._subject = this.db.elements.getElement<Subject>(newSubId);
-
-    await this.persistChanges(`Inserted a New Subject - ${subjectName}`, ChangesType.GlobalProperties);
+    await this.persistChanges(`Updated Subject - ${subjectKey}`, ChangesType.GlobalProperties);
   }
 
   protected async _updateDomainSchema(): Promise<any> {
     if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
+      await this.enterChannel(IModel.repositoryModelId);
 
     const { domainSchemaPaths } = this.config;
     if (domainSchemaPaths.length > 0)
@@ -321,8 +269,9 @@ export abstract class PConnector {
   }
 
   protected async _loadIRModel() {
-    await this.loader.open(this.jobArgs.connection);
-    this._irModel = await pcf.IRModel.fromLoader(this.loader);
+    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
+    await loader.open(this.jobArgs.connection);
+    this._irModel = await pcf.IRModel.fromLoader(loader);
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
@@ -332,7 +281,7 @@ export abstract class PConnector {
     if (shouldGenerateSchema) {
 
       if (this.db.isBriefcaseDb())
-        await this.enterRepoChannel();
+        await this.enterChannel(IModel.repositoryModelId);
 
       if (!this.config.dynamicSchema)
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
@@ -356,9 +305,24 @@ export abstract class PConnector {
 
   protected async _updateData() {
     if (this.db.isBriefcaseDb())
-      await this.enterSubjectChannel();
+      await this.enterChannel(this.jobSubject.id);
+
     this._updateCodeSpecs();
-    await this.tree.update();
+
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+
+    for (const model of subjectNode.models) {
+      await model.update();
+      for (const element of model.elements) {
+        await element.update();
+      }
+    }
+    for (const relationship of this.tree.relationships)
+      await relationship.update();
+    for (const relatedElement of this.tree.relatedElements)
+      await relatedElement.update();
+
     await this.persistChanges("Data Changes", ChangesType.Regular);
   }
 
@@ -369,7 +333,7 @@ export abstract class PConnector {
     }
 
     if (this.db.isBriefcaseDb())
-      await this.enterSubjectChannel();
+      await this.enterChannel(this.jobSubject.id);
 
     const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect`;
     const rows = await util.getRows(this.db, ecsql);
@@ -402,7 +366,7 @@ export abstract class PConnector {
 
   protected async _updateProjectExtents() {
     if (this.db.isBriefcaseDb())
-      await this.enterSubjectChannel();
+      await this.enterChannel(this.jobSubject.id);
 
     const options: ComputeProjectExtentsOptions = {
       reportExtentsWithOutliers: false,
@@ -418,7 +382,7 @@ export abstract class PConnector {
 
     let sourceId;
     if (node.dmo.fromType === "IREntity") {
-      const sourceModelId = this.modelCache[node.source.parent.key];
+      const sourceModelId = this.modelCache[node.source.parentNode.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
@@ -426,7 +390,7 @@ export abstract class PConnector {
 
     let targetId;
     if (node.dmo.toType === "IREntity") {
-      const targetModelId = this.modelCache[node.target!.parent.key];
+      const targetModelId = this.modelCache[node.target!.parentNode.key];
       const targetValue = instance.get(node.dmo.toAttr);
       const targetCode = this.getCode(node.target!.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
@@ -492,33 +456,21 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, comment);
   }
 
-  public async enterSubjectChannel() {
+  public async enterChannel(rootId: Id64String) {
     await util.retryLoop(async () => {
-      await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, this.subject.id);
+      if ((this.db as BriefcaseDb).concurrencyControl.hasPendingRequests)
+        throw new Error("has pending requests");
+      if (!(this.db as BriefcaseDb).concurrencyControl.isBulkMode)
+        throw new Error("not in bulk mode");
+      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
+        throw new Error("has schema lock");
+      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
+        throw new Error("has code spec lock");
+      if ((this.db as BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
+        throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
+      (this.db as BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
+      await (this.db as BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
     });
-    Logger.logInfo(LogCategory.PCF, "Entered subject channel");
-  }
-
-  public async enterRepoChannel() {
-    await util.retryLoop(async () => {
-      await PConnector.enterChannel(this.db as BriefcaseDb, this.authReqContext, IModelDb.repositoryModelId);
-    });
-    Logger.logInfo(LogCategory.PCF, "Entered repository channel");
-  }
-
-  public static async enterChannel(db: BriefcaseDb, authReqContext: AuthorizedClientRequestContext, rootId: Id64String) {
-    if (db.concurrencyControl.hasPendingRequests)
-      throw new Error("has pending requests");
-    if (!db.concurrencyControl.isBulkMode)
-      throw new Error("not in bulk mode");
-    if (db.concurrencyControl.locks.hasSchemaLock)
-      throw new Error("has schema lock");
-    if (db.concurrencyControl.locks.hasCodeSpecsLock)
-      throw new Error("has code spec lock");
-    if (db.concurrencyControl.channel.isChannelRootLocked)
-      throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
-    db.concurrencyControl.channel.channelRoot = rootId;
-    await db.concurrencyControl.channel.lockChannelRoot(authReqContext);
   }
 }
 
