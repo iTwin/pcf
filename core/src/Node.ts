@@ -140,8 +140,7 @@ export class SubjectNode extends Node implements SubjectNodeProps {
   }
 
   public async update() {
-    const subjectName = this.key;
-    const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, subjectName);
+    const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
@@ -150,7 +149,17 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     }
 
     const { appVersion, connectorName } = this.pc.config;
-    const jsonProperties = { appVersion, connectorName };
+    const jsonProperties = {
+      Subject: {
+        Job: {
+          Properties: {
+            ConnectorVersion: appVersion,
+            ConnectorType: "pcf-connector",
+          },
+          Connector: connectorName,
+        }
+      },
+    };
 
     const root = this.pc.db.elements.getRootSubject();
     const subProps: common.SubjectProps = {
@@ -173,20 +182,22 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 export interface ModelNodeProps extends NodeProps {
   modelClass: typeof bk.Model;
   partitionClass: typeof bk.InformationPartitionElement;
-  parentNode: SubjectNode;
+  parentNode: SubjectNode | ModelNode;
 }
 
 export class ModelNode extends Node implements ModelNodeProps {
 
   public modelClass: typeof bk.Model;
   public partitionClass: typeof bk.InformationPartitionElement;
+  public models: ModelNode[];
   public elements: ElementNode[];
-  public parentNode: SubjectNode;
+  public parentNode: SubjectNode | ModelNode;
 
   constructor(pc: PConnector, props: ModelNodeProps) {
     super(pc, props);
     this.modelClass = props.modelClass;
     this.partitionClass = props.partitionClass;
+    this.models = [];
     this.elements = [];
     this.parentNode = props.parentNode;
     this.parentNode.models.push(this);

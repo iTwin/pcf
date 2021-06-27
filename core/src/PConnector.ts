@@ -176,10 +176,10 @@ export abstract class PConnector {
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
+    await this._updateLoader();
     await this._updateSubject();
     await this._updateDomainSchema();
     await this._updateDynamicSchema();
-    await this._updateLoader();
 
     if (this.srcState !== ItemState.Unchanged) {
       await this._loadIRModel();
@@ -202,7 +202,7 @@ export abstract class PConnector {
       await this.enterChannel(IModel.repositoryModelId);
 
     const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
-    loader.update();
+    await loader.update();
 
     await this.persistChanges(`Updated Loader (Repository Link) - ${loader.key}`, ChangesType.GlobalProperties);
   }
@@ -251,7 +251,8 @@ export abstract class PConnector {
 
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
-    subjectNode.update();
+    const { entityId } = await subjectNode.update();
+    this.subjectCache[subjectNode.key] = entityId;
 
     await this.persistChanges(`Updated Subject - ${subjectKey}`, ChangesType.GlobalProperties);
   }
@@ -303,37 +304,28 @@ export abstract class PConnector {
   }
 
   protected async _updateData() {
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
-    if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
-
-    this._updateCodeSpecs();
-    for (const model of subjectNode.models) {
-      await model.update();
-
-    await this.persistChanges("Updated Model", ChangesType.Regular);
-
     if (this.db.isBriefcaseDb())
       await this.enterChannel(this.jobSubject.id);
 
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+
+    this._updateCodeSpecs();
     for (const model of subjectNode.models) {
+      if (model.parentNode.key !== subjectKey)
+        continue;
+      await model.update();
       for (const element of model.elements) {
         await element.update();
       }
     }
-
-    await this.persistChanges("Updated Element", ChangesType.Regular);
-
-    if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
 
     for (const relationship of this.tree.relationships)
       await relationship.update();
     for (const relatedElement of this.tree.relatedElements)
       await relatedElement.update();
 
-    await this.persistChanges("Updated Relationship", ChangesType.Regular);
+    await this.persistChanges("Updated Data", ChangesType.Regular);
   }
 
   protected async _updateDeletedElements(): Promise<void> {
@@ -345,7 +337,7 @@ export abstract class PConnector {
     if (this.db.isBriefcaseDb())
       await this.enterChannel(this.jobSubject.id);
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect`;
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
     const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
@@ -463,7 +455,6 @@ export abstract class PConnector {
     } else {
       this.db.saveChanges(comment);
     }
-    Logger.logInfo(LogCategory.PCF, comment);
   }
 
   public async enterChannel(rootId: Id64String) {

@@ -37,6 +37,9 @@ export interface ElementDMO extends DMO {
   // references the column used to identify the category of an IR instance 
   categoryAttr?: string;
 
+  // TODO
+  relatedElementAttr?: string;
+
   // Dynamic EC Class Properties: must be defined if classFullName references a dynamic class.
   // A dynamic schema will be generated if this is defined.
   classProps?: EntityClassProps & { name: string, baseClass: string };
