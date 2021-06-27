@@ -173,15 +173,14 @@ export abstract class PConnector {
   public async runJob(): Promise<void> {
 
     this.tree.validate(this.jobArgs);
-    const subjectKey = this.jobArgs.subjectKey;
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
     await this._updateSubject();
     await this._updateDomainSchema();
     await this._updateDynamicSchema();
-
     await this._updateLoader();
+
     if (this.srcState !== ItemState.Unchanged) {
       await this._loadIRModel();
       await this._updateData();
@@ -304,26 +303,37 @@ export abstract class PConnector {
   }
 
   protected async _updateData() {
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+    if (this.db.isBriefcaseDb())
+      await this.enterRepoChannel();
+
+    this._updateCodeSpecs();
+    for (const model of subjectNode.models) {
+      await model.update();
+
+    await this.persistChanges("Updated Model", ChangesType.Regular);
+
     if (this.db.isBriefcaseDb())
       await this.enterChannel(this.jobSubject.id);
 
-    this._updateCodeSpecs();
-
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
-
     for (const model of subjectNode.models) {
-      await model.update();
       for (const element of model.elements) {
         await element.update();
       }
     }
+
+    await this.persistChanges("Updated Element", ChangesType.Regular);
+
+    if (this.db.isBriefcaseDb())
+      await this.enterRepoChannel();
+
     for (const relationship of this.tree.relationships)
       await relationship.update();
     for (const relatedElement of this.tree.relatedElements)
       await relatedElement.update();
 
-    await this.persistChanges("Data Changes", ChangesType.Regular);
+    await this.persistChanges("Updated Relationship", ChangesType.Regular);
   }
 
   protected async _updateDeletedElements(): Promise<void> {
