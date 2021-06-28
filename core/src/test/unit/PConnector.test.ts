@@ -15,25 +15,25 @@ describe("Unit Tests", () => {
     {
       title: "synchronize StandaloneDb",
       jobs: [
-        { 
-          sourceFile: "v1.json", 
-          connectorFile: "JSONConnector.js", 
-          subjectKey: "Subject1", 
-          connection: { 
+        {
+          sourceFile: "v1.json",
+          connectorFile: "JSONConnector.js",
+          subjectKey: "Subject1",
+          connection: {
             loaderKey: "json-loader-1",
-            kind: "pcf_file_connection", 
+            kind: "pcf_file_connection",
             filepath: tempSrcPath,
-          } 
+          }
         },
-        { 
-          sourceFile: "v2.json", 
-          connectorFile: "JSONConnectorV2.js", 
-          subjectKey: "Subject1", 
-          connection: { 
+        {
+          sourceFile: "v2.json",
+          connectorFile: "JSONConnectorV2.js",
+          subjectKey: "Subject1",
+          connection: {
             loaderKey: "json-loader-1",
-            kind: "pcf_file_connection", 
+            kind: "pcf_file_connection",
             filepath: tempSrcPath,
-          } 
+          }
         },
       ]
     },
@@ -88,7 +88,7 @@ describe("Unit Tests", () => {
         await connector.runJob();
         db.close();
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);
         const mismatches = await pcf.verifyIModel(updatedDb, TestResults[sourceFile]);
@@ -102,7 +102,7 @@ describe("Unit Tests", () => {
   it("Loader Tests", async () => {
     const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js");
     const connector: pcf.PConnector = require(connectorPath).default();
-    
+
     const props = {
       key: "loader1",
       format: "json",
