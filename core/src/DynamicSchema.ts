@@ -8,9 +8,8 @@ import { ItemState, DMOMap } from "./pcf";
 import { DOMParser, XMLSerializer } from "xmldom";
 
 export interface DynamicSchemaProps {
-  name: string,
-  alias: string,
-  domainSchemaNames: string[],
+  schemaName: string,
+  schemaAlias: string,
   dmoMap: DMOMap,
 }
 
@@ -26,13 +25,18 @@ export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<Me
   return schema;
 }
 
-export async function syncDynamicSchema(db: IModelDb, requestContext: AuthorizedClientRequestContext | ClientRequestContext, props: DynamicSchemaProps): Promise<ItemState> {
+export async function syncDynamicSchema(
+  db: IModelDb, 
+  requestContext: AuthorizedClientRequestContext | ClientRequestContext, 
+  domainSchemaNames: string[],
+  props: DynamicSchemaProps
+  ): Promise<ItemState> {
 
-  const schemaName = props.name;
+  const { schemaName } = props;
   const existingSchema = await tryGetSchema(db, schemaName);
 
   const version = getSchemaVersion(db, schemaName);
-  const latestSchema = await createDynamicSchema(db, version, props);
+  const latestSchema = await createDynamicSchema(db, version, domainSchemaNames, props);
 
   let schemaState: ItemState = ItemState.New;
   let dynamicSchema = latestSchema;
@@ -46,7 +50,7 @@ export async function syncDynamicSchema(db: IModelDb, requestContext: Authorized
     if (schemaIsChanged) {
       schemaState = ItemState.Changed;
       version.minorVersion = existingSchema.minorVersion + 1;
-      dynamicSchema = await createDynamicSchema(db, version, props);
+      dynamicSchema = await createDynamicSchema(db, version, domainSchemaNames, props);
     } else {
       schemaState = ItemState.Unchanged;
       dynamicSchema = existingSchema;
@@ -62,7 +66,12 @@ export async function syncDynamicSchema(db: IModelDb, requestContext: Authorized
 }
 
 // Generates an in-memory [Dynamic EC Schema](https://www.itwinjs.org/bis/intro/schema-customization/) from user-defined DMO.
-export async function createDynamicSchema(db: IModelDb, version: SchemaVersion, props: DynamicSchemaProps): Promise<MetaSchema> {
+export async function createDynamicSchema(
+  db: IModelDb, 
+  version: SchemaVersion, 
+  domainSchemaNames: string[],
+  props: DynamicSchemaProps
+  ): Promise<MetaSchema> {
 
   const dmoMap = props.dmoMap;
   const context = new SchemaContext();
@@ -108,7 +117,8 @@ export async function createDynamicSchema(db: IModelDb, version: SchemaVersion, 
     }
   };
 
-  const newSchema = new MetaSchema(context, props.name, props.alias, version.readVersion, version.writeVersion, version.minorVersion);
+  const { schemaName, schemaAlias } = props;
+  const newSchema = new MetaSchema(context, schemaName, schemaAlias, version.readVersion, version.writeVersion, version.minorVersion);
 
   const loader = new IModelSchemaLoader(db);
   const bisSchema = loader.getSchema("BisCore");
@@ -116,7 +126,7 @@ export async function createDynamicSchema(db: IModelDb, version: SchemaVersion, 
   await context.addSchema(bisSchema);
   await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
 
-  for (const schemaName of props.domainSchemaNames) {
+  for (const schemaName of domainSchemaNames) {
     const schema = loader.getSchema(schemaName);
     await context.addSchema(schema);
     await (newSchema as MutableSchema).addReference(schema);

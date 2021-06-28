@@ -1,3 +1,4 @@
+import { Logger, LogLevel } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
 import * as chai from "chai";
 import * as path from "path";
@@ -5,8 +6,6 @@ import * as fs from "fs";
 import * as pcf from "../../pcf";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import { JSONLoader, SQLiteLoader } from "../../loaders";
-import { PConnector } from "../../PConnector";
 
 describe("Unit Tests", () => {
 
@@ -44,6 +43,16 @@ describe("Unit Tests", () => {
 
   before(async () => {
     await bk.IModelHost.startup();
+    Logger.initializeToConsole();
+    Logger.configureLevels({
+      defaultLevel: LogLevel[LogLevel.None],
+      categoryLevels: [
+        {
+          category: pcf.LogCategory.PCF,
+          logLevel: LogLevel[LogLevel.Info],
+        },
+      ]
+    });
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
   });
@@ -74,7 +83,7 @@ describe("Unit Tests", () => {
 
         const db = bk.StandaloneDb.openFile(targetPath);
         const jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
-        const connector: PConnector = require(jobArgs.connectorPath).default();
+        const connector: pcf.PConnector = require(jobArgs.connectorPath).default();
         connector.init({ db, jobArgs });
         await connector.runJob();
         db.close();
@@ -92,7 +101,7 @@ describe("Unit Tests", () => {
 
   it("Loader Tests", async () => {
     const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js");
-    const connector: PConnector = require(connectorPath).default();
+    const connector: pcf.PConnector = require(connectorPath).default();
     
     const props = {
       key: "loader1",
@@ -101,13 +110,13 @@ describe("Unit Tests", () => {
       relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
     };
 
-    const jsonLoader = new JSONLoader(connector, props);
+    const jsonLoader = new pcf.JSONLoader(connector, props);
     await jsonLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")});
     const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
     await jsonLoader.close();
 
     props.key = "loader2";
-    const sqliteLoader = new SQLiteLoader(connector, props);
+    const sqliteLoader = new pcf.SQLiteLoader(connector, props);
     await sqliteLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")});
     const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
     await sqliteLoader.close();

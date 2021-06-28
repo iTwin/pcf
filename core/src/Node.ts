@@ -101,12 +101,10 @@ export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
-  public parentNode: Node;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
     this.key = props.key;
-    this.parentNode = this;
 
     if (props.key in this.pc.nodeMap)
       throw new Error(`${props.key} already exists in NodeMap. Each Node must have a unique key.`);
@@ -144,7 +142,6 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
-      this.pc.jobSubject = existingSub;
       return { entityId: existingSub.id, state: ItemState.Unchanged};
     }
 
@@ -172,7 +169,6 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 
     const newSubId = this.pc.db.elements.insertElement(subProps);
     const newSub = this.pc.db.elements.getElement<bk.Subject>(newSubId);
-    this.pc.jobSubject = newSub;
     return { entityId: newSub.id, state: ItemState.New };
   }
 }
@@ -182,7 +178,8 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 export interface ModelNodeProps extends NodeProps {
   modelClass: typeof bk.Model;
   partitionClass: typeof bk.InformationPartitionElement;
-  parentNode: SubjectNode | ModelNode;
+  subject: SubjectNode;
+  parentModel?: ModelNode;
 }
 
 export class ModelNode extends Node implements ModelNodeProps {
@@ -191,29 +188,34 @@ export class ModelNode extends Node implements ModelNodeProps {
   public partitionClass: typeof bk.InformationPartitionElement;
   public models: ModelNode[];
   public elements: ElementNode[];
-  public parentNode: SubjectNode | ModelNode;
+  public subject: SubjectNode;
+  public parentModel?: ModelNode;
 
   constructor(pc: PConnector, props: ModelNodeProps) {
     super(pc, props);
-    this.modelClass = props.modelClass;
-    this.partitionClass = props.partitionClass;
     this.models = [];
     this.elements = [];
-    this.parentNode = props.parentNode;
-    this.parentNode.models.push(this);
+    this.modelClass = props.modelClass;
+    this.partitionClass = props.partitionClass;
+    this.subject = props.subject;
+    this.subject.models.push(this);
+    if (props.parentModel) {
+      this.parentModel = props.parentModel;
+      props.parentModel.models.push(this);
+    };
   }
 
   public async update() {
-    const codeScope = this.pc.jobSubject.id;
+    const subjectId = this.pc.subjectCache[this.subject.key];
     const codeValue = this.key;
-    const code = this.partitionClass.createCode(this.pc.db, codeScope, codeValue);
+    const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
 
     const partitionProps: common.InformationPartitionElementProps = {
       classFullName: this.partitionClass.classFullName,
       federationGuid: this.key,
       userLabel: this.key,
       model: common.IModel.repositoryModelId,
-      parent: new bk.SubjectOwnsPartitionElements(codeScope),
+      parent: new bk.SubjectOwnsPartitionElements(subjectId),
       code,
     };
 
@@ -232,6 +234,12 @@ export class ModelNode extends Node implements ModelNodeProps {
         modeledElement: { id: partitionId },
         name: this.key,
       };
+
+      if (this.parentModel) {
+        const parentModelId = this.pc.modelCache[this.parentModel.key];
+        modelProps.parentModel = parentModelId;
+      }
+
       modelId = this.pc.db.models.insertModel(modelProps);
       modelState = ItemState.New;
     }
@@ -250,31 +258,31 @@ export class ModelNode extends Node implements ModelNodeProps {
 
 export interface ElementNodeProps extends NodeProps {
   dmo: ElementDMO;
-  parentNode: ModelNode;
+  model: ModelNode;
   category?: ElementNode;
 }
 
-export class ElementNode extends Node {
+export class ElementNode extends Node implements ElementNodeProps {
 
   public dmo: ElementDMO;
-  public parentNode: ModelNode;
+  public model: ModelNode;
   public category?: ElementNode | undefined;
 
   constructor(pc: PConnector, props: ElementNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.category = props.category;
-    this.parentNode = props.parentNode;
+    this.model = props.model;
 
     validateElementDMO(this.dmo);
-    this.parentNode.elements.push(this);
+    this.model.elements.push(this);
   }
 
   public async update() {
     const results: UpdateResult[] = [];
     const instances = this.pc.irModel.getEntityInstances(this.dmo);
     for (const instance of instances) {
-      const modelId = this.pc.modelCache[this.parentNode.key];
+      const modelId = this.pc.modelCache[this.model.key];
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
@@ -404,7 +412,7 @@ export class RelatedElementNode extends Node {
       if (!relatedElement)
         throw new Error("Failed to create RelatedElement");
 
-      (targetElement as any)[this.dmo.relatedPropName] = relatedElement;
+      (targetElement as any)[this.dmo.ecProperty] = relatedElement;
       targetElement.update();
       results.push({ entityId: relatedElement.id, state: ItemState.New });
     }
@@ -415,4 +423,3 @@ export class RelatedElementNode extends Node {
     return { key: this.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
   }
 }
-

@@ -10,8 +10,9 @@ export async function main() {
   await bk.IModelHost.startup();
   const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "<%= className %>.js"),
-    loaderClass: pcf.XLSXLoader,
-    con: {
+    subjectKey: "sample-subject-1",
+    connection: {
+      loaderKey: "xlsx-loader-1",
       kind: "FileConnection",
       filepath: path.join(__dirname, "./assets/COBieV1.xlsx"),
     },

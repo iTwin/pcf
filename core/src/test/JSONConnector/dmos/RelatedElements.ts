@@ -4,13 +4,13 @@ import * as pcf from "../../../pcf";
 import * as elements from "./Elements";
 
 export const ExtPhysicalElementAssemblesElements: pcf.RelatedElementDMO = {
-    irEntity: "ExtPhysicalElementAssemblesElements",
-    fromAttr: "ExtPhysicalElementKey1",
+    irEntity: "ExtPhysicalElement",
+    fromAttr: "id",
     fromType: "IREntity",
-    toAttr: "ExtPhysicalElementKey2",
+    toAttr: "child",
     toType: "IREntity",
     ecEntity: "TestSchema:ExtPhysicalElementAssemblesElements",
-    relatedPropName: "parent",
+    ecProperty: "parent",
     classProps: {
         name: "ExtPhysicalElementAssemblesElements",
         baseClass: PhysicalElementAssemblesElements.classFullName,

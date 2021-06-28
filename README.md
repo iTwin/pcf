@@ -80,11 +80,13 @@ Currently, all the documentations and API references of this project are embedde
 
 * Nodes
     * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
-    * A new Subject/Model would be created if you have modified the key of Subject/ModelNode.
+    * Modified the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
+    * Parent-child Modeling is not supported yet. Only the top models and their elements are synchronized.
 * Dynamic Schema
     * Only Primitive EC Properties can be added to DMO.classProps.
     * EC Properties defined in DMO.classProps can only be added, not deleted.
 * Loaders
+    * Loader is persisted as a Repository Link element in your iModel.
     * Currently supported loaders: JSON, XLSX, SQLite Loader.
 * Codes
     * Neither itwin-connector-framework nor pcf support Code reuse as of now. (e.g. inserting an element with the same Code as previously deleted element will fail)

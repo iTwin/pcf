@@ -84,8 +84,8 @@ export interface RelationshipDMO extends BaseRelationshipDMO {
  */
 export interface RelatedElementDMO extends BaseRelationshipDMO {
 
-  // relatedPropName: the name of the EC property that references a RelatedElement. e.g. the property named "parent" in BisCore:PhysicalElement.
-  relatedPropName: string;
+  // ecProperty: the name of the EC property that references a RelatedElement. e.g. the property named "parent" in BisCore:PhysicalElement.
+  ecProperty: string;
 
   // modify the default properties (props) of the current EC entity. IRInstance contains the external data corresponding to current EC entity.
   modifyProps?<T extends RelatedElementProps>(props: T, instance: IRInstance): void;

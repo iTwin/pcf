@@ -17,25 +17,30 @@ export class <%= className %> extends pcf.PConnector {
         schemaName: "COBieDynamic",
         schemaAlias: "cd",
       },
-      loader: {
-        entityKeys: ["Component"],
-        relKeys: ["Connection", "Assembly"],
-      },
     });
 
-    const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
-    const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
-    const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", parent: defModel, bisClass: bk.SpatialCategory });
-    const component = new pcf.MultiElementNode(this, { key: "Component", parent: phyModel, dmo: elements.Component, category: sptCategory });
+    const jsonLoader = new pcf.XLSXLoader(this, {
+      key: "json-loader-1",
+      format: "json",
+      entityKeys: ["Component", "ComponentCategory"],
+      relKeys: ["Connection", "Assembly"],
+    });
 
-    new pcf.MultiRelationshipNode(this, {
+    const subject1 = new pcf.SubjectNode(this, { key: "sample-subject-1" });
+
+    const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", subject: subject1, bisClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
+    const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", subject: subject1, bisClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
+    const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", model: defModel, dmo: elements.ComponentCategory });
+    const component = new pcf.ElementNode(this, { key: "Component", model: phyModel, dmo: elements.Component, category: sptCategory });
+
+    new pcf.RelationshipNode(this, {
       key: "ComponentConnectsToComponent",
       dmo: relationships.ComponentConnectsToComponent,
       source: component,
       target: component,
     });
 
-    new pcf.MultiRelatedElementNode(this, {
+    new pcf.RelatedElementNode(this, {
       key: "ComponentAssemblesComponents",
       dmo: relatedElements.ComponentAssemblesComponents,
       source: component,

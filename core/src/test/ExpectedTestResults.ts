@@ -4,6 +4,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
   "v1.json": { // from empty
     // Subject
     "select * from BisCore:Subject": 2,
+    "select * from BisCore:Subject where codeValue=\'Subject1\'": 1,
     // RepoLink
     "select * from BisCore:RepositoryLink": 1,
     "select * from BisCore:RepositoryLink where codeValue=\'json-loader-1\'": 1,
@@ -35,6 +36,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
   "v2.json": {
     // Subject
     "select * from BisCore:Subject": 2,
+    "select * from BisCore:Subject where codeValue=\'Subject1\'": 1,
     // RepoLink
     "select * from BisCore:RepositoryLink": 1,
     // Partition

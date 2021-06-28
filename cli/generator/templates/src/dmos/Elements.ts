@@ -13,3 +13,4 @@ export const Component: pcf.ElementDMO = {
     props.userLabel = "COBie Component";
   },
 };
+

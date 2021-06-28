@@ -3,22 +3,26 @@
     {
       "id": "0",
       "ExtUserLabel": "mock_user_label",
-      "category": "1"
+      "category": "1",
+      "child": ""
     },
     {
       "id": "1",
       "ExtUserLabel": "mock_user_label",
-      "category": "1"
+      "category": "1",
+      "child": "2"
     },
     {
       "id": "2",
       "ExtUserLabel": "mock_user_label",
-      "category": "1"
+      "category": "1",
+      "child": ""
     },
     {
       "id": "3",
       "ExtUserLabel": "mock_user_label",
-      "category": "1"
+      "category": "1",
+      "child": ""
     }
   ],
   "ExtPhysicalType": [
@@ -63,13 +67,6 @@
       "id": "1",
       "ExtGroupInformationElementKey": "2",
       "ExtPhysicalElementKey": "1"
-    }
-  ],
-  "ExtPhysicalElementAssemblesElements": [
-    {
-      "id": "1",
-      "ExtPhysicalElementKey1": "1",
-      "ExtPhysicalElementKey2": "2"
     }
   ]
 }

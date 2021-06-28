@@ -63,10 +63,10 @@ export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
 
-  public subjectCache: { [subjectKey: string]: Id64String };
+  public subjectCache: { [subjectNodeKey: string]: Id64String };
   public modelCache: { [modelNodeKey: string]: Id64String };
-  public elementCache: { [elementNodeKey: string]: Id64String };
-  public aspectCache: { [aspectNodeKey: string]: Id64String };
+  public elementCache: { [instanceKey: string]: Id64String };
+  public aspectCache: { [instanceKey: string]: Id64String };
   public seenIds: Set<Id64String>;
 
   public tree: pcf.RepoTree;
@@ -78,7 +78,7 @@ export abstract class PConnector {
   // initialized by runJob()
   protected _db?: IModelDb;
   protected _jobArgs?: JobArgs;
-  protected _jobSubject?: Subject;
+  protected _jobSubjectId?: Id64String;
   protected _irModel?: pcf.IRModel;
   protected _authReqContext?: AuthorizedBackendRequestContext;
   protected _srcState?: ItemState;
@@ -130,14 +130,10 @@ export abstract class PConnector {
     return new BackendRequestContext();
   }
 
-  public get jobSubject() {
-    if (!this._jobSubject) 
-      throw new Error("job subject is undefined. call updateSubject to populate its value.");
-    return this._jobSubject;
-  }
-
-  public set jobSubject(subject: Subject) {
-    this._jobSubject = subject;
+  public get jobSubjectId() {
+    if (!this._jobSubjectId) 
+      throw new Error("job subject id is undefined. call updateSubject to populate its value.");
+    return this._jobSubjectId;
   }
 
   public get irModel() {
@@ -252,7 +248,7 @@ export abstract class PConnector {
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
     const { entityId } = await subjectNode.update();
-    this.subjectCache[subjectNode.key] = entityId;
+    this._jobSubjectId = entityId;
 
     await this.persistChanges(`Updated Subject - ${subjectKey}`, ChangesType.GlobalProperties);
   }
@@ -288,7 +284,7 @@ export abstract class PConnector {
 
       const { schemaName, schemaAlias } = this.config.dynamicSchema;
       const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, { name: schemaName, alias: schemaAlias, domainSchemaNames, dmoMap });
+      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
         throw new Error("Failed to find dynamically generated schema.");
@@ -305,17 +301,17 @@ export abstract class PConnector {
 
   protected async _updateData() {
     if (this.db.isBriefcaseDb())
-      await this.enterChannel(this.jobSubject.id);
+      await this.enterChannel(this.jobSubjectId);
 
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
 
     this._updateCodeSpecs();
-    for (const model of subjectNode.models) {
-      if (model.parentNode.key !== subjectKey)
+    for (const topModel of subjectNode.models) {
+      if (topModel.subject.key !== subjectKey)
         continue;
-      await model.update();
-      for (const element of model.elements) {
+      await topModel.update();
+      for (const element of topModel.elements) {
         await element.update();
       }
     }
@@ -335,7 +331,7 @@ export abstract class PConnector {
     }
 
     if (this.db.isBriefcaseDb())
-      await this.enterChannel(this.jobSubject.id);
+      await this.enterChannel(this.jobSubjectId);
 
     const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
     const rows = await util.getRows(this.db, ecsql);
@@ -368,7 +364,7 @@ export abstract class PConnector {
 
   protected async _updateProjectExtents() {
     if (this.db.isBriefcaseDb())
-      await this.enterChannel(this.jobSubject.id);
+      await this.enterChannel(this.jobSubjectId);
 
     const options: ComputeProjectExtentsOptions = {
       reportExtentsWithOutliers: false,
@@ -382,9 +378,12 @@ export abstract class PConnector {
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<string[] | void> {
 
+    if (!node.dmo.fromAttr || !node.dmo.toAttr)
+      return;
+
     let sourceId;
     if (node.dmo.fromType === "IREntity") {
-      const sourceModelId = this.modelCache[node.source.parentNode.key];
+      const sourceModelId = this.modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
@@ -392,7 +391,7 @@ export abstract class PConnector {
 
     let targetId;
     if (node.dmo.toType === "IREntity") {
-      const targetModelId = this.modelCache[node.target!.parentNode.key];
+      const targetModelId = this.modelCache[node.target!.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
       const targetCode = this.getCode(node.target!.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
