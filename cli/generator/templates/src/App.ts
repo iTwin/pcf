@@ -8,15 +8,19 @@ import * as path from "path";
 
 export async function main() {
   await bk.IModelHost.startup();
+  // define job specific arguments
   const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "<%= className %>.js"),
+    // references an existing subject node defined in <%= className %>.ts
     subjectKey: "sample-subject-1",
     connection: {
-      loaderKey: "xlsx-loader-1",
-      kind: "FileConnection",
-      filepath: path.join(__dirname, "./assets/COBieV1.xlsx"),
+      // references an existing loader defined in <%= className %>.ts 
+      loaderKey: "sample-xlsx-loader",
+      kind: "pcf_file_connection",
+      filepath: path.join(__dirname, "./assets/sample.xlsx"),
     },
   });
+  // define iModel Hub information
   const hubArgs = new pcf.HubArgs({
     projectId: "<Your Project ID Guid>",
     iModelId: "<Your iModel ID Guid>",

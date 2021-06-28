@@ -9,7 +9,7 @@ async function parseArgs() {
   return yargs
     .scriptName('pct')
     .usage('Usage: pct COMMAND [args]')
-    .command(['init [PROJECT_DIR] [CONNECTOR_NAME] [CLIENT_ID]'], 'Initialize an empty project', yargs => yargs)
+    .command(['init [CONNECTOR_NAME] [CLIENT_ID]'], 'Initialize an empty project', yargs => yargs)
     // .command(['save [APP_PATH]'], 'Save your entire connector in the form of json', yargs => yargs)
     // .command(['run [APP_PATH]'], 'Run your connector app', yargs => yargs)
     .demandCommand()
@@ -42,10 +42,9 @@ function init(dir, name, clientId) {
   const generatorPath = path.join(__dirname, '../generator/index.js');
   env.register(generatorPath, 'imodeljs:connector');
 
-  dir = dir ? dir : 'MyProject';
   name = name ? name : '';
   clientId = clientId ? clientId : '';
-  args = `imodeljs:connector ${dir} ${name} ${clientId}`;
+  args = `imodeljs:connector output ${name} ${clientId}`;
   env.run(args, () => {});
 }
 

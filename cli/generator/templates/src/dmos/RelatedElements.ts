@@ -4,13 +4,13 @@ import * as pcf from "@itwin/pcf";
 import * as elements from "./Elements";
 
 export const ComponentAssemblesComponents: pcf.RelatedElementDMO = {
-  entity: "Assembly",
-  relatedPropName: "parent",
-  fromAttr: "ParentName",
+  irEntity: "Component",
+  ecEntity: "SampleDynamic:ComponentAssemblesComponents",
+  ecProperty: "parent",
+  fromAttr: "Name",
   fromType: "IREntity",
-  toAttr: "ChildNames",
+  toAttr: "ChildName",
   toType: "IREntity",
-  classFullName: "COBieDynamic:ComponentAssemblesComponents",
   classProps: {
     name: "ComponentAssemblesComponents",
     baseClass: bk.PhysicalElementAssemblesElements.classFullName,
@@ -21,14 +21,14 @@ export const ComponentAssemblesComponents: pcf.RelatedElementDMO = {
       multiplicity: "(0..1)",
       roleLabel: "assmbles",
       abstractConstraint: bk.PhysicalElement.classFullName,
-      constraintClasses: [elements.Component.classFullName],
+      constraintClasses: [elements.Component.ecEntity],
     },
     target: {
       polymorphic: true,
       multiplicity: "(0..*)",
       roleLabel: "is assembled by",
       abstractConstraint: bk.PhysicalElement.classFullName,
-      constraintClasses: [elements.Component.classFullName],
+      constraintClasses: [elements.Component.ecEntity],
     },
   },
 };

@@ -84,22 +84,31 @@ module.exports = class extends Generator {
         },
       }
     }
-    
+
     this.answers = await this.prompt([
+      {
+        name: "dir",
+        message: "What\'s the name of your connector project folder?",
+        default: "MyProject",
+        when: () => !this.options.dir,
+        required: true,
+      },
       {
         name: "name",
         message: "What\'s the name of your connector? (Use a unique, descriptive name.",
+        default: "MyConnector",
         when: () => !this.options.name,
         filter: (v) => paramCase(v),
         transformer: (v) => chalk.cyan(paramCase(v)),
+        required: true,
       },
       this.options.name ? { when: () => false } : logDuringPrompts(getNameUsage),
-
       {
         name: "clientId",
         message: "What\'s your Client ID?",
         default: "",
         when: () => !this.options.clientId,
+        required: true,
       },
     ]);
   }
@@ -120,7 +129,7 @@ module.exports = class extends Generator {
       clientRedirectUri: "http://localhost:3000/signin-callback",
       clientScope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
 
-      imjsversion: "2.16.1",
+      imjsversion: "2.15.6",
       pcfversion: "0.0.1",
     };
 

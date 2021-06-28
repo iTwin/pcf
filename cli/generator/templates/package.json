@@ -10,22 +10,22 @@
     "clean": "rimraf lib"
   },
   "dependencies": {
+    "@bentley/bentleyjs-core": "<%= imjsversion %>",
     "@bentley/itwin-client": "<%= imjsversion %>",
     "@bentley/backend-itwin-client": "<%= imjsversion %>",
     "@bentley/imodelhub-client": "<%= imjsversion %>",
     "@bentley/rbac-client": "<%= imjsversion %>",
     "@bentley/geometry-core": "<%= imjsversion %>",
     "@bentley/telemetry-client": "<%= imjsversion %>",
-    "@bentley/bentleyjs-core": "<%= imjsversion %>",
     "@bentley/ecschema-metadata": "<%= imjsversion %>",
     "@bentley/electron-manager": "<%= imjsversion %>",
     "@bentley/imodeljs-backend": "<%= imjsversion %>",
     "@bentley/imodeljs-common": "<%= imjsversion %>"
   },
   "devDependencies": {
-    "@bentley/build-tools": "^2.16.0",
+    "@bentley/build-tools": "<%= imjsversion %>",
     "@types/node": "^10.17.28",
-    "babel-cli": "^6.26.0",
-    "typescript": "^4.1.0"
+    "babel-cli": "^6.18.0",
+    "typescript": "~4.1.0"
   }
 }
