@@ -13,26 +13,26 @@ describe("Integration Tests", () => {
   const testCases = [
     {
       title: "synchronize BriefcaseDb",
-      jobs: [        
-        { 
-          sourceFile: "v1.json", 
-          connectorFile: "JSONConnector.js", 
-          subjectKey: "Subject1", 
-          connection: { 
+      jobs: [
+        {
+          sourceFile: "v1.json",
+          connectorFile: "JSONConnector.js",
+          subjectKey: "Subject1",
+          connection: {
             loaderKey: "json-loader-1",
-            kind: "pcf_file_connection", 
-            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") 
-          } 
+            kind: "pcf_file_connection",
+            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
+          }
         },
-        { 
-          sourceFile: "v2.json", 
-          connectorFile: "JSONConnectorV2.js", 
-          subjectKey: "Subject1", 
-          connection: { 
+        {
+          sourceFile: "v2.json",
+          connectorFile: "JSONConnectorV2.js",
+          subjectKey: "Subject1",
+          connection: {
             loaderKey: "json-loader-1",
-            kind: "pcf_file_connection", 
-            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json") 
-          } 
+            kind: "pcf_file_connection",
+            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
+          }
         },
       ]
     },
@@ -46,7 +46,7 @@ describe("Integration Tests", () => {
     await bk.IModelHost.startup();
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
-    await app.signin();
+    await app.silentSignin();
   });
 
   after(async () => {
@@ -80,3 +80,4 @@ describe("Integration Tests", () => {
     });
   }
 });
+

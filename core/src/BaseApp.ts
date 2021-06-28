@@ -165,7 +165,7 @@ export class BaseApp {
   }
 
   /*
-   * Safely executes a connector job to synchronizer a BriefcaseDb.
+   * Safely executes a connector job to synchronize a BriefcaseDb.
    */
   public async run(): Promise<BentleyStatus> {
     this.init();

@@ -137,7 +137,7 @@ export abstract class Loader extends Node implements LoaderProps {
         const instance = new IRInstance({
           pkey: "key",
           entityKey: "DocumentWithBeGuid",
-          version: stats.mtime.toString(),
+          version: stats.mtimeMs.toString(),
           data: this.toJSON(),
         });
         const modelId = IModel.repositoryModelId;

@@ -136,6 +136,10 @@ export abstract class PConnector {
     return this._jobSubjectId;
   }
 
+  public set jobSubjectId(subjectId: Id64String) {
+    this._jobSubjectId = subjectId;
+  }
+
   public get irModel() {
     if (!this._irModel) 
       throw new Error("irModel has not been initialized. call loadIRModel to populate its value.");
@@ -247,8 +251,7 @@ export abstract class PConnector {
 
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
-    const { entityId } = await subjectNode.update();
-    this._jobSubjectId = entityId;
+    await subjectNode.update();
 
     await this.persistChanges(`Updated Subject - ${subjectKey}`, ChangesType.GlobalProperties);
   }

@@ -142,6 +142,8 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
+      this.pc.jobSubjectId = existingSub.id;
+      this.pc.subjectCache[this.key] = existingSub.id;
       return { entityId: existingSub.id, state: ItemState.Unchanged};
     }
 
@@ -169,6 +171,8 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 
     const newSubId = this.pc.db.elements.insertElement(subProps);
     const newSub = this.pc.db.elements.getElement<bk.Subject>(newSubId);
+    this.pc.jobSubjectId = newSub.id;
+    this.pc.subjectCache[this.key] = newSub.id;
     return { entityId: newSub.id, state: ItemState.New };
   }
 }
@@ -206,7 +210,7 @@ export class ModelNode extends Node implements ModelNodeProps {
   }
 
   public async update() {
-    const subjectId = this.pc.subjectCache[this.subject.key];
+    const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
 
