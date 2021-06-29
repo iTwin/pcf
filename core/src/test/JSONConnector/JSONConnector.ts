@@ -33,11 +33,12 @@ export class JSONConnector extends pcf.PConnector {
       format: "json",
       entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
       relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers"],
+      defaultPrimaryKey: "id",
     });
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", subject: subject1, modelClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", subject: subject1, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
-    const phyModel2 = new pcf.ModelNode(this, { key: "PhysicalModel2", subject: subject1, parentModel: phyModel, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
+    const phyModel2 = new pcf.ModelNode(this, { key: "PhysicalModel2", subject: subject1, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
     const grpModel = new pcf.ModelNode(this, { key: "GroupModel1", subject: subject1, modelClass: bk.GroupModel, partitionClass: bk.GroupInformationPartition });
     const sptModel = new pcf.ModelNode(this, { key: "SpatialLocationModel1", subject: subject1, modelClass: bk.SpatialLocationModel, partitionClass: bk.SpatialLocationPartition });
 

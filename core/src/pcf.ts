@@ -7,3 +7,8 @@ export * from "./IRModel";
 export * from "./PConnector";
 export * from "./BaseApp";
 export * from "./LogCategory";
+
+export * as imodeljs_backend from "@bentley/imodeljs-backend";
+export * as imodeljs_common from "@bentley/imodeljs-common";
+export * as ecschema_metadata from "@bentley/ecschema-metadata";
+export * as geometry_core from "@bentley/geometry-core";

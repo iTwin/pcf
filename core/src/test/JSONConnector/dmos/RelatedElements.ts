@@ -1,17 +1,16 @@
-import { Element as BisElement, PhysicalElement, PhysicalElementAssemblesElements } from "@bentley/imodeljs-backend";
+import { PhysicalElement, PhysicalElementAssemblesElements } from "@bentley/imodeljs-backend";
 import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@bentley/ecschema-metadata";
-import * as pcf from "../../../pcf";
-import * as elements from "./Elements";
+import { RelatedElementDMO } from "../../../DMO";
 
-export const ExtPhysicalElementAssemblesElements: pcf.RelatedElementDMO = {
+export const ExtPhysicalElementAssemblesElements: RelatedElementDMO = {
     irEntity: "ExtPhysicalElement",
     fromAttr: "id",
     fromType: "IREntity",
     toAttr: "child",
     toType: "IREntity",
-    ecEntity: "TestSchema:ExtPhysicalElementAssemblesElements",
     ecProperty: "parent",
-    classProps: {
+    ecRelationship: {
+        schema: "TestSchema",
         name: "ExtPhysicalElementAssemblesElements",
         baseClass: PhysicalElementAssemblesElements.classFullName,
         strength: strengthToString(StrengthType.Embedding),
@@ -21,14 +20,14 @@ export const ExtPhysicalElementAssemblesElements: pcf.RelatedElementDMO = {
             multiplicity: "(0..1)",
             roleLabel: "assmbles",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
             roleLabel: "is assembled by",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
     },
 };

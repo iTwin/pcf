@@ -73,17 +73,17 @@ jobs:
       workingDirectory: cli
 
     - script: |
-        pcf init TestProject TestConnector TestClientId
+        pcf init TestConnector TestClientId
       displayName: 'pcf init'
       workingDirectory: cli
 
     - script: |
         npm link @itwin/pcf
       displayName: 'npm link @itwin/pcf'
-      workingDirectory: cli/TestProject
+      workingDirectory: cli/output
 
     - script: |
         npm run build
       displayName: 'build generated connector'
-      workingDirectory: cli/TestProject
+      workingDirectory: cli/output
 

@@ -103,11 +103,12 @@ describe("Unit Tests", () => {
     const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js");
     const connector: pcf.PConnector = require(connectorPath).default();
 
-    const props = {
+    const props: pcf.LoaderProps = {
       key: "loader1",
       format: "json",
       entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
       relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
+      defaultPrimaryKey: "id",
     };
 
     const jsonLoader = new pcf.JSONLoader(connector, props);

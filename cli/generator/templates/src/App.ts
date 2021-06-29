@@ -2,12 +2,13 @@
 // App.ts contains all the parameters to start a connector job and the App.js created from this file will be the executable for your connector.
 // CAUTION: You may not want to commit this file as it contains client-specific info.
 
-import * as bk from "@bentley/imodeljs-backend";
 import * as pcf from "@itwin/pcf";
 import * as path from "path";
 
+const { IModelHost } = pcf.imodeljs_backend;
+
 export async function main() {
-  await bk.IModelHost.startup();
+  await IModelHost.startup();
   // define job specific arguments
   const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "<%= className %>.js"),
@@ -17,7 +18,7 @@ export async function main() {
       // references an existing loader defined in <%= className %>.ts 
       loaderKey: "sample-xlsx-loader",
       kind: "pcf_file_connection",
-      filepath: path.join(__dirname, "./assets/sample.xlsx"),
+      filepath: path.join(__dirname, "../assets/sample.xlsx"),
     },
   });
   // define iModel Hub information
@@ -33,7 +34,7 @@ export async function main() {
   });
   const app = new pcf.BaseApp(jobArgs, hubArgs);
   await app.run();
-  await bk.IModelHost.shutdown();
+  await IModelHost.shutdown();
 }
 
 main();

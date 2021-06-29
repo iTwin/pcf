@@ -1,11 +1,12 @@
 import { PrimitiveType, primitiveTypeToString } from "@bentley/ecschema-metadata";
 import { GroupInformationElement, PhysicalElement, PhysicalType } from "@bentley/imodeljs-backend";
-import * as pcf from "../../../pcf";
+import { ElementDMO } from "../../../DMO";
+import { IRInstance } from "../../../IRModel";
 
-export const ExtPhysicalElement: pcf.ElementDMO = {
+export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",
-  ecEntity: "TestSchema:ExtPhysicalElement",
-  classProps: {
+  ecElement: {
+    schema: "TestSchema",
     name: "ExtPhysicalElement",
     baseClass: PhysicalElement.classFullName,
     properties: [
@@ -19,46 +20,46 @@ export const ExtPhysicalElement: pcf.ElementDMO = {
       },
     ],
   },
-  modifyProps(props: any, instance: pcf.IRInstance) {
+  modifyProps(props: any, instance: IRInstance) {
     props.userLabel = instance.get("ExtUserLabel");
     props.buildingNumber = instance.get("id");
     props.roomNumber = instance.get("id");
   },
-  doSyncInstance(instance: pcf.IRInstance) {
+  doSyncInstance(instance: IRInstance) {
     return instance.get("id") === "0" ? false : true;
   },
   categoryAttr: "category",
 };
 
-export const ExtSpace: pcf.ElementDMO = {
+export const ExtSpace: ElementDMO = {
   irEntity: "ExtSpace",
-  ecEntity: "BuildingSpatial:Space",
-  modifyProps(props: any, instance: pcf.IRInstance) {
+  ecElement: "BuildingSpatial:Space",
+  modifyProps(props: any, instance: IRInstance) {
     props.footprintArea = 10;
   },
   categoryAttr: "category",
 };
 
-export const ExtGroupInformationElement: pcf.ElementDMO = {
+export const ExtGroupInformationElement: ElementDMO = {
   irEntity: "ExtGroupInformationElement",
-  ecEntity: "TestSchema:ExtGroupInformationElement",
-  classProps: {
+  ecElement: {
+    schema: "TestSchema",
     name: "ExtGroupInformationElement",
     baseClass: GroupInformationElement.classFullName,
   },
 };
 
-export const ExtPhysicalType: pcf.ElementDMO = {
+export const ExtPhysicalType: ElementDMO = {
   irEntity: "ExtPhysicalType",
-  ecEntity: "TestSchema:ExtPhysicalType",
-  classProps: {
+  ecElement: {
+    schema: "TestSchema",
     name: "ExtPhysicalType",
     baseClass: PhysicalType.classFullName,
   },
 };
 
-export const ExtSpatialCategory: pcf.ElementDMO = {
+export const ExtSpatialCategory: ElementDMO = {
   irEntity: "ExtSpatialCategory",
-  ecEntity: "BisCore:SpatialCategory",
+  ecElement: "BisCore:SpatialCategory",
 };
 

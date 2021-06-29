@@ -176,10 +176,10 @@ export abstract class PConnector {
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
-    await this._updateLoader();
     await this._updateSubject();
     await this._updateDomainSchema();
     await this._updateDynamicSchema();
+    await this._updateLoader();
 
     if (this.srcState !== ItemState.Unchanged) {
       await this._loadIRModel();

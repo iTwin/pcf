@@ -1,7 +1,7 @@
 import { Id64String } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
 import * as common from "@bentley/imodeljs-common";
-import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, validateElementDMO, validateRelatedElementDMO, validateRelationshipDMO, Loader, JobArgs, ItemState } from "./pcf";
+import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, Loader, JobArgs, ItemState } from "./pcf";
 
 export class RepoTree {
   public loaders: Loader[];
@@ -183,30 +183,22 @@ export interface ModelNodeProps extends NodeProps {
   modelClass: typeof bk.Model;
   partitionClass: typeof bk.InformationPartitionElement;
   subject: SubjectNode;
-  parentModel?: ModelNode;
 }
 
 export class ModelNode extends Node implements ModelNodeProps {
 
   public modelClass: typeof bk.Model;
   public partitionClass: typeof bk.InformationPartitionElement;
-  public models: ModelNode[];
   public elements: ElementNode[];
   public subject: SubjectNode;
-  public parentModel?: ModelNode;
 
   constructor(pc: PConnector, props: ModelNodeProps) {
     super(pc, props);
-    this.models = [];
     this.elements = [];
     this.modelClass = props.modelClass;
     this.partitionClass = props.partitionClass;
     this.subject = props.subject;
     this.subject.models.push(this);
-    if (props.parentModel) {
-      this.parentModel = props.parentModel;
-      props.parentModel.models.push(this);
-    };
   }
 
   public async update() {
@@ -238,11 +230,6 @@ export class ModelNode extends Node implements ModelNodeProps {
         modeledElement: { id: partitionId },
         name: this.key,
       };
-
-      if (this.parentModel) {
-        const parentModelId = this.pc.modelCache[this.parentModel.key];
-        modelProps.parentModel = parentModelId;
-      }
 
       modelId = this.pc.db.models.insertModel(modelProps);
       modelState = ItemState.New;
@@ -277,8 +264,6 @@ export class ElementNode extends Node implements ElementNodeProps {
     this.dmo = props.dmo;
     this.category = props.category;
     this.model = props.model;
-
-    validateElementDMO(this.dmo);
     this.model.elements.push(this);
   }
 
@@ -290,12 +275,15 @@ export class ElementNode extends Node implements ElementNodeProps {
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
+      const { ecElement }= this.dmo;
+      const classFullName = typeof ecElement === "string" ? ecElement : `${ecElement.schema}:${ecElement.name}`;
+
       const props: common.ElementProps = {
         code,
         federationGuid: instance.key,
         userLabel: instance.userLabel,
         model: modelId,
-        classFullName: this.dmo.ecEntity,
+        classFullName,
         jsonProperties: instance.data,
       };
 
@@ -340,8 +328,6 @@ export class RelationshipNode extends Node {
     this.dmo = props.dmo;
     this.source = props.source;
     this.target = props.target;
-
-    validateRelationshipDMO(this.dmo);
     pc.tree.relationships.push(this);
   }
 
@@ -353,12 +339,15 @@ export class RelationshipNode extends Node {
       if (!pair)
         continue;
 
+      const { ecRelationship } = this.dmo;
+      const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${ecRelationship.schema}:${ecRelationship.name}`;
+
       const [sourceId, targetId] = pair;
-      const existing = this.pc.db.relationships.tryGetInstance(this.dmo.ecEntity, { sourceId, targetId });
+      const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing)
         continue;
 
-      const props: common.RelationshipProps = { sourceId, targetId, classFullName: this.dmo.ecEntity };
+      const props: common.RelationshipProps = { sourceId, targetId, classFullName };
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
@@ -392,8 +381,6 @@ export class RelatedElementNode extends Node {
     this.dmo = props.dmo;
     this.source = props.source;
     this.target = props.target;
-
-    validateRelatedElementDMO(this.dmo);
     pc.tree.relatedElements.push(this);
   }
 
@@ -407,7 +394,10 @@ export class RelatedElementNode extends Node {
 
       const [sourceId, targetId] = pair;
       const targetElement = this.pc.db.elements.getElement(targetId);
-      const props: common.RelatedElementProps = { id: sourceId, relClassName: this.dmo.ecEntity };
+
+      const { ecRelationship } = this.dmo;
+      const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${ecRelationship.schema}:${ecRelationship.name}`;
+      const props: common.RelatedElementProps = { id: sourceId, relClassName: classFullName };
 
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);

@@ -50,14 +50,15 @@ export interface LoaderProps extends NodeProps {
   relationships: string[];
 
   /*
+   * Default Primary Key is used when a primary key is not specified in primaryKeyMap.
+   */
+  defaultPrimaryKey: string;
+
+  /*
    * IR Entity Key => Primary Key
    */
   primaryKeyMap?: {[entityKey: string]: string}; 
 
-  /*
-   * Default Primary Key is used when a primary key is not specified in primaryKeyMap.
-   */
-  defaultPrimaryKey?: string;
 }
 
 export type LoaderClass = new (pc: PConnector, props: LoaderProps) => Loader;
@@ -72,16 +73,15 @@ export abstract class Loader extends Node implements LoaderProps {
   public entities: string[];
   public relationships: string[];
   public primaryKeyMap: {[entityKey: string]: string}; 
-  public defaultPrimaryKey: string = "id";
+  public defaultPrimaryKey: string;
 
   constructor(pc: PConnector, props: LoaderProps) {
     super(pc, props);
     this.format = props.format;
     this.entities = props.entities;
     this.relationships = props.relationships;
+    this.defaultPrimaryKey = props.defaultPrimaryKey;
     this.primaryKeyMap = props.primaryKeyMap ?? {};
-    if (props.defaultPrimaryKey)
-      this.defaultPrimaryKey = props.defaultPrimaryKey;
     pc.tree.loaders.push(this);
   }
 
@@ -116,8 +116,6 @@ export abstract class Loader extends Node implements LoaderProps {
   public getPKey(entityKey: string): string {
     if (this.primaryKeyMap && entityKey in this.primaryKeyMap)
       return this.primaryKeyMap[entityKey];
-    if (this.defaultPrimaryKey)
-      return this.defaultPrimaryKey;
     return this.defaultPrimaryKey
   };
 

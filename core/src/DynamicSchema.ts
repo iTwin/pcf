@@ -77,18 +77,18 @@ export async function createDynamicSchema(
   const context = new SchemaContext();
   const editor = new SchemaContextEditor(context);
 
-  const createEntityClass = async (schema: MetaSchema) => {
+  const createElementClass = async (schema: MetaSchema) => {
     const elementDmos = dmoMap.elements ?? [];
     for (const dmo of elementDmos) {
-      if (!dmo.classProps)
+      if (typeof dmo.ecElement === "string")
         continue;
 
-      const entityResult = await editor.entities.createFromProps(schema.schemaKey, dmo.classProps);
+      const entityResult = await editor.entities.createFromProps(schema.schemaKey, dmo.ecElement);
       if (!entityResult.itemKey)
         throw new Error(`Failed to create EC Entity Class - ${entityResult.errorMessage}`);
 
-      if (dmo.classProps.properties) {
-        for (const prop of dmo.classProps.properties) {
+      if (dmo.ecElement.properties) {
+        for (const prop of dmo.ecElement.properties) {
           const propResult = await editor.entities.createPrimitiveProperty(entityResult.itemKey, prop.name, prop.type as any);
           if (!propResult.itemKey)
             throw new Error(`Failed to create EC Property - ${propResult.errorMessage}`);
@@ -100,18 +100,18 @@ export async function createDynamicSchema(
   const createRelClasses = async (schema: MetaSchema) => {
     const relationshipDmos = dmoMap.relationships ?? [];
     for (const dmo of relationshipDmos) {
-      if (!dmo.classProps)
+      if (typeof dmo.ecRelationship === "string")
         continue;
-      const result = await editor.relationships.createFromProps(schema.schemaKey, dmo.classProps);
+      const result = await editor.relationships.createFromProps(schema.schemaKey, dmo.ecRelationship);
       if (!result.itemKey)
         throw new Error(`Failed to create EC Relationship Class - ${result.errorMessage}`);
     }
 
     const relatedElementDmos = dmoMap.relatedElements ?? [];
     for (const dmo of relatedElementDmos) {
-      if (!dmo.classProps)
+      if (typeof dmo.ecRelationship === "string")
         continue;
-      const result = await editor.relationships.createFromProps(schema.schemaKey, dmo.classProps);
+      const result = await editor.relationships.createFromProps(schema.schemaKey, dmo.ecRelationship);
       if (!result.itemKey)
         throw new Error(`Failed to create EC Relationship Class - ${result.errorMessage}`);
     }
@@ -132,19 +132,10 @@ export async function createDynamicSchema(
     await (newSchema as MutableSchema).addReference(schema);
   }
 
-  await createEntityClass(newSchema);
+  await createElementClass(newSchema);
   await createRelClasses(newSchema);
 
   return newSchema;
-}
-
-function getECType(tsType: string) {
-  const map: {[tsType: string]: PrimitiveType} = {
-    string: PrimitiveType.String,
-    number: PrimitiveType.Double,
-    boolean: PrimitiveType.Boolean,
-  };
-  return { typeName: tsType, typeValue: map[tsType] };
 }
 
 function getSchemaVersion(db: IModelDb, schemaName: string): SchemaVersion {

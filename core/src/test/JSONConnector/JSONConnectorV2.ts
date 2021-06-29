@@ -9,8 +9,8 @@ const connectorV2 = (() => {
     model.elements.forEach((elementNode: pcf.Node) => {
       if (elementNode.key === "ExtPhysicalElement") {
         const dmo = (elementNode as pcf.ElementNode).dmo as pcf.ElementDMO;
-        if (dmo.classProps) {
-          (dmo.classProps as any).properties.push({
+        if (dmo.ecElement && typeof dmo.ecElement !== "string") {
+          (dmo.ecElement as any).properties.push({
             name: "SkyScraperNumber",
             type: PrimitiveType.String,
           });

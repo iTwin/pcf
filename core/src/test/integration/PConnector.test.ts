@@ -50,8 +50,8 @@ describe("Integration Tests", () => {
   });
 
   after(async () => {
-    // if (app.hubArgs.iModelId !== "")
-    //   await app.purgeTestBriefcaseDb();
+    if (app.hubArgs.iModelId !== "")
+      await app.purgeTestBriefcaseDb();
     await bk.IModelHost.shutdown();
   });
 

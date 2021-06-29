@@ -1,33 +1,33 @@
-import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@bentley/ecschema-metadata";
-import * as bk from "@bentley/imodeljs-backend";
 import * as pcf from "@itwin/pcf";
-import * as elements from "./Elements";
+
+const { ElementRefersToElements, PhysicalElement } = pcf.imodeljs_backend;
+const { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } = pcf.ecschema_metadata;
 
 export const ComponentConnectsComponent: pcf.RelationshipDMO = {
   irEntity: "Connection",
-  ecEntity: "SampleDynamic:ComponentConnectsToComponent",
   fromAttr: "SourceComponentName",
   fromType: "IREntity",
   toAttr: "TargetComponentName",
   toType: "IREntity",
-  classProps: {
+  ecRelationship: {
+    schema: "SampleDynamic",
     name: "ComponentConnectsComponent",
-    baseClass: bk.ElementRefersToElements.classFullName,
+    baseClass: ElementRefersToElements.classFullName,
     strength: strengthToString(StrengthType.Referencing),
     strengthDirection: strengthDirectionToString(StrengthDirection.Forward),
     source: {
       polymorphic: true,
       multiplicity: "(0..*)",
       roleLabel: "From Component",
-      abstractConstraint: bk.PhysicalElement.classFullName,
-      constraintClasses: [elements.Component.ecEntity],
+      abstractConstraint: PhysicalElement.classFullName,
+      constraintClasses: ["SampleDynamic:Component"],
     },
     target: {
       polymorphic: true,
       multiplicity: "(0..*)",
       roleLabel: "To Component",
-      abstractConstraint: bk.PhysicalElement.classFullName,
-      constraintClasses: [elements.Component.ecEntity],
+      abstractConstraint: PhysicalElement.classFullName,
+      constraintClasses: ["SampleDynamic:Component"],
     },
   },
 };

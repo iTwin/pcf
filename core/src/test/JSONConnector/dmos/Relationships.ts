@@ -1,16 +1,15 @@
 import { ElementGroupsMembers, ElementRefersToElements, GroupInformationElement, PhysicalElement } from "@bentley/imodeljs-backend";
 import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@bentley/ecschema-metadata";
-import * as pcf from "../../../pcf";
-import * as elements from "./Elements";
+import { RelationshipDMO } from "../../../DMO";
 
-export const ExtElementRefersToElements: pcf.RelationshipDMO = {
+export const ExtElementRefersToElements: RelationshipDMO = {
     irEntity: "ExtElementRefersToElements",
     fromAttr: "ExtPhysicalElementKey1",
     fromType: "IREntity",
     toAttr: "ExtPhysicalElementKey2",
     toType: "IREntity",
-    ecEntity: "TestSchema:ExtElementRefersToElements",
-    classProps: {
+    ecRelationship: {
+        schema: "TestSchema",
         name: "ExtElementRefersToElements",
         baseClass: ElementRefersToElements.classFullName,
         strength: strengthToString(StrengthType.Referencing),
@@ -20,26 +19,26 @@ export const ExtElementRefersToElements: pcf.RelationshipDMO = {
             multiplicity: "(0..*)",
             roleLabel: "From ExtPhysicalElementKey",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
             roleLabel: "To ExtPhysicalElementKey",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
     },
 };
 
-export const ExtElementRefersToExistingElements: pcf.RelationshipDMO = {
+export const ExtElementRefersToExistingElements: RelationshipDMO = {
     irEntity: "ExtElementRefersToExistingElements",
     fromAttr: "ExtPhysicalElementKey",
     fromType: "IREntity",
     toAttr: "ExistingElementSearchKey",
     toType: "ECEntity",
-    ecEntity: "TestSchema:ExtElementRefersToExistingElements",
-    classProps: {
+    ecRelationship: {
+        schema: "TestSchema",
         name: "ExtElementRefersToExistingElements",
         baseClass: ElementRefersToElements.classFullName,
         strength: strengthToString(StrengthType.Referencing),
@@ -49,7 +48,7 @@ export const ExtElementRefersToExistingElements: pcf.RelationshipDMO = {
             multiplicity: "(0..*)",
             roleLabel: "From ExtPhysicalElementKey",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
         target: {
             polymorphic: true,
@@ -61,14 +60,14 @@ export const ExtElementRefersToExistingElements: pcf.RelationshipDMO = {
     },
 };
 
-export const ExtElementGroupsMembers: pcf.RelationshipDMO = {
+export const ExtElementGroupsMembers: RelationshipDMO = {
     irEntity: "ExtElementGroupsMembers",
     fromAttr: "ExtGroupInformationElementKey",
     fromType: "IREntity",
     toAttr: "ExtPhysicalElementKey",
     toType: "IREntity",
-    ecEntity: "TestSchema:ExtElementGroupsMembers",
-    classProps: {
+    ecRelationship: {
+        schema: "TestSchema",
         name: "ExtElementGroupsMembers",
         baseClass: ElementGroupsMembers.classFullName,
         strength: strengthToString(StrengthType.Referencing),
@@ -78,14 +77,14 @@ export const ExtElementGroupsMembers: pcf.RelationshipDMO = {
             multiplicity: "(0..*)",
             roleLabel: "ExtGroupInformationElement",
             abstractConstraint: GroupInformationElement.classFullName,
-            constraintClasses: [elements.ExtGroupInformationElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtGroupInformationElement"],
         },
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
             roleLabel: "ExtPhysicalElement",
             abstractConstraint: PhysicalElement.classFullName,
-            constraintClasses: [elements.ExtPhysicalElement.ecEntity],
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
     },
 };
