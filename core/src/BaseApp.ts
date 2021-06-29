@@ -31,13 +31,14 @@ export interface JobArgsProps {
   connection: DataConnection;
 
   /*
-   * subjectName is a unique identifier of a subject element in an iModel.
-   * pcf will synchronize all the data stored under this subject with source file.
+   * subjectKey references an existing subject node defined in your connector and uniquely identifies 
+   * a subject element in an iModel. pcf will synchronize all the data stored under this subject 
+   * with source file.
    */
   subjectKey: string;
 
   /*
-   * relative path to the directory for storing output files
+   * absolute path to the directory for storing output files like cached Briefcase.
    */
   outputDir?: string;
 
@@ -47,12 +48,13 @@ export interface JobArgsProps {
   logLevel?: LogLevel;
 
   /* 
-   * allows elements to be deleted if they no longer exist in the source file. (only works for BriefcaseDb)
+   * allows elements to be deleted if they no longer exist in the source file. For a BriefcaseDb, only
+   * elements in the current subject channel can be deleted.
    */
   enableDelete?: boolean;
 
   /*
-   * header of save/push comments.
+   * header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
   revisionHeader?: string;
 }
@@ -85,22 +87,22 @@ export class JobArgs implements JobArgsProps {
 
 export interface HubArgsProps {
   /*
-   * your project's GUID ID
+   * your project GUID (it's also called "contextId")
    */
   projectId: Id64String;
 
   /*
-   * your iModel's GUID ID
+   * your iModel GUID 
    */
   iModelId: Id64String;
 
   /* 
-   * you may obtain client configurations from https://developer.bentley.com by creating a SPA app
+   * you may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
   clientConfig: NativeAppAuthorizationConfiguration;
 
   /* 
-   * do not override this value in production
+   * Only Bentley developers could override this value for testing. Do not override it in production.
    */
   env?: Environment;
 }
@@ -314,7 +316,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   /*
-   * Sign in through your iModelHub test user account. This call would grab your use credentials from environment variables.
+   * Sign in through your iModelHub test user account. This call would grab your test user credentials from environment variables.
    */
   public async silentSignin(): Promise<AuthorizedBackendRequestContext> {
     this.init();

@@ -29,21 +29,45 @@ export interface PConnectorConfigProps {
   }
 }
 
-// Be extreme cautious when editing your connector config. Mistakes could potentially corrupt your iModel.
+/*
+ * Be extreme cautious when editing your connector config. Mistakes could potentially corrupt your iModel.
+ */
 export class PConnectorConfig implements PConnectorConfigProps {
-  // application ID
+
+  /*
+   * application ID
+   */
   public appId: string;
-  // application version
+
+  /*
+   * application version
+   */
   public appVersion: string;
-  // the name of your connector (e.g. COBieConnector)
+
+  /*
+   * the name of your connector (e.g. COBieConnector)
+   */
   public connectorName: string;
-  // Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
+
+  /*
+   * Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
+   */
   public domainSchemaPaths: string[] = [];
-  // dynamic schema settings
+
+  /*
+   * A dynamic schema would be created if this is defined. If you already defined EC Dynamic Class Props
+   * in your DMO's, this must be defined.
+   */
   public dynamicSchema?: {
-    // The name of your Dynamic Schema if any. (e.g. 'COBieDynamic')
+
+    /*
+     * The name of your Dynamic Schema if any. (e.g. 'COBieDynamic')
+     */
     schemaName: string;
-    // The alias of your Dynamic Schema name if any. (e.g. 'COBieDynamic' => 'cd')
+
+    /*
+     * The alias of your Dynamic Schema name if any. (e.g. 'COBieDynamic' => 'cd')
+     */
     schemaAlias: string;
   }
 
@@ -75,12 +99,12 @@ export abstract class PConnector {
 
   public dynamicSchema?: MetaSchema;
 
-  // initialized by runJob()
   protected _db?: IModelDb;
   protected _jobArgs?: JobArgs;
+  protected _authReqContext?: AuthorizedBackendRequestContext;
+
   protected _jobSubjectId?: Id64String;
   protected _irModel?: pcf.IRModel;
-  protected _authReqContext?: AuthorizedBackendRequestContext;
   protected _srcState?: ItemState;
 
   constructor() {
@@ -95,7 +119,7 @@ export abstract class PConnector {
 
   public get config() {
     if (!this._config)
-      throw new Error("PConnectorConfig must be defined in the constructor of your connector class");
+      throw new Error("You must define PConnectorConfig in the constructor of your connector class");
     return this._config;
   } 
 
@@ -105,26 +129,26 @@ export abstract class PConnector {
 
   public get db() {
     if (!this._db) 
-      throw new Error("IModelDb is undefined");
+      throw new Error("IModelDb is not assigned");
     return this._db;
   }
 
   public get jobArgs() {
     if (!this._jobArgs) 
-      throw new Error("JobArgs is undefined");
+      throw new Error("JobArgs is not assigned");
     return this._jobArgs;
   }
 
   public get authReqContext() {
     if (!this._authReqContext) 
-      throw new Error("reqContext is undefined");
+      throw new Error("Authorized Request Context is not assigned");
     return this._authReqContext;
   }
 
   public get reqContext() {
     if (this.db.isBriefcaseDb()) {
       if (!this._authReqContext) 
-        throw new Error("reqContext is undefined");
+        throw new Error("Authorized Request Context is not passed in by BaseApp.");
       return this._authReqContext;
     }
     return new BackendRequestContext();
@@ -132,7 +156,7 @@ export abstract class PConnector {
 
   public get jobSubjectId() {
     if (!this._jobSubjectId) 
-      throw new Error("job subject id is undefined. call updateSubject to populate its value.");
+      throw new Error("job subject ID is undefined. call updateSubject to populate its value.");
     return this._jobSubjectId;
   }
 
@@ -197,16 +221,6 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  protected async _updateLoader() {
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(IModel.repositoryModelId);
-
-    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
-    await loader.update();
-
-    await this.persistChanges(`Updated Loader (Repository Link) - ${loader.key}`, ChangesType.GlobalProperties);
-  }
-
   public updateElement(props: ElementProps, instance: IRInstance): UpdateResult {
     const identifier = props.code.value!;
     const version = instance.version;
@@ -245,6 +259,16 @@ export abstract class PConnector {
     return { entityId: element.id, state: ItemState.Changed };
   }
 
+  protected async _updateLoader() {
+    if (this.db.isBriefcaseDb())
+      await this.enterChannel(IModel.repositoryModelId);
+
+    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
+    await loader.update();
+
+    await this.persistChanges(`Updated Loader (Repository Link) - ${loader.key}`, ChangesType.GlobalProperties);
+  }
+
   protected async _updateSubject() {
     if (this.db.isBriefcaseDb())
       await this.enterChannel(IModel.repositoryModelId);
@@ -265,12 +289,6 @@ export abstract class PConnector {
       await this.db.importSchemas(this.reqContext, domainSchemaPaths);
 
     await this.persistChanges(`Imported ${domainSchemaPaths.length} Domain Schema(s)`, ChangesType.Schema);
-  }
-
-  protected async _loadIRModel() {
-    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
-    await loader.open(this.jobArgs.connection);
-    this._irModel = await pcf.IRModel.fromLoader(loader);
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
@@ -300,6 +318,12 @@ export abstract class PConnector {
       else 
         await this.persistChanges("No Changes to Dynamic Schema", ChangesType.Schema);
     }
+  }
+
+  protected async _loadIRModel() {
+    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
+    await loader.open(this.jobArgs.connection);
+    this._irModel = await pcf.IRModel.fromLoader(loader);
   }
 
   protected async _updateData() {

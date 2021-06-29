@@ -1,9 +1,17 @@
 import { Id64String } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
 import * as common from "@bentley/imodeljs-common";
-import { IRInstance, DMOMap, ElementDMO, PConnector, RelatedElementDMO, RelationshipDMO, Loader, JobArgs, ItemState } from "./pcf";
+import { JobArgs } from "./BaseApp";
+import { DMOMap, ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
+import { IRInstance } from "./IRModel";
+import { Loader } from "./loaders";
+import { ItemState, PConnector } from "./PConnector";
 
+/* 
+ * Represents the Repository Model (the root of an iModel).
+ */
 export class RepoTree {
+
   public loaders: Loader[];
   public subjects: SubjectNode[];
   public relatedElements: RelatedElementNode[];
@@ -111,7 +119,7 @@ export abstract class Node implements NodeProps {
     this.pc.nodeMap[props.key] = this;
   }
 
-  public abstract update(): Promise<UpdateResult | UpdateResult[]>;
+  public abstract update(): Promise<UpdateResult>;
   public abstract toJSON(): any;
 }
 
@@ -138,41 +146,46 @@ export class SubjectNode extends Node implements SubjectNodeProps {
   }
 
   public async update() {
+
+    const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
+
     const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
-      this.pc.jobSubjectId = existingSub.id;
-      this.pc.subjectCache[this.key] = existingSub.id;
-      return { entityId: existingSub.id, state: ItemState.Unchanged};
+      res.entityId = existingSub.id;
+      res.state = ItemState.Unchanged;
+      res.comment = `Use an existing subject - ${this.key}`;
+    } else {
+      const { appVersion, connectorName } = this.pc.config;
+      const jsonProperties = {
+        Subject: {
+          Job: {
+            Properties: {
+              ConnectorVersion: appVersion,
+              ConnectorType: "pcf-connector",
+            },
+            Connector: connectorName,
+          }
+        },
+      };
+
+      const root = this.pc.db.elements.getRootSubject();
+      const subProps: common.SubjectProps = {
+        classFullName: bk.Subject.classFullName,
+        model: root.model,
+        code,
+        jsonProperties,
+        parent: new bk.SubjectOwnsSubjects(root.id),
+      };
+
+      const newSubId = this.pc.db.elements.insertElement(subProps);
+      subId = newSubId;
+      comment = `Inserted a new subject - ${this.key}`;
     }
 
-    const { appVersion, connectorName } = this.pc.config;
-    const jsonProperties = {
-      Subject: {
-        Job: {
-          Properties: {
-            ConnectorVersion: appVersion,
-            ConnectorType: "pcf-connector",
-          },
-          Connector: connectorName,
-        }
-      },
-    };
-
-    const root = this.pc.db.elements.getRootSubject();
-    const subProps: common.SubjectProps = {
-      classFullName: bk.Subject.classFullName,
-      model: root.model,
-      code,
-      jsonProperties,
-      parent: new bk.SubjectOwnsSubjects(root.id),
-    };
-
-    const newSubId = this.pc.db.elements.insertElement(subProps);
-    const newSub = this.pc.db.elements.getElement<bk.Subject>(newSubId);
-    this.pc.jobSubjectId = newSub.id;
-    this.pc.subjectCache[this.key] = newSub.id;
+    this.pc.jobSubjectId = subId;
+    this.pc.subjectCache[this.key] = subId;
     return { entityId: newSub.id, state: ItemState.New };
   }
 }
@@ -219,10 +232,12 @@ export class ModelNode extends Node implements ModelNodeProps {
 
     let modelId;
     let modelState;
+    let comment;
 
     if (existingPartitionId) {
       modelId = existingPartitionId;
       modelState = ItemState.Unchanged;
+      comment = `Use an existing Model - ${this.key}`;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
       const modelProps: common.ModelProps = {
@@ -233,10 +248,11 @@ export class ModelNode extends Node implements ModelNodeProps {
 
       modelId = this.pc.db.models.insertModel(modelProps);
       modelState = ItemState.New;
+      comment = `Inserted a new Model - ${this.key}`;
     }
 
     this.pc.modelCache[this.key] = modelId;
-    return { entityId: modelId, state: modelState };
+    return { entityId: modelId, state: modelState, comment };
   }
 
   public toJSON(): any {
