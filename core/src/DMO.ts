@@ -10,14 +10,21 @@ export type ECDynamicRelationshipClassProps = RelationshipClassProps & { schema:
  */
 export interface DMO {
 
-  // references the key of an IR entity which represents an external class (e.g. Excel sheet, database table).
+  /*
+   * References the key of an IR Entity which represents an external class (e.g. Excel sheet, database table).
+   */
   irEntity: string;
 
-  // defines a condition to determine if an element should be created from an IR instance.
-  // the instance will not be synchronized if false is returned,
+  /*
+   * Defines a condition to determine if an ECInstance should be created from an IRInstance.
+   * The instance will not be synchronized if "false" is returned,
+   */ 
   doSyncInstance?(instance: IRInstance): boolean;
 
-  // modifies the default properties (props) of the current EC entity. IRInstance contains the external data corresponding to current EC entity.
+  /*
+   * Modifies the default properties assigned to the current ECInstance. 
+   * An IRInstance contains the external data corresponding to current EC Entity.
+   */
   modifyProps?(props: any, instance: IRInstance): void;
 }
 
@@ -26,7 +33,9 @@ export interface DMO {
  */
 export interface ElementDMO extends DMO {
 
-  // references EITHER a domain entity class by including its ClassFullName OR a dynamic class by defining it here
+  /*
+   * Rreferences EITHER a domain entity class by including its ClassFullName OR a dynamic class by defining it here
+   */
   ecElement: ECDomainClassFullName | ECDynamicElementClassProps;
 
   // references the attribute used to identify the Category of a geometric element

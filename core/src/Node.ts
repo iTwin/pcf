@@ -97,6 +97,9 @@ export class RepoTree {
 // No > 1 subclassing
 
 export interface NodeProps {
+  /*
+   * The unique identifier of a Node
+   */
   key: string;
 }
 
@@ -122,8 +125,6 @@ export abstract class Node implements NodeProps {
   public abstract update(): Promise<UpdateResult>;
   public abstract toJSON(): any;
 }
-
-// SUBJECT
 
 export interface SubjectNodeProps extends NodeProps {}
 
@@ -190,11 +191,23 @@ export class SubjectNode extends Node implements SubjectNodeProps {
   }
 }
 
-// MODEL
-
 export interface ModelNodeProps extends NodeProps {
+
+  /*
+   * References an EC Model class
+   * it must have the same type as partitionClass
+   */
   modelClass: typeof bk.Model;
+  
+  /*
+   * References an EC Partition class 
+   * it must have the same type as modelClass
+   */
   partitionClass: typeof bk.InformationPartitionElement;
+
+  /*
+   * References a Subject Node defined by user
+   */
   subject: SubjectNode;
 }
 
@@ -261,11 +274,22 @@ export class ModelNode extends Node implements ModelNodeProps {
   }
 }
 
-// ELEMENT
-
 export interface ElementNodeProps extends NodeProps {
+
+  /*
+   * Allows multiple EC Elements to be populated by a single ElementNode
+   */
   dmo: ElementDMO;
+
+  /*
+   * References a Model Node defined by user
+   * All the elements populated by the dmo will be contained by this model
+   */
   model: ModelNode;
+
+  /*
+   * References a Category Node defined by user
+   */
   category?: ElementNode;
 }
 
@@ -325,11 +349,23 @@ export class ElementNode extends Node implements ElementNodeProps {
   }
 }
 
-// RELATIONSHIP
-
 export interface RelationshipNodeProps extends NodeProps {
+
+  /*
+   * Allows multiple EC Relationships to be populated by a single ElementNode
+   * Each EC Relationship represents a link table relationship
+   */
   dmo: RelationshipDMO;
+
+  /*
+   * References the source element
+   */
   source: ElementNode;
+
+  /*
+   * References the target element
+   * This is not defined if dmo points to an EC Entity with SearchKey
+   */
   target?: ElementNode;
 }
 
@@ -381,8 +417,22 @@ export class RelationshipNode extends Node {
 // RELATED ELEMENT
 
 export interface RelatedElementNodeProps extends NodeProps {
+
+  /*
+   * Allows multiple EC Related Element to be populated by a single ElementNode
+   * Each Related Element represents a foreign key relationship
+   */
   dmo: RelatedElementDMO;
+
+  /*
+   * References the source element in the relationship
+   */
   source: ElementNode;
+  
+  /*
+   * References the target element in the relationship
+   * This is not defined if dmo points to an EC Entity with SearchKey
+   */
   target?: ElementNode;
 }
 
