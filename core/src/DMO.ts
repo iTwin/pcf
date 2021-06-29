@@ -1,7 +1,20 @@
 import { EntityClassProps, RelationshipClassProps } from "@bentley/ecschema-metadata";
 import { IRInstance } from "./IRModel";
 
+/* 
+ * A string that contains a JSON whose keys refer to EC Properties and values refer to their values.
+ * The combination of this set of properties and values should uniquely identify a target element that already exists in the iModel.
+ * e.g. {"ECClassId": "Bis.PhysicalElement", "CodeValue": "Wall"}
+ */
+export type SearchKey = string;
+
+/*
+ * In one of the following formats:
+ * 1. "<schema name or alias>:<domain class name>"
+ * 2. "<schema name or alias>.<domain class name>"
+ */
 export type ECDomainClassFullName = string;
+
 export type ECDynamicElementClassProps = (EntityClassProps & { schema: string, name: string, baseClass: string });
 export type ECDynamicRelationshipClassProps = RelationshipClassProps & { schema: string };
 
@@ -34,16 +47,23 @@ export interface DMO {
 export interface ElementDMO extends DMO {
 
   /*
-   * Rreferences EITHER a domain entity class by including its ClassFullName OR a dynamic class by defining it here
+   * References an EC Element Class by one of the following options:
+   * 1. include its domain class full name 
+   * 2. create a dynamic element class by defining it here
    */
   ecElement: ECDomainClassFullName | ECDynamicElementClassProps;
 
-  // references the attribute used to identify the Category of a geometric element
+  /*
+   * References the attribute name used to identify the EC Category Element
+   */
   categoryAttr?: string;
 
-  // references the attribute used to identify the RelatedElement of an element
+  /*
+   * References the attribute name used to identify the EC RelatedElement
+   */
   relatedElementAttr?: string;
 }
+
 
 
 /*
@@ -51,25 +71,34 @@ export interface ElementDMO extends DMO {
  */
 export interface RelationshipDMO extends DMO {
 
-  // references EITHER a domain relationship class by including its ClassFullName OR a dynamic class by defining it here
+  /*
+   * References a relationship class by one of the following options:
+   * 1. include its domain class full name 
+   * 2. create a dynamic relationship class by defining it here
+   */
   ecRelationship: ECDomainClassFullName | ECDynamicRelationshipClassProps;
 
-  // references a primary/foreign key (attribute) that uniquely identifies a source entity.
+  /*
+   * References a primary/foreign key (attribute) that uniquely identifies a source entity.
+   */
   fromAttr: string;
 
-  // the type of the source entity.
+  /*
+   * The type of the source entity.
+   * Currently it must be IR Entity.
+   */
   fromType: "IREntity";
 
-  // references a primary/foreign key (attribute) that uniquely identifies a source IR/EC Entity.
-  //
-  // if toType = "ECEntity", toAttr refers to a special attribute that contains SearchKey's.
-  //
-  // SearchKey: a string that contains a JSON whose keys refer to EC Properties and values refer to their values.
-  // The combination of this set of properties and values should uniquely identify a target element that already exists in the iModel.
-  // e.g. {"ECClassId": "Bis.PhysicalElement", "CodeValue": "Wall"}
-  toAttr: string;
+  /*
+   * References a primary/foreign key (attribute) that uniquely identifies a source IR/EC Entity.
+   * toAttr must contain SearchKey if toType = "ECEntity" 
+   */
+  toAttr: SearchKey | string;
 
-  // the type of the target entity.
+  /*
+   * The type of the target entity.
+   * toAttr must contain a SearchKey if toType = "ECEntity"
+   */
   toType: "ECEntity" | "IREntity";
 }
 
@@ -77,7 +106,11 @@ export interface RelationshipDMO extends DMO {
  * Dynamic Mapping Object for EC Related Element Class.
  */
 export interface RelatedElementDMO extends RelationshipDMO {
-  // ecProperty: the name of the EC property that references a RelatedElement. e.g. the property named "parent" in BisCore:PhysicalElement.
+
+  /*
+   * The name of the EC property that references an EC RelatedElement.
+   * e.g. the EC property named "parent" in BisCore:PhysicalElement
+   */
   ecProperty: string;
 }
 

@@ -2,18 +2,25 @@ import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { FileConnection, Loader } from "./Loader";
 import * as fs from "fs";
 
-// json must be formatted like this:
-// 
-// {
-//      <EntityKey>: [ // Instances
-//          {
-// .            id: ...
-//              <Attribute 1>: ...
-//              <Attribute 2>: ...
-//              ...
-//          }
-//      ]
-// }
+/* 
+ * JSON => IR Model Mappings:
+ *
+ * Your json body should be formatted like this.
+ * where each key on the first level should contain an array of objects
+ * 
+ * {
+ *      <IR Entity>: [ 
+ *          // IR Instances
+ *          {
+ * .            <default primary key>: ...
+ *              <attribute 1>: ...
+ *              <attribute 2>: ...
+ *              ...
+ *          }
+ *      ]
+ * }
+ *
+ */
 
 export class JSONLoader extends Loader {
 

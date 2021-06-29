@@ -5,7 +5,7 @@ import { JobArgs } from "./BaseApp";
 import { DMOMap, ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
 import { Loader } from "./loaders";
-import { ItemState, PConnector } from "./PConnector";
+import { PConnector } from "./PConnector";
 
 /* 
  * Represents the Repository Model (the root of an iModel).
@@ -93,21 +93,26 @@ export class RepoTree {
   }
 }
 
-// BASE INTERFACE
-// No > 1 subclassing
-
 export interface NodeProps {
+
   /*
    * The unique identifier of a Node
    */
   key: string;
 }
 
+export enum ItemState {
+  Unchanged,
+  New,
+  Changed,
+}
 export interface UpdateResult {
   entityId: Id64String;
   state: ItemState;
+  comment: string;
 }
 
+// No > 1 subclassing
 export abstract class Node implements NodeProps {
 
   public pc: PConnector;
@@ -122,7 +127,7 @@ export abstract class Node implements NodeProps {
     this.pc.nodeMap[props.key] = this;
   }
 
-  public abstract update(): Promise<UpdateResult>;
+  public abstract update(): Promise<UpdateResult | UpdateResult[]>;
   public abstract toJSON(): any;
 }
 
@@ -181,13 +186,14 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       };
 
       const newSubId = this.pc.db.elements.insertElement(subProps);
-      subId = newSubId;
-      comment = `Inserted a new subject - ${this.key}`;
+      res.entityId = newSubId;
+      res.state = ItemState.New;
+      res.comment = `Inserted a new subject - ${this.key}`;
     }
 
-    this.pc.jobSubjectId = subId;
-    this.pc.subjectCache[this.key] = subId;
-    return { entityId: newSub.id, state: ItemState.New };
+    this.pc.jobSubjectId = res.entityId;
+    this.pc.subjectCache[this.key] = res.entityId;
+    return res;
   }
 }
 
@@ -228,6 +234,9 @@ export class ModelNode extends Node implements ModelNodeProps {
   }
 
   public async update() {
+
+    const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
+
     const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
@@ -243,14 +252,10 @@ export class ModelNode extends Node implements ModelNodeProps {
 
     const existingPartitionId = this.pc.db.elements.queryElementIdByCode(code);
 
-    let modelId;
-    let modelState;
-    let comment;
-
     if (existingPartitionId) {
-      modelId = existingPartitionId;
-      modelState = ItemState.Unchanged;
-      comment = `Use an existing Model - ${this.key}`;
+      res.entityId = existingPartitionId;
+      res.state = ItemState.Unchanged;
+      res.comment = `Use an existing Model - ${this.key}`;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
       const modelProps: common.ModelProps = {
@@ -258,14 +263,13 @@ export class ModelNode extends Node implements ModelNodeProps {
         modeledElement: { id: partitionId },
         name: this.key,
       };
-
-      modelId = this.pc.db.models.insertModel(modelProps);
-      modelState = ItemState.New;
-      comment = `Inserted a new Model - ${this.key}`;
+      res.entityId = this.pc.db.models.insertModel(modelProps);
+      res.state = ItemState.New;
+      res.comment = `Inserted a new Model - ${this.key}`;
     }
 
-    this.pc.modelCache[this.key] = modelId;
-    return { entityId: modelId, state: modelState, comment };
+    this.pc.modelCache[this.key] = res.entityId;
+    return res;
   }
 
   public toJSON(): any {
@@ -308,7 +312,7 @@ export class ElementNode extends Node implements ElementNodeProps {
   }
 
   public async update() {
-    const results: UpdateResult[] = [];
+    const resList: UpdateResult[] = [];
     const instances = this.pc.irModel.getEntityInstances(this.dmo);
     for (const instance of instances) {
       const modelId = this.pc.modelCache[this.model.key];
@@ -336,12 +340,12 @@ export class ElementNode extends Node implements ElementNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      const result = this.pc.updateElement(props, instance);
-      this.pc.elementCache[instance.key] = result.entityId;
-      this.pc.seenIds.add(result.entityId);
-      results.push(result);
+      const res = this.pc.updateElement(props, instance);
+      resList.push(res);
+      this.pc.elementCache[instance.key] = res.entityId;
+      this.pc.seenIds.add(res.entityId);
     }
-    return results;
+    return resList;
   }
 
   public toJSON(): any {
@@ -384,7 +388,7 @@ export class RelationshipNode extends Node {
   }
 
   public async update() {
-    const results: UpdateResult[] = [];
+    const resList: UpdateResult[] = [];
     const instances = this.pc.irModel.getRelInstances(this.dmo);
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
@@ -396,25 +400,25 @@ export class RelationshipNode extends Node {
 
       const [sourceId, targetId] = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
-      if (existing)
+      if (existing) {
+        resList.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
         continue;
+      }
 
       const props: common.RelationshipProps = { sourceId, targetId, classFullName };
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
-      results.push({ entityId: relId, state: ItemState.New });
+      resList.push({ entityId: relId, state: ItemState.New, comment: "" })
     }
-    return results;
+    return resList;
   }
 
   public toJSON(): any {
     return { key: this.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
   }
 }
-
-// RELATED ELEMENT
 
 export interface RelatedElementNodeProps extends NodeProps {
 
@@ -451,7 +455,7 @@ export class RelatedElementNode extends Node {
   }
 
   public async update() {
-    const results: UpdateResult[] = [];
+    const resList: UpdateResult[] = [];
     const instances = this.pc.irModel.getRelInstances(this.dmo);
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
@@ -474,9 +478,9 @@ export class RelatedElementNode extends Node {
 
       (targetElement as any)[this.dmo.ecProperty] = relatedElement;
       targetElement.update();
-      results.push({ entityId: relatedElement.id, state: ItemState.New });
+      resList.push({ entityId: relatedElement.id, state: ItemState.New, comment: "" });
     }
-    return results;
+    return resList;
   }
 
   public toJSON(): any {

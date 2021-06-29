@@ -3,6 +3,13 @@ import * as sqlite from "sqlite";
 import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { FileConnection, Loader } from "./Loader";
 
+/* 
+ * SQLite => IR Model Mappings:
+ * 
+ * Each database table = IR Entity
+ * Each row of a table = IR Instance
+ * 
+ */
 export class SQLiteLoader extends Loader {
 
   public db?: any;
@@ -53,16 +60,5 @@ export class SQLiteLoader extends Loader {
       instances.push(instance);
     }
     return instances;
-  }
-
-  public getTsType(colType: string): string {
-    const numTypes = new Set(["INT", "INTEGER", "DOUBLE", "REAL", "FLOAT"]);
-    const boolTypes = new Set(["BOOlEAN"]);
-    let tsType = "string";
-    if (numTypes.has(colType))
-      tsType = "number";
-    if (boolTypes.has(colType))
-      tsType = "boolean";
-    return tsType;
   }
 }

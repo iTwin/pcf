@@ -1,64 +1,44 @@
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; 
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, Subject, RepositoryLink } from "@bentley/imodeljs-backend";
+import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb } from "@bentley/imodeljs-backend";
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, RepositoryLinkProps, ElementProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceKey } from "./IRModel";
-import { Loader } from "./loaders";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import { IRInstance, JobArgs, UpdateResult } from "./pcf";
+import { IRInstance, ItemState, JobArgs, UpdateResult } from "./pcf";
 
-export enum ItemState {
-  Unchanged,
-  New,
-  Changed,
-}
 
 export interface PConnectorConfigProps {
-  appId: string;
-  appVersion: string;
-  connectorName: string;
-  domainSchemaPaths?: string[];
-  dynamicSchema?: {
-    schemaName: string;
-    schemaAlias: string;
-  }
-}
-
-/*
- * Be extreme cautious when editing your connector config. Mistakes could potentially corrupt your iModel.
- */
-export class PConnectorConfig implements PConnectorConfigProps {
 
   /*
    * application ID
    */
-  public appId: string;
+  appId: string;
 
   /*
    * application version
    */
-  public appVersion: string;
+  appVersion: string;
 
   /*
    * the name of your connector (e.g. COBieConnector)
    */
-  public connectorName: string;
+  connectorName: string;
 
   /*
    * Local paths to the domain xml schemas referenced. Leave this empty if only BisCore Schema is used.
    */
-  public domainSchemaPaths: string[] = [];
+  domainSchemaPaths?: string[];
 
   /*
    * A dynamic schema would be created if this is defined. If you already defined EC Dynamic Class Props
    * in your DMO's, this must be defined.
    */
-  public dynamicSchema?: {
+  dynamicSchema?: {
 
     /*
      * The name of your Dynamic Schema if any. (e.g. 'COBieDynamic')
@@ -68,6 +48,18 @@ export class PConnectorConfig implements PConnectorConfigProps {
     /*
      * The alias of your Dynamic Schema name if any. (e.g. 'COBieDynamic' => 'cd')
      */
+    schemaAlias: string;
+  }
+}
+
+export class PConnectorConfig implements PConnectorConfigProps {
+
+  public appId: string;
+  public appVersion: string;
+  public connectorName: string;
+  public domainSchemaPaths: string[] = [];
+  public dynamicSchema?: {
+    schemaName: string;
     schemaAlias: string;
   }
 
@@ -242,21 +234,21 @@ export abstract class PConnector {
         checksum,
         version,
       } as ExternalSourceAspectProps);
-      return { entityId: element.id, state: ItemState.New };
+      return { entityId: element.id, state: ItemState.New, comment: "" };
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return { entityId: element.id, state: ItemState.Unchanged };
+      return { entityId: element.id, state: ItemState.Unchanged, comment: "" };
 
     xsa.version = version;
     xsa.checksum = checksum;
 
     element.update();
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return { entityId: element.id, state: ItemState.Changed };
+    return { entityId: element.id, state: ItemState.Changed, comment: "" };
   }
 
   protected async _updateLoader() {
