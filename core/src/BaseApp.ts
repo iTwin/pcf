@@ -346,7 +346,7 @@ export class IntegrationTestApp extends BaseApp {
 
   public async createTestBriefcaseDb(): Promise<GuidString> {
     this.init();
-    const testIModelName = `Integration Test IModel (${process.platform})`;
+    const testIModelName = `Integration Test (${process.platform})`;
     const existingTestIModels: HubIModel[] = await IModelHost.iModelClient.iModels.get(this.authReqContext, this.hubArgs.projectId, new IModelQuery().byName(testIModelName));
     for (const testIModel of existingTestIModels) {
       await util.retryLoop(async () => {

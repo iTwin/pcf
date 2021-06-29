@@ -2,6 +2,7 @@ import * as elements from "./dmos/Elements";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
 import * as pcf from "@itwin/pcf";
+import * as path from "path";
 
 const { DefinitionModel, DefinitionPartition, PhysicalModel, PhysicalPartition } = pcf.imodeljs_backend;
 
