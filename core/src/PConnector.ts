@@ -264,13 +264,13 @@ export abstract class PConnector {
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
-    if (this.db.isBriefcaseDb())
-      await this.enterRepoChannel();
-
     const dmoMap = this.tree.buildDMOMap();
     const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
 
     if (shouldGenerateSchema) {
+      if (this.db.isBriefcaseDb())
+        await this.enterRepoChannel();
+
       if (!this.config.dynamicSchema)
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
 
