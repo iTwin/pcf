@@ -35,16 +35,20 @@ To minimize runtime errors, your inputs are strictly checked both at compile tim
 ## Single Source of Truth (SSOT)
 
 As both of your connector and source data evolve, it is often that two types of changes will need to be made: 
-1. mappings changes between source schema and EC schema 
-2. iModel hierarchy changes of the EC Entities created from source data. 
+1. mapping changes between the source schema and EC schema. 
+2. iModel hierarchy changes of the EC Entities created from the source data. 
 
-As we are constantly dealing with changes, it is important to have an easy way to precisely capture these changes and inform downstream iModel.js applications about them. pcf solves this problem by making **DMO** the SSOT of the mappings between source schema and EC schema and making **Node** the SSOT of the hierarchy of mapped EC Entities within the source discipline. 
+As we are constantly dealing with changes, it is important to have an easy way to precisely capture these changes and inform downstream iTwin.js applications about them. pcf solves this problem by making **DMO** the SSOT of the mappings between source schema and EC schema and making **Node** the SSOT of the hierarchy of mapped EC Entities within the source discipline. 
 
 Sometimes you may want to define and update your own schema (called "dynamic schema" in EC terms) to better represent your source schema in the EC world. With pcf, you no longer need to hand-write a xml EC Schema, it is auto-generated and imported into your iModel if you have defined your own EC classes in **DMO's**. Traditional iModel Connectors keep schema in a separate xml file and embed mapping details across source files.
 
 ## Lossless Sychronization
 
-When one converts a data format to another, it is likely that not all the properties of the source data are maintained in the target format (lossy transformation). For example, referential-integrity gets lost if a synchronization job skips a database relationship. This has a terrible consequence by allowing the target data to be modified without the relationship constraint. The best way to prove a synchronization job is correct is by converting the target data back into the source format and see if the data are the same as its original version. This cannot be avoided at the framework level, the person who's responsible for the mappings between the source and target format must be extreme cautious. However, the way mappings are presented through DMO in pcf significantly makes the job of this person easier and allows someone without much programming expertise to inspect the mappings.
+When one converts a data format to another, it is likely that not all the properties of the source data are maintained in the target format (lossy transformation). For example, referential-integrity gets lost if a synchronization job skips a database relationship. This has a terrible consequence by allowing the target data to be modified without the relationship constraint. (The best way to prove a synchronization job is correct is by converting the target data back into the source format and see if the data are the same as its original version.) This mistake cannot be avoided at the framework level, the person who's responsible for the mappings between the source and target format must always be extreme cautious in defining mappings. However, the way mappings are presented through DMO in pcf significantly makes the job of this person easier and allows someone without much programming expertise to inspect the mappings.
+
+## Data Integrity
+
+We must not always assume that the source data are normalized or well-modeled. Having an IR Model safe-guards against dirty source data, thus maintaining the data quality in your iModel. IR Model forces every external class to have a primary key and value so that one can always use information stored in the external source to query an iModel and be confident that only a single EC instance gets returned. This is just one kind of optimization. Other kinds of optimizations could also be implemented on IR Model such as dynamically inferring relationships in your data if they're not provided.     
 
 
 # Constructs
