@@ -152,9 +152,7 @@ export class SubjectNode extends Node implements SubjectNodeProps {
   }
 
   public async update() {
-
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
-
     const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
@@ -234,9 +232,7 @@ export class ModelNode extends Node implements ModelNodeProps {
   }
 
   public async update() {
-
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
-
     const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);

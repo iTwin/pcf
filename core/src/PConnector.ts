@@ -11,7 +11,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { IRInstance, ItemState, JobArgs, UpdateResult } from "./pcf";
 
-
 export interface PConnectorConfigProps {
 
   /*
@@ -202,6 +201,8 @@ export abstract class PConnector {
       await this._updateData();
       await this._updateDeletedElements();
       await this._updateProjectExtents();
+    } else {
+      Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has finished");
@@ -303,12 +304,7 @@ export abstract class PConnector {
         throw new Error("Failed to find dynamically generated schema.");
 
       this.dynamicSchema = generatedSchema
-      if (schemaState === ItemState.New)
-        await this.persistChanges("Added a Dynamic Schema", ChangesType.Schema);
-      else if (schemaState === ItemState.Changed)
-        await this.persistChanges("Updated Existing Dynamic Schema", ChangesType.Schema);
-      else 
-        await this.persistChanges("No Changes to Dynamic Schema", ChangesType.Schema);
+      await this.persistChanges("Updated Dynamic Schema", ChangesType.Schema);
     }
   }
 
