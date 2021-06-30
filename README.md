@@ -14,21 +14,22 @@ Table of Contents
 
 # What is itwin-pcf?
 
-
-itwin-pcf is tool for synchronizing external data with your digital twin, iModel, deterministically and efficiently. As opposed to traditional [iModel Connectors](https://www.itwinjs.org/learning/imodel-connectors/), itwin-pcf allows you to **define** your iModel as code then it takes care of the steps to reach that goal. With pcf, you have the full control over how you would like your data to land in an iModel with minimal efforts.
+itwin-pcf is a tool for synchronizing external data with your digital twin, iModel, deterministically and efficiently. As opposed to traditional [iModel Connectors](https://www.itwinjs.org/learning/imodel-connectors/), itwin-pcf allows you to **define** your iModel as code then it takes care of the steps to synchronize it to your desired state. With pcf, you have the full control over how you would like your data to end up in an iModel with minimal programming effort.
 
 
 # Why use itwin-pcf?
 
 
 ## Declarative Synchronization
-pcf allows you to represent your external source data in an iModel with two constructs: **DMO's** and **Nodes** (see definitions below). It handles the necessary logic & topological order of inserting/updating/deleting elements and relationships into an iModel.
+
+pcf allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that everything all the EC Entities corresponded to your source data are correctly inserted, updated, and deleted in your iModel. With pcf, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iModel.js applications knows what to expect from your iModels. 
 
 
 ## Minimized Runtime Error & Testing
+
 Given that **DMO** and **Nodes** are the main inputs to your connector, so long as their definitions are correct, each synchronization job is guaranteed to succeed with pcf. 
 
-To minimize runtime errors, your inputs are strictly checked both at compile time and runtime before your synchronization job actually gets executed by pcf (Most errors are caught at compile time by TypeScript interface linting). Functionalities such as code-completion and code-refactoring available in most modern IDE's (e.g Visual Studio Code) will help you to write the correct definitions for them. Since most runtime errors are avoided at compile time and pcf is rigorously tested, you don't have to write any tests for your connector.
+To minimize runtime errors, your inputs are strictly checked both at compile time and runtime before your synchronization job actually gets executed by pcf (Most errors are caught at compile time by TypeScript interface linting immediately as you type). Functionalities such as code-completion and code-refactoring available in most modern IDE's (e.g Visual Studio Code) will help you to write the correct definitions for them. Since most runtime errors are avoided at compile time and pcf is rigorously tested, you don't have to write any tests for your connector.
 
 
 ## Single Source of Truth (SSOT)
@@ -40,6 +41,10 @@ As both of your connector and source data evolve, it is often that two types of 
 As we are constantly dealing with changes, it is important to have an easy way to precisely capture these changes and inform downstream iModel.js applications about them. pcf solves this problem by making **DMO** the SSOT of the mappings between source schema and EC schema and making **Node** the SSOT of the hierarchy of mapped EC Entities within the source discipline. 
 
 Sometimes you may want to define and update your own schema (called "dynamic schema" in EC terms) to better represent your source schema in the EC world. With pcf, you no longer need to hand-write a xml EC Schema, it is auto-generated and imported into your iModel if you have defined your own EC classes in **DMO's**. Traditional iModel Connectors keep schema in a separate xml file and embed mapping details across source files.
+
+## Lossless Sychronization
+
+When one converts a data format to another, it is likely that not all the properties of the source data are maintained in the target format (lossy transformation). For example, referential-integrity gets lost if a synchronization job skips a database relationship. This has a terrible consequence by allowing the target data to be modified without the relationship constraint. The best way to prove a synchronization job is correct is by converting the target data back into the source format and see if the data are the same as its original version. This cannot be avoided at the framework level, the person who's responsible for the mappings between the source and target format must be extreme cautious. However, the way mappings are presented through DMO in pcf significantly makes the job of this person easier and allows someone without much programming expertise to inspect the mappings.
 
 
 # Constructs
@@ -80,11 +85,10 @@ Currently, all the documentations and API references of this project are embedde
 
 * Nodes
     * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
-    * Modified the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
+    * Modifying the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
     * Parent-child Modeling is not supported yet. Only the top models and their elements are synchronized.
 * Dynamic Schema
-    * Only Primitive EC Properties can be added to DMO.classProps.
-    * EC Properties defined in DMO.classProps can only be added, not deleted.
+    * Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
 * Loaders
     * Loader is persisted as a Repository Link element in your iModel.
     * Currently supported loaders: JSON, XLSX, SQLite Loader.

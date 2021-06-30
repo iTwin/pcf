@@ -21,7 +21,7 @@ export enum Environment {
 export interface JobArgsProps {
 
   /* 
-   * relative path to compiler connector module (.js)
+   * absolute path to compiler connector module (.js)
    */
   connectorPath: string;
 
@@ -48,8 +48,8 @@ export interface JobArgsProps {
   logLevel?: LogLevel;
 
   /* 
-   * allows elements to be deleted if they no longer exist in the source file. For a BriefcaseDb, only
-   * elements in the current subject channel can be deleted.
+   * allows elements to be deleted if they no longer exist in the source file. For a BriefcaseDb, 
+   * only elements in the current subject channel can be deleted.
    */
   enableDelete?: boolean;
 
