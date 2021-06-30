@@ -289,7 +289,6 @@ export abstract class PConnector {
     const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
 
     if (shouldGenerateSchema) {
-
       if (this.db.isBriefcaseDb())
         await this.enterChannel(IModel.repositoryModelId);
 
@@ -326,9 +325,8 @@ export abstract class PConnector {
       if (topModel.subject.key !== subjectKey)
         continue;
       await topModel.update();
-      for (const element of topModel.elements) {
+      for (const element of topModel.elements)
         await element.update();
-      }
     }
 
     for (const relationship of this.tree.relationships)

@@ -54,11 +54,11 @@ export class RepoTree {
       relatedElements: [],
     };
     function build(node: Node) {
-      if (node instanceof ElementNode)
+      if (node instanceof ElementNode && typeof node.dmo.ecElement !== "string")
         map.elements.push(node.dmo);
-      else if (node instanceof RelationshipNode)
+      else if (node instanceof RelationshipNode && typeof node.dmo.ecRelationship !== "string")
         map.relationships.push(node.dmo);
-      else if (node instanceof RelatedElementNode)
+      else if (node instanceof RelatedElementNode && typeof node.dmo.ecRelationship !== "string")
         map.relatedElements.push(node.dmo);
     }
     this.walk(build);
