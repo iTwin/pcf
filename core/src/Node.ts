@@ -28,12 +28,19 @@ export class Tree implements TreeProps {
       relatedElements: [],
     };
     function build(node: Node) {
-      if (node instanceof MultiElementNode)
-        map.elements.push(node.dmo);
-      else if (node instanceof MultiRelationshipNode)
-        map.relationships.push(node.dmo);
-      else if (node instanceof MultiRelatedElementNode)
-        map.relatedElements.push(node.dmo);
+      if (node instanceof MultiElementNode) {
+        if (node.dmo.classProps) {
+          map.elements.push(node.dmo);
+        }
+      } else if (node instanceof MultiRelationshipNode) {
+        if (node.dmo.classProps) {
+          map.relationships.push(node.dmo);
+        }
+      } else if (node instanceof MultiRelatedElementNode) {
+        if (node.dmo.classProps) {
+          map.relatedElements.push(node.dmo);
+        }
+      }
     }
     this.walk(build);
     return map;
