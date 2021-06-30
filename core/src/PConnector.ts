@@ -286,6 +286,8 @@ export abstract class PConnector {
         await this.persistChanges("Added a Dynamic Schema", ChangesType.Schema);
       else if (schemaState === ItemState.Changed)
         await this.persistChanges("Updated Existing Dynamic Schema", ChangesType.Schema);
+      else
+        await this.persistChanges("No Changes to Dynamic Schema", ChangesType.Schema);
     }
   }
 
