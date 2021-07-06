@@ -41,6 +41,7 @@
     "@bentley/presentation-common": "2.16.1",
     "@bentley/rbac-client": "2.16.1",
     "@bentley/telemetry-client": "2.16.1",
+    "@bentley/imodel-bridge": "2.16.1",
     "@types/sqlite3": "^3.1.6",
     "@types/xmldom": "^0.1.30",
     "dotenv": "^8.2.0",

@@ -9,7 +9,6 @@ export const ExtElementRefersToElements: RelationshipDMO = {
     toAttr: "ExtPhysicalElementKey2",
     toType: "IREntity",
     ecRelationship: {
-        schema: "TestSchema",
         name: "ExtElementRefersToElements",
         baseClass: ElementRefersToElements.classFullName,
         strength: strengthToString(StrengthType.Referencing),
@@ -38,7 +37,6 @@ export const ExtElementRefersToExistingElements: RelationshipDMO = {
     toAttr: "ExistingElementSearchKey",
     toType: "ECEntity",
     ecRelationship: {
-        schema: "TestSchema",
         name: "ExtElementRefersToExistingElements",
         baseClass: ElementRefersToElements.classFullName,
         strength: strengthToString(StrengthType.Referencing),
@@ -67,7 +65,6 @@ export const ExtElementGroupsMembers: RelationshipDMO = {
     toAttr: "ExtPhysicalElementKey",
     toType: "IREntity",
     ecRelationship: {
-        schema: "TestSchema",
         name: "ExtElementGroupsMembers",
         baseClass: ElementGroupsMembers.classFullName,
         strength: strengthToString(StrengthType.Referencing),

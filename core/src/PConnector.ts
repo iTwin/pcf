@@ -3,13 +3,14 @@ import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, Co
 import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
+import { BridgeJobDefArgs, IModelBridge } from "@bentley/imodel-bridge";
 import { LogCategory } from "./LogCategory";
 import { IRInstanceKey } from "./IRModel";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import { IRInstance, ItemState, JobArgs, UpdateResult } from "./pcf";
+import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 
 export interface PConnectorConfigProps {
 
@@ -74,7 +75,7 @@ export class PConnectorConfig implements PConnectorConfigProps {
   }
 }
 
-export abstract class PConnector {
+export abstract class PConnector extends IModelBridge {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
 
@@ -91,14 +92,15 @@ export abstract class PConnector {
   public dynamicSchema?: MetaSchema;
 
   protected _db?: IModelDb;
-  protected _jobArgs?: JobArgs;
+  protected _jobArgs?: pcf.JobArgs;
   protected _authReqContext?: AuthorizedBackendRequestContext;
 
   protected _jobSubjectId?: Id64String;
   protected _irModel?: pcf.IRModel;
-  protected _srcState?: ItemState;
+  protected _srcState?: pcf.ItemState;
 
   constructor() {
+    super();
     this.subjectCache = {};
     this.modelCache = {};
     this.elementCache = {};
@@ -167,11 +169,19 @@ export abstract class PConnector {
     return this._srcState;
   }
 
-  public set srcState(state: ItemState) {
+  public set srcState(state: pcf.ItemState) {
     this._srcState = state;
   }
 
-  public init(props: { db: IModelDb, jobArgs: JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
+  public get dynamicSchemaName() {
+    if (!this.config.dynamicSchema)
+      throw new Error("PConnectorConfig.dynamicSchema is not defined");
+    if (!this.dynamicSchema)
+      throw new Error("Dynamic Schema is not initialized");
+    return this.dynamicSchema.fullName;
+  }
+
+  public init(props: { db: IModelDb, jobArgs: pcf.JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
@@ -196,7 +206,7 @@ export abstract class PConnector {
     await this._updateDynamicSchema();
     await this._updateLoader();
 
-    if (this.srcState !== ItemState.Unchanged) {
+    if (this.srcState !== pcf.ItemState.Unchanged) {
       await this._loadIRModel();
       await this._updateData();
       await this._updateDeletedElements();
@@ -214,7 +224,7 @@ export abstract class PConnector {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  public updateElement(props: ElementProps, instance: IRInstance): UpdateResult {
+  public updateElement(props: ElementProps, instance: pcf.IRInstance): pcf.UpdateResult {
     const identifier = props.code.value!;
     const version = instance.version;
     const checksum = instance.checksum;
@@ -235,21 +245,21 @@ export abstract class PConnector {
         checksum,
         version,
       } as ExternalSourceAspectProps);
-      return { entityId: element.id, state: ItemState.New, comment: "" };
+      return { entityId: element.id, state: pcf.ItemState.New, comment: "" };
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return { entityId: element.id, state: ItemState.Unchanged, comment: "" };
+      return { entityId: element.id, state: pcf.ItemState.Unchanged, comment: "" };
 
     xsa.version = version;
     xsa.checksum = checksum;
 
     element.update();
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return { entityId: element.id, state: ItemState.Changed, comment: "" };
+    return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
   }
 
   protected async _updateLoader() {
@@ -485,5 +495,118 @@ export abstract class PConnector {
       await (this.db as BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
     });
   }
-}
 
+  // itwin-connector-framework 
+
+  public initialize(jobDefArgs: BridgeJobDefArgs) {
+    this._jobArgs = jobDefArgs.argsJson.jobArgs;
+    this.tree.validate(this.jobArgs);
+  }
+
+  public async initializeJob(): Promise<void> {}
+
+  public async openSourceData() {
+    if (!this.synchronizer)
+      throw new Error("Syncrhonizer not defined");
+    this._db = this.synchronizer.imodel;
+    await this._loadIRModel();
+  }
+
+  public async importDomainSchema(reqContext: AuthorizedClientRequestContext) {
+    const { domainSchemaPaths } = this.config;
+    if (domainSchemaPaths.length > 0)
+      await this.db.importSchemas(reqContext, domainSchemaPaths);
+  }
+
+  public async importDynamicSchema(reqContext: AuthorizedClientRequestContext) {
+    const dmoMap = this.tree.buildDMOMap();
+    const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
+    if (shouldGenerateSchema) {
+      if (!this.config.dynamicSchema)
+        throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
+      const { schemaName, schemaAlias } = this.config.dynamicSchema;
+      const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
+      const schemaState = await pcf.syncDynamicSchema(this.db, reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
+      const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
+      if (!generatedSchema)
+        throw new Error("Failed to find dynamically generated schema.");
+      this.dynamicSchema = generatedSchema
+    }
+  }
+
+  public async importDefinitions() {
+    this._updateCodeSpecs();
+    this._jobSubjectId = this.jobSubject.id;
+    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
+    await loader.update();
+  }
+
+  public async updateExistingData() {
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+
+    for (const topModel of subjectNode.models) {
+      if (topModel.subject.key !== subjectKey)
+        continue;
+      await topModel.update();
+      for (const element of topModel.elements)
+        await element.update();
+    }
+
+    for (const relationship of this.tree.relationships)
+      await relationship.update();
+    for (const relatedElement of this.tree.relatedElements)
+      await relatedElement.update();
+
+    await this.detectDeletedElements();
+  }
+
+  public async detectDeletedElements() {
+    if (!this.jobArgs.enableDelete) {
+      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
+      return;
+    }
+
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const rows = await util.getRows(this.db, ecsql);
+
+    const elementIds: Id64String[] = [];
+    const defElementIds: Id64String[] = [];
+
+    for (const row of rows) {
+      const elementId = row.elementId;
+      if (this.seenIds.has(elementId))
+        continue;
+      if (this.db.isBriefcaseDb()) {
+        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
+        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
+        if (elementNotInChannelRoot)
+          continue;
+      }
+      const element = this.db.elements.getElement(elementId);
+      if (element instanceof DefinitionElement)
+        defElementIds.push(elementId);
+      else
+        elementIds.push(elementId);
+    }
+
+    this.db.elements.deleteElement(elementIds);
+    this.db.elements.deleteDefinitionElements(defElementIds);
+  }
+
+  public getJobSubjectName(sourcePath: string) {
+    return this.jobArgs.subjectKey;
+  }
+
+  public getApplicationId() {
+    return this.config.appId;
+  }
+
+  public getApplicationVersion() {
+    return this.config.appVersion;
+  }
+
+  public getBridgeName() {
+    return this.config.connectorName;
+  }
+}

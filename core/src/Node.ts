@@ -315,8 +315,8 @@ export class ElementNode extends Node implements ElementNodeProps {
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
-      const { ecElement }= this.dmo;
-      const classFullName = typeof ecElement === "string" ? ecElement : `${ecElement.schema}:${ecElement.name}`;
+      const { ecElement } = this.dmo;
+      const classFullName = typeof ecElement === "string" ? ecElement : `${this.pc.dynamicSchemaName}:${ecElement.name}`;
 
       const props: common.ElementProps = {
         code,
@@ -392,7 +392,7 @@ export class RelationshipNode extends Node {
         continue;
 
       const { ecRelationship } = this.dmo;
-      const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${ecRelationship.schema}:${ecRelationship.name}`;
+      const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${this.pc.dynamicSchemaName}:${ecRelationship.name}`;
 
       const [sourceId, targetId] = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
@@ -462,7 +462,7 @@ export class RelatedElementNode extends Node {
       const targetElement = this.pc.db.elements.getElement(targetId);
 
       const { ecRelationship } = this.dmo;
-      const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${ecRelationship.schema}:${ecRelationship.name}`;
+      const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${this.pc.dynamicSchemaName}:${ecRelationship.name}`;
       const props: common.RelatedElementProps = { id: sourceId, relClassName: classFullName };
 
       if (typeof this.dmo.modifyProps === "function")

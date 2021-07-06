@@ -6,7 +6,6 @@ import { IRInstance } from "../../../IRModel";
 export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",
   ecElement: {
-    schema: "TestSchema",
     name: "ExtPhysicalElement",
     baseClass: PhysicalElement.classFullName,
     properties: [
@@ -43,7 +42,6 @@ export const ExtSpace: ElementDMO = {
 export const ExtGroupInformationElement: ElementDMO = {
   irEntity: "ExtGroupInformationElement",
   ecElement: {
-    schema: "TestSchema",
     name: "ExtGroupInformationElement",
     baseClass: GroupInformationElement.classFullName,
   },
@@ -52,7 +50,6 @@ export const ExtGroupInformationElement: ElementDMO = {
 export const ExtPhysicalType: ElementDMO = {
   irEntity: "ExtPhysicalType",
   ecElement: {
-    schema: "TestSchema",
     name: "ExtPhysicalType",
     baseClass: PhysicalType.classFullName,
   },

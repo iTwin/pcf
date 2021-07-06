@@ -68,6 +68,7 @@ describe("Integration Tests", () => {
         app.jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as JobArgsProps);
 
         const status = await app.run();
+        // const status = await app.runFwk();
         if (status !== BentleyStatus.SUCCESS)
           chai.assert.fail("app run failed");
 

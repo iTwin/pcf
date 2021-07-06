@@ -11,7 +11,6 @@ export const ComponentAssemblesComponents: pcf.RelatedElementDMO = {
   toAttr: "ChildName",
   toType: "IREntity",
   ecRelationship: {
-    schema: "SampleDynamic",
     name: "ComponentAssemblesComponents",
     baseClass: PhysicalElementAssemblesElements.classFullName,
     strength: strengthToString(StrengthType.Embedding),

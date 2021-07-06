@@ -5,6 +5,9 @@ import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/Elec
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
 import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { HubIModel, IModelQuery } from "@bentley/imodelhub-client";
+import { BridgeRunner, BridgeJobDefArgs } from "@bentley/imodel-bridge";
+import { ServerArgs } from "@bentley/imodel-bridge/lib/IModelHubUtils"
+import { Synchronizer } from "@bentley/imodel-bridge/lib/Synchronizer"
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
 import * as path from "path";
@@ -23,10 +26,7 @@ export interface JobArgsProps {
   /* 
    * absolute path to compiler connector module (.js)
    */
-  connectorPath: string;
-
-  /*
-   * info needed to connect to source data
+  connectorPath: string; /* * info needed to connect to source data
    */
   connection: DataConnection;
 
@@ -197,6 +197,34 @@ export class BaseApp {
       await IModelHost.shutdown();
     }
     return BentleyStatus.SUCCESS;
+  }
+
+  /*
+   * Executes itwin-connector-framework
+   */
+  public async runFwk(): Promise<BentleyStatus> {
+    this.init();
+    await IModelHost.startup();
+    const authReqContext = await this.signin();
+
+    const jobDefArgs = new BridgeJobDefArgs();
+    jobDefArgs.doDetectDeletedElements = false;
+    jobDefArgs.bridgeModule = this.jobArgs.connectorPath;
+    jobDefArgs.sourcePath = this.jobArgs.connection.filepath;
+    jobDefArgs.updateDbProfile = false;
+    jobDefArgs.updateDomainSchemas = false;
+    jobDefArgs.revisionComments = this.jobArgs.revisionHeader;
+    jobDefArgs.argsJson = { jobArgs: this.jobArgs };
+
+    const serverArgs = new ServerArgs();
+    serverArgs.contextId = this.hubArgs.projectId;
+    serverArgs.iModelId = this.hubArgs.iModelId;
+    serverArgs.getToken = async () => authReqContext.accessToken;
+
+    const runner = new BridgeRunner(jobDefArgs, serverArgs);
+    const status = await runner.synchronize();
+    await IModelHost.shutdown();
+    return status;
   }
 
   /*

@@ -29,3 +29,8 @@ GeneratedConnector
 lib
 
 .vscode
+
+# integration test
+secret.sh
+secret.bat
+

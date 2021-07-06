@@ -21,4 +21,8 @@ const connectorV2 = (() => {
   return connector;
 })();
 
+export function getBridgeInstance() {
+  return connectorV2;
+}
+
 export default () => connectorV2;

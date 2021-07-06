@@ -144,8 +144,9 @@ export abstract class Loader extends Node implements LoaderProps {
           classFullName: RepositoryLink.classFullName,
           model: modelId,
           code,
-          userLabel: this.key,
           format: this.format,
+          userLabel: instance.userLabel,
+          jsonProperties: instance.data,
         } as RepositoryLinkProps;
         result = this.pc.updateElement(repoLinkProps, instance);
         this.pc.elementCache[instance.key] = result.entityId;

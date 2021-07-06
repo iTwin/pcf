@@ -10,7 +10,6 @@ export const ComponentConnectsComponent: pcf.RelationshipDMO = {
   toAttr: "TargetComponentName",
   toType: "IREntity",
   ecRelationship: {
-    schema: "SampleDynamic",
     name: "ComponentConnectsComponent",
     baseClass: ElementRefersToElements.classFullName,
     strength: strengthToString(StrengthType.Referencing),

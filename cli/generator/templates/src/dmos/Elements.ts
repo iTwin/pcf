@@ -7,7 +7,6 @@ export const Component: pcf.ElementDMO = {
   irEntity: "Component",
   // define a dynamic component 
   ecElement: {
-    schema: "SampleDynamic",
     name: "Component",
     baseClass: PhysicalElement.classFullName,
   },

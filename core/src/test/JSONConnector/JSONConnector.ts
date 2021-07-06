@@ -77,4 +77,8 @@ export class JSONConnector extends pcf.PConnector {
   }
 }
 
+export function getBridgeInstance() {
+  return new JSONConnector();
+}
+
 export default () => new JSONConnector();

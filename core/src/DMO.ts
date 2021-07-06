@@ -15,8 +15,8 @@ export type SearchKey = string;
  */
 export type ECDomainClassFullName = string;
 
-export type ECDynamicElementClassProps = (EntityClassProps & { schema: string, name: string, baseClass: string });
-export type ECDynamicRelationshipClassProps = RelationshipClassProps & { schema: string };
+export type ECDynamicElementClassProps = (EntityClassProps & { name: string, baseClass: string });
+export type ECDynamicRelationshipClassProps = RelationshipClassProps;
 
 /*
  * Dynamic Mapping Object (solely responsible for the mapping between the IR Model and EC Model)

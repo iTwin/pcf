@@ -10,7 +10,6 @@ export const ExtPhysicalElementAssemblesElements: RelatedElementDMO = {
     toType: "IREntity",
     ecProperty: "parent",
     ecRelationship: {
-        schema: "TestSchema",
         name: "ExtPhysicalElementAssemblesElements",
         baseClass: PhysicalElementAssemblesElements.classFullName,
         strength: strengthToString(StrengthType.Embedding),
