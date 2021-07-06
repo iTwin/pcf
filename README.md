@@ -1,3 +1,5 @@
+[![Build Status](https://dev.azure.com/bentleycs/iModelTechnologies/_apis/build/status/iTwin.pcf?branchName=main)](https://dev.azure.com/bentleycs/iModelTechnologies/_build/latest?definitionId=5431&branchName=main)
+
 Table of Contents
 =======================
 
