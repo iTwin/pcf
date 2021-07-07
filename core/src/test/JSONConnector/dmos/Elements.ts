@@ -20,7 +20,6 @@ export const ExtPhysicalElement: ElementDMO = {
     ],
   },
   modifyProps(props: any, instance: IRInstance) {
-    props.userLabel = instance.get("ExtUserLabel");
     props.buildingNumber = instance.get("id");
     props.roomNumber = instance.get("id");
   },
@@ -52,6 +51,9 @@ export const ExtPhysicalType: ElementDMO = {
   ecElement: {
     name: "ExtPhysicalType",
     baseClass: PhysicalType.classFullName,
+  },
+  modifyProps(props: any, instance: IRInstance) {
+    props.userLabel = instance.get("ExtUserLabel");
   },
 };
 

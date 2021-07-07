@@ -379,8 +379,15 @@ export abstract class PConnector extends IModelBridge {
         elementIds.push(elementId);
     }
 
-    this.db.elements.deleteElement(elementIds);
-    this.db.elements.deleteDefinitionElements(defElementIds);
+    for (const elementId of elementIds) {
+      if (this.db.elements.tryGetElement(elementId))
+        this.db.elements.deleteElement(elementId);
+    }
+
+    for (const elementId of defElementIds) {
+      if (this.db.elements.tryGetElement(elementId))
+        this.db.elements.deleteDefinitionElements([elementId]);
+    }
 
     await this.persistChanges("Deleted Elements", ChangesType.Regular);
   }

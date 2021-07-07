@@ -2,35 +2,38 @@
   "ExtPhysicalElement": [
     {
       "id": "0",
-      "ExtUserLabel": "mock_user_label",
       "category": "1",
       "child": ""
     },
     {
       "id": "1",
-      "ExtUserLabel": "mock_user_label",
       "category": "1",
       "child": "2"
     },
     {
       "id": "2",
-      "ExtUserLabel": "mock_user_label",
       "category": "1",
       "child": ""
     },
     {
       "id": "3",
-      "ExtUserLabel": "mock_user_label",
+      "category": "1",
+      "child": "4"
+    },
+    {
+      "id": "4",
       "category": "1",
       "child": ""
     }
   ],
   "ExtPhysicalType": [
     {
-      "id": "1"
+      "id": "1",
+      "ExtUserLabel": "mock_user_label"
     },
     {
-      "id": "2"
+      "id": "2",
+      "ExtUserLabel": "mock_user_label"
     }
   ],
   "ExtSpatialCategory": [
