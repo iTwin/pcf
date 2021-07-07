@@ -54,5 +54,7 @@ export class <%= className %> extends pcf.PConnector {
   }
 }
 
-export default () => new <%= className %>();
+export function getBridgeInstance() {
+  return new <%= className %>();
+}
 

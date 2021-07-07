@@ -81,4 +81,3 @@ export function getBridgeInstance() {
   return new JSONConnector();
 }
 
-export default () => new JSONConnector();

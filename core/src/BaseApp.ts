@@ -7,18 +7,15 @@ import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-clie
 import { HubIModel, IModelQuery } from "@bentley/imodelhub-client";
 import { BridgeRunner, BridgeJobDefArgs } from "@bentley/imodel-bridge";
 import { ServerArgs } from "@bentley/imodel-bridge/lib/IModelHubUtils"
-import { Synchronizer } from "@bentley/imodel-bridge/lib/Synchronizer"
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
 import * as path from "path";
 import * as util from "./Util";
 
 export enum Environment {
-  Prod = 0,
-
-  // QA and Dev are for Bentley Developer only
-  QA = 102,
-  Dev = 103,
+  Prod = 0,    // Anyone
+  QA   = 102,  // Bentley Developer only
+  Dev  = 103,  // Bentley Developer only
 }
 
 export interface JobArgsProps {
@@ -26,7 +23,10 @@ export interface JobArgsProps {
   /* 
    * absolute path to compiler connector module (.js)
    */
-  connectorPath: string; /* * info needed to connect to source data
+  connectorPath: string; 
+
+  /* 
+   * info needed to connect to source data
    */
   connection: DataConnection;
 
@@ -86,6 +86,7 @@ export class JobArgs implements JobArgsProps {
 }
 
 export interface HubArgsProps {
+
   /*
    * your project GUID (it's also called "contextId")
    */
@@ -176,7 +177,7 @@ export class BaseApp {
     await this.signin();
     try {
       db = await this.openBriefcaseDb();
-      const connector = require(this.jobArgs.connectorPath).default();
+      const connector = require(this.jobArgs.connectorPath).getBridgeInstance();
       connector.init({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
       await connector.runJob();
     } catch(err) {
@@ -200,7 +201,7 @@ export class BaseApp {
   }
 
   /*
-   * Executes itwin-connector-framework
+   * Executes itwin-connector-framework in BaseApp
    */
   public async runFwk(): Promise<BentleyStatus> {
     this.init();
@@ -374,9 +375,9 @@ export class IntegrationTestApp extends BaseApp {
     return db;
   }
 
-  public async createTestBriefcaseDb(): Promise<GuidString> {
+  public async createTestBriefcaseDb(name: string): Promise<GuidString> {
     this.init();
-    const testIModelName = `Integration Test (${process.platform})`;
+    const testIModelName = `${name} - ${process.platform}`;
     const existingTestIModels: HubIModel[] = await IModelHost.iModelClient.iModels.get(this.authReqContext, this.hubArgs.projectId, new IModelQuery().byName(testIModelName));
     for (const testIModel of existingTestIModels) {
       await util.retryLoop(async () => {

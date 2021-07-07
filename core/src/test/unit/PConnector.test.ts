@@ -83,7 +83,7 @@ describe("Unit Tests", () => {
 
         const db = bk.StandaloneDb.openFile(targetPath);
         const jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
-        const connector: pcf.PConnector = require(jobArgs.connectorPath).default();
+        const connector: pcf.PConnector = require(jobArgs.connectorPath).getBridgeInstance();
         connector.init({ db, jobArgs });
         await connector.runJob();
         db.close();
@@ -101,7 +101,7 @@ describe("Unit Tests", () => {
 
   it("Loader Tests", async () => {
     const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, "JSONConnector.js");
-    const connector: pcf.PConnector = require(connectorPath).default();
+    const connector: pcf.PConnector = require(connectorPath).getBridgeInstance();
 
     const props: pcf.LoaderProps = {
       key: "loader1",

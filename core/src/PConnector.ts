@@ -85,16 +85,13 @@ export abstract class PConnector extends IModelBridge {
   public aspectCache: { [instanceKey: string]: Id64String };
   public seenIds: Set<Id64String>;
 
-  public tree: pcf.RepoTree;
-  public nodeMap: { [nodeKey: string]: pcf.Node };
+  public readonly tree: pcf.RepoTree;
+  public readonly nodeMap: { [nodeKey: string]: pcf.Node };
+
   protected _config?: PConnectorConfig;
-
-  public dynamicSchema?: MetaSchema;
-
   protected _db?: IModelDb;
   protected _jobArgs?: pcf.JobArgs;
   protected _authReqContext?: AuthorizedBackendRequestContext;
-
   protected _jobSubjectId?: Id64String;
   protected _irModel?: pcf.IRModel;
   protected _srcState?: pcf.ItemState;
@@ -106,8 +103,8 @@ export abstract class PConnector extends IModelBridge {
     this.elementCache = {};
     this.aspectCache = {};
     this.seenIds = new Set<Id64String>();
-    this.nodeMap = {};
     this.tree = new pcf.RepoTree();
+    this.nodeMap = {};
   }
 
   public get config() {
@@ -176,9 +173,7 @@ export abstract class PConnector extends IModelBridge {
   public get dynamicSchemaName() {
     if (!this.config.dynamicSchema)
       throw new Error("PConnectorConfig.dynamicSchema is not defined");
-    if (!this.dynamicSchema)
-      throw new Error("Dynamic Schema is not initialized");
-    return this.dynamicSchema.fullName;
+    return this.config.dynamicSchema.schemaName;
   }
 
   public init(props: { db: IModelDb, jobArgs: pcf.JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
@@ -312,7 +307,6 @@ export abstract class PConnector extends IModelBridge {
       if (!generatedSchema)
         throw new Error("Failed to find dynamically generated schema.");
 
-      this.dynamicSchema = generatedSchema
       await this.persistChanges("Updated Dynamic Schema", ChangesType.Schema);
     }
   }
@@ -503,9 +497,11 @@ export abstract class PConnector extends IModelBridge {
     });
   }
 
-  // itwin-connector-framework 
+  // all the functions below are for itwin-connector-framework only
 
   public initialize(jobDefArgs: BridgeJobDefArgs) {
+    if (!jobDefArgs.argsJson || !jobDefArgs.argsJson.jobArgs)
+      throw new Error("BridgeJobDefArgs.argsJson.jobArgs must be defined to use pcf");
     this._jobArgs = jobDefArgs.argsJson.jobArgs;
     this.tree.validate(this.jobArgs);
   }
@@ -514,7 +510,7 @@ export abstract class PConnector extends IModelBridge {
 
   public async openSourceData() {
     if (!this.synchronizer)
-      throw new Error("Syncrhonizer not defined");
+      throw new Error("Syncrhonizer is not assigned yet");
     this._db = this.synchronizer.imodel;
     await this._loadIRModel();
   }
@@ -537,7 +533,6 @@ export abstract class PConnector extends IModelBridge {
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
         throw new Error("Failed to find dynamically generated schema.");
-      this.dynamicSchema = generatedSchema
     }
   }
 
@@ -565,10 +560,10 @@ export abstract class PConnector extends IModelBridge {
     for (const relatedElement of this.tree.relatedElements)
       await relatedElement.update();
 
-    await this.detectDeletedElements();
+    await this._detectDeletedElements();
   }
 
-  public async detectDeletedElements() {
+  protected async _detectDeletedElements() {
     if (!this.jobArgs.enableDelete) {
       Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
       return;
@@ -597,8 +592,15 @@ export abstract class PConnector extends IModelBridge {
         elementIds.push(elementId);
     }
 
-    this.db.elements.deleteElement(elementIds);
-    this.db.elements.deleteDefinitionElements(defElementIds);
+    for (const elementId of elementIds) {
+      if (this.db.elements.tryGetElement(elementId))
+        this.db.elements.deleteElement(elementId);
+    }
+
+    for (const elementId of defElementIds) {
+      if (this.db.elements.tryGetElement(elementId))
+        this.db.elements.deleteDefinitionElements([elementId]);
+    }
   }
 
   public getJobSubjectName(sourcePath: string) {

@@ -26,7 +26,7 @@ export interface DMO {
   /*
    * References the key of an IR Entity which represents an external class (e.g. Excel sheet, database table).
    */
-  irEntity: string;
+  readonly irEntity: string;
 
   /*
    * Defines a condition to determine if an ECInstance should be created from an IRInstance.
@@ -51,17 +51,17 @@ export interface ElementDMO extends DMO {
    * 1. include its domain class full name 
    * 2. create a dynamic element class by defining it here
    */
-  ecElement: ECDomainClassFullName | ECDynamicElementClassProps;
+  readonly ecElement: ECDomainClassFullName | ECDynamicElementClassProps;
 
   /*
    * References the attribute name used to identify the EC Category Element
    */
-  categoryAttr?: string;
+  readonly categoryAttr?: string;
 
   /*
    * References the attribute name used to identify the EC RelatedElement
    */
-  relatedElementAttr?: string;
+  readonly relatedElementAttr?: string;
 }
 
 
@@ -76,30 +76,30 @@ export interface RelationshipDMO extends DMO {
    * 1. include its domain class full name 
    * 2. create a dynamic relationship class by defining it here
    */
-  ecRelationship: ECDomainClassFullName | ECDynamicRelationshipClassProps;
+  readonly ecRelationship: ECDomainClassFullName | ECDynamicRelationshipClassProps;
 
   /*
    * References a primary/foreign key (attribute) that uniquely identifies a source entity.
    */
-  fromAttr: string;
+  readonly fromAttr: string;
 
   /*
    * The type of the source entity.
    * Currently it must be IR Entity.
    */
-  fromType: "IREntity";
+  readonly fromType: "IREntity";
 
   /*
    * References a primary/foreign key (attribute) that uniquely identifies a source IR/EC Entity.
    * toAttr must contain SearchKey if toType = "ECEntity" 
    */
-  toAttr: SearchKey | string;
+  readonly toAttr: SearchKey | string;
 
   /*
    * The type of the target entity.
    * toAttr must contain a SearchKey if toType = "ECEntity"
    */
-  toType: "ECEntity" | "IREntity";
+  readonly toType: "ECEntity" | "IREntity";
 }
 
 /*
@@ -111,16 +111,16 @@ export interface RelatedElementDMO extends RelationshipDMO {
    * The name of the EC property that references an EC RelatedElement.
    * e.g. the EC property named "parent" in BisCore:PhysicalElement
    */
-  ecProperty: string;
+  readonly ecProperty: string;
 }
 
 /*
  * Input for generating an EC Dynamic Schema
  */
 export interface DMOMap {
-  elements: ElementDMO[];
-  relationships: RelationshipDMO[];
-  relatedElements: RelatedElementDMO[];
+  readonly elements: ElementDMO[];
+  readonly relationships: RelationshipDMO[];
+  readonly relatedElements: RelatedElementDMO[];
 }
 
 // WIP: Dynamic Mapping Object for EC Aspect Class
