@@ -79,7 +79,8 @@ describe("Unit Tests", () => {
         const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, connectorFile);
 
         const sourcePath = path.join(KnownTestLocations.testAssetsDir, sourceFile);
-        bk.IModelJsFs.copySync(sourcePath, tempSrcPath, { overwrite: true });
+        const newData = fs.readFileSync(sourcePath);
+        fs.writeFileSync(tempSrcPath, newData);
 
         const db = bk.StandaloneDb.openFile(targetPath);
         const jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
@@ -87,8 +88,6 @@ describe("Unit Tests", () => {
         connector.init({ db, jobArgs });
         await connector.runJob();
         db.close();
-
-        await new Promise(resolve => setTimeout(resolve, 3000));
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);
         const mismatches = await pcf.verifyIModel(updatedDb, TestResults[sourceFile]);

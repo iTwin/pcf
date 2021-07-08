@@ -160,7 +160,7 @@ export abstract class PConnector extends IModelBridge {
 
   public get srcState() {
     if (this._srcState === undefined) 
-      throw new Error("srcState is undefined. call updateLoader to populate its value.");
+      throw new Error("srcState is undefined. call Loader.update() to populate its value.");
     return this._srcState;
   }
 
@@ -319,17 +319,25 @@ export abstract class PConnector extends IModelBridge {
     if (this.db.isBriefcaseDb())
       await this.enterChannel(this.jobSubjectId);
 
+    this._updateCodeSpecs();
+
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
 
-    this._updateCodeSpecs();
-    for (const topModel of subjectNode.models) {
-      if (topModel.subject.key !== subjectKey)
-        continue;
-      await topModel.update();
-      for (const element of topModel.elements)
+    const defModels = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className === "DefinitionPartition");
+    for (const model of defModels) {
+      await model.update();
+      for (const element of model.elements)
         await element.update();
     }
+
+    const models = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className !== "DefinitionPartition");
+    for (const model of models) {
+      await model.update();
+      for (const element of model.elements)
+        await element.update();
+    }
+
 
     for (const relationship of this.tree.relationships)
       await relationship.update();
@@ -510,7 +518,6 @@ export abstract class PConnector extends IModelBridge {
     if (!this.synchronizer)
       throw new Error("Syncrhonizer is not assigned yet");
     this._db = this.synchronizer.imodel;
-    await this._loadIRModel();
   }
 
   public async importDomainSchema(reqContext: AuthorizedClientRequestContext) {
@@ -535,13 +542,20 @@ export abstract class PConnector extends IModelBridge {
   }
 
   public async importDefinitions() {
-    this._updateCodeSpecs();
-    this._jobSubjectId = this.jobSubject.id;
     const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
     await loader.update();
+    if (this.srcState === pcf.ItemState.Unchanged)
+      return;
+
+    await this._loadIRModel();
+    this._updateCodeSpecs();
+    this._jobSubjectId = this.jobSubject.id;
   }
 
   public async updateExistingData() {
+    if (this.srcState === pcf.ItemState.Unchanged)
+      return;
+
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
 
