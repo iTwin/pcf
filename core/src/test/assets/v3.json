@@ -1,0 +1,78 @@
+{
+  "ExtPhysicalElement": [
+    {
+      "id": "1",
+      "category": "1",
+      "child": "2"
+    },
+    {
+      "id": "2",
+      "category": "1",
+      "child": ""
+    },
+    {
+      "id": "5",
+      "category": "1",
+      "child": ""
+    }
+  ],
+  "ExtPhysicalType": [
+    {
+      "id": "1",
+      "ExtUserLabel": "new_mock_user_label"
+    },
+    {
+      "id": "2",
+      "ExtUserLabel": "new_mock_user_label"
+    },
+    {
+      "id": "3",
+      "ExtUserLabel": "new_mock_user_label"
+    }
+  ],
+  "ExtSpatialCategory": [
+    {
+      "id": "1"
+    }
+  ],
+  "ExtSpace": [
+    {
+      "id": "1",
+      "category": "1"
+    }
+  ],
+  "ExtGroupInformationElement": [
+    {
+      "id": "1"
+    },
+    {
+      "id": "2"
+    }
+  ],
+  "ExtElementRefersToElements": [
+    {
+      "id": "1",
+      "ExtPhysicalElementKey1": "1",
+      "ExtPhysicalElementKey2": "2"
+    },
+    {
+      "id": "2",
+      "ExtPhysicalElementKey1": "1",
+      "ExtPhysicalElementKey2": "5"
+    }
+  ],
+  "ExtElementRefersToExistingElements": [
+    {
+      "id": "1",
+      "ExtPhysicalElementKey": "2",
+      "ExistingElementSearchKey": "{\"ECClassId\": \"BisCore.PhysicalElement\", \"CodeValue\": \"ExtPhysicalElement-2\"}"
+    }
+  ],
+  "ExtElementGroupsMembers": [
+    {
+      "id": "1",
+      "ExtGroupInformationElementKey": "2",
+      "ExtPhysicalElementKey": "1"
+    }
+  ]
+}

@@ -34,6 +34,16 @@ describe("Integration Tests", () => {
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
           }
         },
+        {
+          sourceFile: "v3.json",
+          connectorFile: "JSONConnectorV2.js",
+          subjectKey: "Subject1",
+          connection: {
+            loaderKey: "json-loader-1",
+            kind: "pcf_file_connection",
+            filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
+          }
+        },
       ]
     },
   ]

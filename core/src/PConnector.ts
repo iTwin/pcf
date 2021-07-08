@@ -1,16 +1,14 @@
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; 
 import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb } from "@bentley/imodeljs-backend";
-import { Schema as MetaSchema } from "@bentley/ecschema-metadata";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
+import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { BridgeJobDefArgs, IModelBridge } from "@bentley/imodel-bridge";
 import { LogCategory } from "./LogCategory";
-import { IRInstanceKey } from "./IRModel";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 
 export interface PConnectorConfigProps {
 
@@ -441,7 +439,7 @@ export abstract class PConnector extends IModelBridge {
   }
 
   public getCode(entityKey: string, modelId: Id64String, value: string): Code {
-    const codeValue = `${entityKey}-${value}` as IRInstanceKey;
+    const codeValue = `${entityKey}-${value}` as pcf.IRInstanceKey;
     return new Code({spec: this.defaultCodeSpec.id, scope: modelId, value: codeValue});
   }
 
@@ -547,11 +545,17 @@ export abstract class PConnector extends IModelBridge {
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
 
-    for (const topModel of subjectNode.models) {
-      if (topModel.subject.key !== subjectKey)
-        continue;
-      await topModel.update();
-      for (const element of topModel.elements)
+    const defModels = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className === "DefinitionPartition");
+    for (const model of defModels) {
+      await model.update();
+      for (const element of model.elements)
+        await element.update();
+    }
+
+    const models = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className !== "DefinitionPartition");
+    for (const model of models) {
+      await model.update();
+      for (const element of model.elements)
         await element.update();
     }
 

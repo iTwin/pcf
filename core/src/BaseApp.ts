@@ -4,7 +4,7 @@ import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClient
 import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
 import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { HubIModel, IModelQuery } from "@bentley/imodelhub-client";
+import { CodeState, HubCode, HubIModel, IModelQuery } from "@bentley/imodelhub-client";
 import { BridgeRunner, BridgeJobDefArgs } from "@bentley/imodel-bridge";
 import { ServerArgs } from "@bentley/imodel-bridge/lib/IModelHubUtils"
 import { LogCategory } from "./LogCategory";
@@ -182,7 +182,7 @@ export class BaseApp {
       await connector.runJob();
     } catch(err) {
       console.error(err);
-      if ((err as any).status === 403) // out of call volumn quota
+      if ((err as any).status === 403) // out of call volumn quota (10+ mins wait)
         return BentleyStatus.ERROR;
       await util.retryLoop(async () => {
         if (db && db.isBriefcaseDb()) {
@@ -192,6 +192,7 @@ export class BaseApp {
       return BentleyStatus.ERROR;
     } finally {
       if (db) {
+        await BaseApp.clearRetiredCodes(this.authReqContext, this.hubArgs.iModelId, db.briefcaseId);
         db.abandonChanges();
         db.close();
       }
@@ -224,12 +225,22 @@ export class BaseApp {
 
     const runner = new BridgeRunner(jobDefArgs, serverArgs);
     const status = await runner.synchronize();
+
+    if (status === BentleyStatus.SUCCESS) {
+      const cachedDb = await this.openCachedBriefcaseDb();
+      if (!cachedDb)
+        throw new Error("No BriefcaseDb cached after a successful run of runner.synchronize().");
+      const briefcaseId = cachedDb.briefcaseId;
+      cachedDb.close();
+      await BaseApp.clearRetiredCodes(authReqContext, serverArgs.iModelId, briefcaseId);
+    }
+
     await IModelHost.shutdown();
     return status;
   }
 
   /*
-   * Sign in through your iModelHub account. This call would open up a page in your browser and prompt you to sign in.
+   * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
    */
   public async signin(): Promise<AuthorizedBackendRequestContext> {
     this.init();
@@ -270,20 +281,21 @@ export class BaseApp {
       fileName: cachedDb.fileName,
       readonly: readonlyMode,
     });
-    await db.pullAndMergeChanges(this.authReqContext);
-    db.saveChanges();
     return db;
   }
 
   /*
-   * Downloads and opens a BriefcaseDb from iModel Hub.
+   * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
     this.init();
 
     const cachedDb = await this.openCachedBriefcaseDb(false);
-    if (cachedDb)
+    if (cachedDb) {
+      await cachedDb.pullAndMergeChanges(this.authReqContext);
+      cachedDb.saveChanges();
       return cachedDb;
+    }
 
     const req = { contextId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
     const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext, req);
@@ -294,6 +306,20 @@ export class BaseApp {
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
     const db = await BriefcaseDb.open(this.authReqContext, openArgs);
     return db;
+  }
+
+  /*
+   * Change Codes of state "Retired" to "Available" so that they can be reused.
+   */
+  public static async clearRetiredCodes(authReqContext: AuthorizedBackendRequestContext, iModelId: Id64String, briefcaseId: number) {
+    const codes = await IModelHost.iModelClient.codes.get(authReqContext, iModelId);
+    const retiredCodes = codes.filter((code: HubCode) => code.state === CodeState.Retired);
+    for (const code of retiredCodes) {
+      code.briefcaseId = briefcaseId;
+      code.state = CodeState.Available;
+    }
+    if (retiredCodes.length > 0)
+      await IModelHost.iModelClient.codes.update(authReqContext, iModelId, retiredCodes);
   }
 
   public static repl(dbpath: string) {
@@ -361,6 +387,9 @@ export class IntegrationTestApp extends BaseApp {
     return this._authReqContext;
   }
 
+  /*
+   * Simulates another user downloading the same briefcase (with a different BriefcaseId)
+   */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
     this.init();
     if (this._testBriefcaseDbPath)
