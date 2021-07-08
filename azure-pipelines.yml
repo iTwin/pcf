@@ -1,9 +1,15 @@
 
 trigger:
-  - main
+  branches:
+    include:
+      - main
+      - releases/*
+  paths:
+    exclude:
+      - README.md
+      - LICENSE
 
 jobs:
-
   - job:
     strategy:
       matrix:
