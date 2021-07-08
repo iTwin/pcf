@@ -96,10 +96,8 @@ Currently, all the documentations and API references of this project are embedde
 * Dynamic Schema
     * Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
 * Loaders
-    * Loader is persisted as a Repository Link element in your iModel.
+    * Loader is recorded as a Repository Link element in your iModel.
     * Currently supported loaders: JSON, XLSX, SQLite Loader.
-* Codes
-    * Neither itwin-connector-framework nor pcf support Code reuse as of now. (e.g. inserting an element with the same Code as previously deleted element will fail)
 * "Too Many Requests"
     * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing. 
 
@@ -185,7 +183,6 @@ npm run test:integration
 - [ ] update elements in parallel (persist IR model on disk)
 - [ ] add a full suite of command line offerings
 - [ ] add domain schema service and sync them
-- [ ] add support for multiple primary keys in IR Model
 - [ ] add wrappers for other programming languages
 - [ ] data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
 - [ ] dynamically infer the relationship between external entities
