@@ -28,19 +28,23 @@ export class JSONConnector extends pcf.PConnector {
 
     const subject1 = new pcf.SubjectNode(this, { key: "Subject1" });
 
-    new pcf.JSONLoader(this, {
-      key: "json-loader-1",
-      format: "json",
-      entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
-      relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers"],
-      defaultPrimaryKey: "id",
-    });
-
+    const linkModel = new pcf.ModelNode(this, { key: "LinkModel1", subject: subject1, modelClass: bk.LinkModel, partitionClass: bk.LinkPartition });
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel1", subject: subject1, modelClass: bk.DefinitionModel, partitionClass: bk.DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel1", subject: subject1, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
     const phyModel2 = new pcf.ModelNode(this, { key: "PhysicalModel2", subject: subject1, modelClass: bk.PhysicalModel, partitionClass: bk.PhysicalPartition });
     const grpModel = new pcf.ModelNode(this, { key: "GroupModel1", subject: subject1, modelClass: bk.GroupModel, partitionClass: bk.GroupInformationPartition });
     const sptModel = new pcf.ModelNode(this, { key: "SpatialLocationModel1", subject: subject1, modelClass: bk.SpatialLocationModel, partitionClass: bk.SpatialLocationPartition });
+
+    new pcf.LoaderNode(this, { 
+      key: "json-loader-1", 
+      model: linkModel, 
+      loader: new pcf.JSONLoader({
+        format: "json",
+        entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
+        relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers"],
+        defaultPrimaryKey: "id",
+      }) 
+    });
 
     const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", model: defModel, dmo: elements.ExtSpatialCategory });
     const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", model: defModel, dmo: elements.ExtPhysicalType });

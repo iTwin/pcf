@@ -23,15 +23,19 @@ export class <%= className %> extends pcf.PConnector {
       },
     });
 
-    new pcf.XLSXLoader(this, {
-      key: "sample-xlsx-loader",
-      format: "xlsx",
-      entities: ["Component", "Category"],
-      relationships: ["Connection"],
-      defaultPrimaryKey: "Name",
-    });
-
     const subject1 = new pcf.SubjectNode(this, { key: "sample-subject-1" });
+
+    const linkModel = new pcf.ModelNode(this, { key: "LoaderLinkModel", subject: subject1, modelClass: DefinitionModel, partitionClass: DefinitionPartition });
+    const loader = new pcf.LoaderNode(this, {
+      key: "sample-xlsx-loader",
+      model: linkModel,
+      loader: new pcf.XLSXLoader({
+        format: "xlsx",
+        entities: ["Component", "Category"],
+        relationships: ["Connection"],
+        defaultPrimaryKey: "Name",
+      }),
+    });
 
     const defModel = new pcf.ModelNode(this, { key: "DefinitionModel-1", subject: subject1, modelClass: DefinitionModel, partitionClass: DefinitionPartition });
     const phyModel = new pcf.ModelNode(this, { key: "PhysicalModel-1", subject: subject1, modelClass: PhysicalModel, partitionClass: PhysicalPartition });

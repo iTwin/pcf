@@ -174,6 +174,12 @@ export abstract class PConnector extends IModelBridge {
     return this.config.dynamicSchema.schemaName;
   }
 
+  public async save() {
+    const tree = this.tree.toJSON();
+    const compressed = { tree, config: this.config };
+    fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
+  }
+
   public init(props: { db: IModelDb, jobArgs: pcf.JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
     this.modelCache = {};
     this.elementCache = {};
@@ -183,9 +189,6 @@ export abstract class PConnector extends IModelBridge {
     this._db = props.db;
     this._jobArgs = props.jobArgs;
     this._authReqContext = props.authReqContext;
-
-    if (this.db.isBriefcaseDb())
-      this.db.concurrencyControl.startBulkMode();
   }
 
   public async runJob(): Promise<void> {
@@ -194,12 +197,22 @@ export abstract class PConnector extends IModelBridge {
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
+    await this.enterChannel(IModel.repositoryModelId);
     await this._updateSubject();
-    await this._updateDomainSchema();
-    await this._updateDynamicSchema();
-    await this._updateLoader();
+    await this.persistChanges(`Updated Subject`, ChangesType.GlobalProperties);
 
+    await this.enterChannel(IModel.repositoryModelId);
+    await this._updateDomainSchema();
+    await this.persistChanges(`Updated Domain Schema(s)`, ChangesType.Schema);
+
+    await this.enterChannel(IModel.repositoryModelId);
+    await this._updateDynamicSchema();
+    await this.persistChanges("Updated Dynamic Schema", ChangesType.Schema);
+
+    await this.enterChannel(this.jobSubjectId);
+    await this._updateLoader();
     if (this.srcState !== pcf.ItemState.Unchanged) {
+      this._updateCodeSpecs();
       await this._loadIRModel();
       await this._updateData();
       await this._updateDeletedElements();
@@ -207,15 +220,172 @@ export abstract class PConnector extends IModelBridge {
     } else {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
+    await this.persistChanges("Updated Data", ChangesType.Regular);
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has finished");
   }
 
-  public async save() {
-    const tree = this.tree.toJSON();
-    const compressed = { tree, config: this.config };
-    fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
+  protected async _updateLoader() {
+    const loader = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
+    await loader.model.update();
+    await loader.update();
   }
+
+  protected async _updateSubject() {
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+    await subjectNode.update();
+  }
+
+  protected async _updateDomainSchema(): Promise<any> {
+    const { domainSchemaPaths } = this.config;
+    if (domainSchemaPaths.length > 0)
+      await this.db.importSchemas(this.reqContext, domainSchemaPaths);
+  }
+
+  protected async _updateDynamicSchema(): Promise<any> {
+    const dmoMap = this.tree.buildDMOMap();
+    const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
+    if (shouldGenerateSchema) {
+      if (!this.config.dynamicSchema)
+        throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
+      const { schemaName, schemaAlias } = this.config.dynamicSchema;
+      const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
+      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
+      const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
+      if (!generatedSchema)
+        throw new Error("Failed to find dynamically generated schema.");
+    }
+  }
+
+  protected async _loadIRModel() {
+    const node = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
+    const loader = node.loader;
+    await loader.open(this.jobArgs.connection);
+    this._irModel = await pcf.IRModel.fromLoader(loader);
+  }
+
+  protected async _updateData() {
+    const subjectKey = this.jobArgs.subjectKey;
+    const subjectNode = this.tree.getSubjectNode(subjectKey);
+
+    const defModels = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className === "DefinitionPartition");
+    for (const model of defModels) {
+      await model.update();
+      for (const element of model.elements)
+        await element.update();
+    }
+
+    const models = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className !== "DefinitionPartition");
+    for (const model of models) {
+      await model.update();
+      for (const element of model.elements)
+        await element.update();
+    }
+
+    for (const relationship of this.tree.relationships)
+      await relationship.update();
+    for (const relatedElement of this.tree.relatedElements)
+      await relatedElement.update();
+  }
+
+  protected async _updateDeletedElements() {
+    if (!this.jobArgs.enableDelete) {
+      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
+      return;
+    }
+
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const rows = await util.getRows(this.db, ecsql);
+
+    const elementIds: Id64String[] = [];
+    const defElementIds: Id64String[] = [];
+
+    for (const row of rows) {
+      const elementId = row.elementId;
+      if (this.seenIds.has(elementId))
+        continue;
+      if (this.db.isBriefcaseDb()) {
+        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
+        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
+        if (elementNotInChannelRoot)
+          continue;
+      }
+      const element = this.db.elements.getElement(elementId);
+      if (element instanceof DefinitionElement)
+        defElementIds.push(elementId);
+      else
+        elementIds.push(elementId);
+    }
+
+    for (const elementId of elementIds) {
+      if (this.db.elements.tryGetElement(elementId))
+        this.db.elements.deleteElement(elementId);
+    }
+
+    for (const elementId of defElementIds) {
+      if (this.db.elements.tryGetElement(elementId))
+        this.db.elements.deleteDefinitionElements([elementId]);
+    }
+  }
+
+  protected async _updateProjectExtents() {
+    const options: ComputeProjectExtentsOptions = {
+      reportExtentsWithOutliers: false,
+      reportOutliers: false,
+    };
+    const res = this.db.computeProjectExtents(options);
+    this.db.updateProjectExtents(res.extents);
+  }
+
+  protected _updateCodeSpecs() {
+    const codeSpecName = PConnector.CodeSpecName;
+    if (this.db.codeSpecs.hasName(codeSpecName))
+      return;
+    const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
+    this.db.codeSpecs.insert(newCodeSpec);
+  }
+
+  public async persistChanges(changeDesc: string, ctype: ChangesType) {
+    const { revisionHeader } = this.jobArgs;
+    const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
+    const comment = `${header} - ${changeDesc}`;
+    if (this.db.isBriefcaseDb()) {
+      await util.retryLoop(async () => {
+        await (this.db as BriefcaseDb).concurrencyControl.request(this.authReqContext);
+      });
+      await util.retryLoop(async () => {
+        await (this.db as BriefcaseDb).pullAndMergeChanges(this.authReqContext);
+      });
+      this.db.saveChanges(comment);
+      await util.retryLoop(async () => {
+        await (this.db as BriefcaseDb).pushChanges(this.authReqContext, comment, ctype);
+      });
+    } else {
+      this.db.saveChanges(comment);
+    }
+  }
+
+  public async enterChannel(rootId: Id64String) {
+    if (!this.db.isBriefcaseDb())
+      return;
+    await util.retryLoop(async () => {
+      if (!(this.db as BriefcaseDb).concurrencyControl.isBulkMode)
+        (this.db as BriefcaseDb).concurrencyControl.startBulkMode();
+      if ((this.db as BriefcaseDb).concurrencyControl.hasPendingRequests)
+        throw new Error("has pending requests");
+      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
+        throw new Error("has schema lock");
+      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
+        throw new Error("has code spec lock");
+      if ((this.db as BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
+        throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
+      (this.db as BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
+      await (this.db as BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
+    });
+  }
+
+  // For Nodes
 
   public updateElement(props: ElementProps, instance: pcf.IRInstance): pcf.UpdateResult {
     const identifier = props.code.value!;
@@ -255,159 +425,8 @@ export abstract class PConnector extends IModelBridge {
     return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
   }
 
-  protected async _updateLoader() {
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(IModel.repositoryModelId);
-
-    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
-    await loader.update();
-
-    await this.persistChanges(`Updated Loader (Repository Link) - ${loader.key}`, ChangesType.GlobalProperties);
-  }
-
-  protected async _updateSubject() {
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(IModel.repositoryModelId);
-
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
-    await subjectNode.update();
-
-    await this.persistChanges(`Updated Subject - ${subjectKey}`, ChangesType.GlobalProperties);
-  }
-
-  protected async _updateDomainSchema(): Promise<any> {
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(IModel.repositoryModelId);
-
-    const { domainSchemaPaths } = this.config;
-    if (domainSchemaPaths.length > 0)
-      await this.db.importSchemas(this.reqContext, domainSchemaPaths);
-
-    await this.persistChanges(`Imported ${domainSchemaPaths.length} Domain Schema(s)`, ChangesType.Schema);
-  }
-
-  protected async _updateDynamicSchema(): Promise<any> {
-    const dmoMap = this.tree.buildDMOMap();
-    const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
-
-    if (shouldGenerateSchema) {
-      if (this.db.isBriefcaseDb())
-        await this.enterChannel(IModel.repositoryModelId);
-
-      if (!this.config.dynamicSchema)
-        throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
-
-      const { schemaName, schemaAlias } = this.config.dynamicSchema;
-      const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
-      const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
-      if (!generatedSchema)
-        throw new Error("Failed to find dynamically generated schema.");
-
-      await this.persistChanges("Updated Dynamic Schema", ChangesType.Schema);
-    }
-  }
-
-  protected async _loadIRModel() {
-    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
-    await loader.open(this.jobArgs.connection);
-    this._irModel = await pcf.IRModel.fromLoader(loader);
-  }
-
-  protected async _updateData() {
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(this.jobSubjectId);
-
-    this._updateCodeSpecs();
-
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
-
-    const defModels = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className === "DefinitionPartition");
-    for (const model of defModels) {
-      await model.update();
-      for (const element of model.elements)
-        await element.update();
-    }
-
-    const models = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className !== "DefinitionPartition");
-    for (const model of models) {
-      await model.update();
-      for (const element of model.elements)
-        await element.update();
-    }
-
-
-    for (const relationship of this.tree.relationships)
-      await relationship.update();
-    for (const relatedElement of this.tree.relatedElements)
-      await relatedElement.update();
-
-    await this.persistChanges("Updated Data", ChangesType.Regular);
-  }
-
-  protected async _updateDeletedElements(): Promise<void> {
-    if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
-      return;
-    }
-
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(this.jobSubjectId);
-
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
-    const rows = await util.getRows(this.db, ecsql);
-
-    const elementIds: Id64String[] = [];
-    const defElementIds: Id64String[] = [];
-
-    for (const row of rows) {
-      const elementId = row.elementId;
-      if (this.seenIds.has(elementId))
-        continue;
-      if (this.db.isBriefcaseDb()) {
-        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
-        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
-        if (elementNotInChannelRoot)
-          continue;
-      }
-      const element = this.db.elements.getElement(elementId);
-      if (element instanceof DefinitionElement)
-        defElementIds.push(elementId);
-      else
-        elementIds.push(elementId);
-    }
-
-    for (const elementId of elementIds) {
-      if (this.db.elements.tryGetElement(elementId))
-        this.db.elements.deleteElement(elementId);
-    }
-
-    for (const elementId of defElementIds) {
-      if (this.db.elements.tryGetElement(elementId))
-        this.db.elements.deleteDefinitionElements([elementId]);
-    }
-
-    await this.persistChanges("Deleted Elements", ChangesType.Regular);
-  }
-
-  protected async _updateProjectExtents() {
-    if (this.db.isBriefcaseDb())
-      await this.enterChannel(this.jobSubjectId);
-
-    const options: ComputeProjectExtentsOptions = {
-      reportExtentsWithOutliers: false,
-      reportOutliers: false,
-    };
-    const res = this.db.computeProjectExtents(options);
-    this.db.updateProjectExtents(res.extents);
-
-    await this.persistChanges("Updated Project Extents", ChangesType.Regular);
-  }
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<string[] | void> {
-
     if (!node.dmo.fromAttr || !node.dmo.toAttr)
       return;
 
@@ -451,14 +470,6 @@ export abstract class PConnector extends IModelBridge {
     return new Code({spec: this.defaultCodeSpec.id, scope: modelId, value: codeValue});
   }
 
-  protected _updateCodeSpecs() {
-    const codeSpecName = PConnector.CodeSpecName;
-    if (this.db.codeSpecs.hasName(codeSpecName))
-      return;
-    const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
-    this.db.codeSpecs.insert(newCodeSpec);
-  }
-
   public get defaultCodeSpec(): CodeSpec {
     if (!this.db.codeSpecs.hasName(PConnector.CodeSpecName))
       throw new Error("Default CodeSpec is not in iModel");
@@ -466,44 +477,7 @@ export abstract class PConnector extends IModelBridge {
     return codeSpec;
   }
 
-  public async persistChanges(changeDesc: string, ctype: ChangesType) {
-    const { revisionHeader } = this.jobArgs;
-    const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
-    const comment = `${header} - ${changeDesc}`;
-    if (this.db.isBriefcaseDb()) {
-      await util.retryLoop(async () => {
-        await (this.db as BriefcaseDb).concurrencyControl.request(this.authReqContext);
-      });
-      await util.retryLoop(async () => {
-        await (this.db as BriefcaseDb).pullAndMergeChanges(this.authReqContext);
-      });
-      this.db.saveChanges(comment);
-      await util.retryLoop(async () => {
-        await (this.db as BriefcaseDb).pushChanges(this.authReqContext, comment, ctype);
-      });
-    } else {
-      this.db.saveChanges(comment);
-    }
-  }
-
-  public async enterChannel(rootId: Id64String) {
-    await util.retryLoop(async () => {
-      if ((this.db as BriefcaseDb).concurrencyControl.hasPendingRequests)
-        throw new Error("has pending requests");
-      if (!(this.db as BriefcaseDb).concurrencyControl.isBulkMode)
-        throw new Error("not in bulk mode");
-      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
-        throw new Error("has schema lock");
-      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
-        throw new Error("has code spec lock");
-      if ((this.db as BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
-        throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
-      (this.db as BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
-      await (this.db as BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
-    });
-  }
-
-  // all the functions below are for itwin-connector-framework only
+  // For itwin-connector-framework
 
   public initialize(jobDefArgs: BridgeJobDefArgs) {
     if (!jobDefArgs.argsJson || !jobDefArgs.argsJson.jobArgs)
@@ -521,104 +495,29 @@ export abstract class PConnector extends IModelBridge {
   }
 
   public async importDomainSchema(reqContext: AuthorizedClientRequestContext) {
-    const { domainSchemaPaths } = this.config;
-    if (domainSchemaPaths.length > 0)
-      await this.db.importSchemas(reqContext, domainSchemaPaths);
+    this._authReqContext = reqContext;
+    await this._updateDomainSchema();
   }
 
   public async importDynamicSchema(reqContext: AuthorizedClientRequestContext) {
-    const dmoMap = this.tree.buildDMOMap();
-    const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
-    if (shouldGenerateSchema) {
-      if (!this.config.dynamicSchema)
-        throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
-      const { schemaName, schemaAlias } = this.config.dynamicSchema;
-      const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
-      const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
-      if (!generatedSchema)
-        throw new Error("Failed to find dynamically generated schema.");
-    }
+    this._authReqContext = reqContext;
+    await this._updateDynamicSchema();
   }
 
   public async importDefinitions() {
-    const loader = this.tree.getLoader(this.jobArgs.connection.loaderKey);
-    await loader.update();
-    if (this.srcState === pcf.ItemState.Unchanged)
-      return;
-
-    await this._loadIRModel();
     this._updateCodeSpecs();
     this._jobSubjectId = this.jobSubject.id;
   }
 
   public async updateExistingData() {
+    await this._updateLoader();
     if (this.srcState === pcf.ItemState.Unchanged)
       return;
 
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
-
-    const defModels = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className === "DefinitionPartition");
-    for (const model of defModels) {
-      await model.update();
-      for (const element of model.elements)
-        await element.update();
-    }
-
-    const models = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className !== "DefinitionPartition");
-    for (const model of models) {
-      await model.update();
-      for (const element of model.elements)
-        await element.update();
-    }
-
-    for (const relationship of this.tree.relationships)
-      await relationship.update();
-    for (const relatedElement of this.tree.relatedElements)
-      await relatedElement.update();
-
-    await this._detectDeletedElements();
-  }
-
-  protected async _detectDeletedElements() {
-    if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
-      return;
-    }
-
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
-    const rows = await util.getRows(this.db, ecsql);
-
-    const elementIds: Id64String[] = [];
-    const defElementIds: Id64String[] = [];
-
-    for (const row of rows) {
-      const elementId = row.elementId;
-      if (this.seenIds.has(elementId))
-        continue;
-      if (this.db.isBriefcaseDb()) {
-        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
-        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
-        if (elementNotInChannelRoot)
-          continue;
-      }
-      const element = this.db.elements.getElement(elementId);
-      if (element instanceof DefinitionElement)
-        defElementIds.push(elementId);
-      else
-        elementIds.push(elementId);
-    }
-
-    for (const elementId of elementIds) {
-      if (this.db.elements.tryGetElement(elementId))
-        this.db.elements.deleteElement(elementId);
-    }
-
-    for (const elementId of defElementIds) {
-      if (this.db.elements.tryGetElement(elementId))
-        this.db.elements.deleteDefinitionElements([elementId]);
-    }
+    await this._loadIRModel();
+    await this._updateData();
+    await this._updateDeletedElements();
+    await this._updateProjectExtents();
   }
 
   public getJobSubjectName(sourcePath: string) {
@@ -637,3 +536,4 @@ export abstract class PConnector extends IModelBridge {
     return this.config.connectorName;
   }
 }
+

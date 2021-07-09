@@ -103,20 +103,18 @@ describe("Unit Tests", () => {
     const connector: pcf.PConnector = require(connectorPath).getBridgeInstance();
 
     const props: pcf.LoaderProps = {
-      key: "loader1",
       format: "json",
       entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
       relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
       defaultPrimaryKey: "id",
     };
 
-    const jsonLoader = new pcf.JSONLoader(connector, props);
+    const jsonLoader = new pcf.JSONLoader(props);
     await jsonLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")});
     const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
     await jsonLoader.close();
 
-    props.key = "loader2";
-    const sqliteLoader = new pcf.SQLiteLoader(connector, props);
+    const sqliteLoader = new pcf.SQLiteLoader(props);
     await sqliteLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")});
     const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
     await sqliteLoader.close();

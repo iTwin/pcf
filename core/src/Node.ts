@@ -4,15 +4,16 @@ import * as common from "@bentley/imodeljs-common";
 import { JobArgs } from "./BaseApp";
 import { DMOMap, ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
-import { Loader } from "./loaders";
 import { PConnector } from "./PConnector";
+import * as fs from "fs";
+import { Loader } from "./loaders";
 
 /* 
  * Represents the Repository Model (the root of an iModel).
  */
 export class RepoTree {
 
-  public loaders: Loader[];
+  public loaders: LoaderNode[];
   public subjects: SubjectNode[];
   public relatedElements: RelatedElementNode[];
   public relationships: RelationshipNode[];
@@ -29,12 +30,12 @@ export class RepoTree {
       throw new Error(`At least one subject node must be defined in your connector class.`);
     if (this.loaders.length === 0)
       throw new Error(`At least one loader must be defined in your connector class.`);
-    this.getLoader(jobArgs.connection.loaderKey);
+    this.getLoaderNode(jobArgs.connection.loaderKey);
     this.getSubjectNode(jobArgs.subjectKey);
   }
 
-  public getLoader(key: string) {
-    const loader = this.loaders.find((loader: Loader) => loader.key === key);
+  public getLoaderNode(key: string) {
+    const loader = this.loaders.find((loader: LoaderNode) => loader.key === key);
     if (!loader)
       throw new Error(`Loader with key "${key}" is not defined in your connector class.`);
     return loader;
@@ -86,7 +87,7 @@ export class RepoTree {
   public toJSON() {
     return { 
       subjectNodes: this.subjects.map((subject: SubjectNode) => subject.toJSON()),
-      loaders: this.loaders.map((loader: Loader) => loader.toJSON()),
+      loaders: this.loaders.map((loader: LoaderNode) => loader.toJSON()),
       relationshipNodes: this.relationships.map((relationship: RelationshipNode) => relationship.toJSON()),
       relatedElementNodes: this.relatedElements.map((related: RelatedElementNode) => related.toJSON()),
     };
@@ -123,7 +124,7 @@ export abstract class Node implements NodeProps {
     this.key = props.key;
 
     if (props.key in this.pc.nodeMap)
-      throw new Error(`${props.key} already exists in NodeMap. Each Node must have a unique key.`);
+      throw new Error(`Node with key "${props.key}" already exists. Each Node must have a unique key.`);
     this.pc.nodeMap[props.key] = this;
   }
 
@@ -145,10 +146,6 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     this.relationships = [];
     this.relatedElements = [];
     pc.tree.subjects.push(this);
-  }
-
-  public toJSON(): any {
-    return { modelNodes: this.models.map((model: ModelNode) => model.toJSON()) };
   }
 
   public async update() {
@@ -192,6 +189,10 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     this.pc.jobSubjectId = res.entityId;
     this.pc.subjectCache[this.key] = res.entityId;
     return res;
+  }
+
+  public toJSON(): any {
+    return { modelNodes: this.models.map((model: ModelNode) => model.toJSON()) };
   }
 }
 
@@ -273,6 +274,75 @@ export class ModelNode extends Node implements ModelNodeProps {
     return { key: this.key, classFullName: this.modelClass.classFullName, elementNodes: elementJSONArray };
   }
 }
+
+export interface LoaderNodeProps extends NodeProps {
+
+  /*
+   * References a Model Node defined by user
+   * All the elements populated by the dmo will be contained by this model
+   */
+  model: ModelNode;
+
+  /*
+   * A Loader chosen by user
+   */
+  loader: Loader;
+}
+
+export class LoaderNode extends Node implements LoaderNodeProps {
+
+  public model: ModelNode;
+  public loader: Loader;
+
+  constructor(pc: PConnector, props: LoaderNodeProps) {
+    super(pc, props);
+    if (props.model.modelClass.className !== "LinkModel")
+      throw new Error(`LoaderNode.model.modelClass must be "LinkModel"`);
+    this.model = props.model;
+    this.loader = props.loader;
+    pc.tree.loaders.push(this);
+  }
+
+  public async update() {
+    let result: UpdateResult;
+    const con = this.pc.jobArgs.connection;
+    switch(con.kind) {
+      case "pcf_file_connection":
+        const stats = fs.statSync(con.filepath);
+        if (!stats)
+          throw new Error(`DataConnection.filepath not found - ${con}`);
+        const instance = new IRInstance({
+          pkey: "nodeKey",
+          entityKey: "DocumentWithBeGuid",
+          version: stats.mtimeMs.toString(),
+          data: { nodeKey: this.key, ...this.toJSON() },
+        });
+        const modelId = this.pc.modelCache[this.model.key];
+        const code = bk.RepositoryLink.createCode(this.pc.db, modelId, this.key);
+        const repoLinkProps = {
+          classFullName: bk.RepositoryLink.classFullName,
+          model: modelId,
+          code,
+          format: this.loader.format,
+          userLabel: instance.userLabel,
+          jsonProperties: instance.data,
+        } as common.RepositoryLinkProps;
+        result = this.pc.updateElement(repoLinkProps, instance);
+        this.pc.elementCache[instance.key] = result.entityId;
+        this.pc.seenIds.add(result.entityId);
+        this.pc.srcState = result.state;
+        break;
+      default:
+        throw new Error(`${con.kind} is not supported yet.`);
+    }
+    return result;
+  }
+
+  public toJSON() {
+    return { loader: this.loader.toJSON(), model: this.model.toJSON() };
+  }
+}
+
 
 export interface ElementNodeProps extends NodeProps {
 

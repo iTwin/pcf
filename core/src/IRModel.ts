@@ -184,28 +184,43 @@ export class IRInstance implements IRInstanceProps {
     return `${entityKey}-${pkv}` as IRInstanceKey;
   }
 
+  /*
+   * Unique Identifier of an IRInstance
+   */
   public get key(): IRInstanceKey {
     return this.codeValue;
   }
 
-  public get codeValue(): IRInstanceKey {
-    const pkv = this.get(this.pkey);
-    return `${this.entityKey}-${pkv}` as IRInstanceKey;
+  /*
+   * Primary Key Value (pkv)
+   */
+  public get pkv(): string {
+    return this.get(this.pkey);
   }
 
+  /*
+   * Corresponding BIS Code Value
+   */
+  public get codeValue(): IRInstanceKey {
+    return `${this.entityKey}-${this.pkv}` as IRInstanceKey;
+  }
+
+  /*
+   * Corresponding BIS User Label
+   */
   public get userLabel(): string {
     const pkv = this.get(this.pkey);
     return pkv;
+  }
+
+  public get checksum(): string {
+    return hash.MD5(JSON.stringify(this.data));
   }
 
   public get(attr: string): any {
     if (!(attr in this.data))
       return undefined;
     return this.data[attr];
-  }
-
-  public get checksum(): string {
-    return hash.MD5(JSON.stringify(this.data));
   }
 
   public validate(): void {
