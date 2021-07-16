@@ -72,7 +72,7 @@ Read this only if you want to gain a deeper understanding of what makes pcf grea
 
 ## Declarative Synchronization
 
-pcf allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that everything all the EC Entities corresponded to your source data are correctly inserted, updated, and deleted in your iModel. With pcf, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iTwin.js applications knows what to expect from your iModels. 
+pcf allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that every EC Entity corresponding to your source data are correctly inserted, updated, and deleted in your iModel. With pcf, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iTwin.js applications knows what to expect from your iModels. 
 
 ## Minimized Runtime Error and Testing
 
