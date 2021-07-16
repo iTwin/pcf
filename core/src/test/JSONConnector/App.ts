@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import * as bk from "@bentley/imodeljs-backend";
 import * as path from "path";
 import * as pcf from "../../pcf";
@@ -21,7 +25,7 @@ export async function main() {
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
     iModelId: "2f0c6220-3a68-482d-8455-78030edec752",
     clientConfig: { 
-      clientId: "spa-aXwJXSgbRU2BZLfsQHL2bc9Vb",
+      clientId: "",
       redirectUri: "http://localhost:3000/signin-callback",
       scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
     },

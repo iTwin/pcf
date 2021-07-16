@@ -8,7 +8,9 @@
     "build": "tsc",
     "clean": "rimraf lib"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@bentley/functional-schema": "^1.0.3"
+  },
   "devDependencies": {
     "@bentley/build-tools": "^2.16.0",
     "typescript": "~4.1.0"

@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import { Id64String } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
 import * as common from "@bentley/imodeljs-common";
@@ -186,7 +190,6 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       res.comment = `Inserted a new subject - ${this.key}`;
     }
 
-    this.pc.jobSubjectId = res.entityId;
     this.pc.subjectCache[this.key] = res.entityId;
     return res;
   }
@@ -304,7 +307,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
   }
 
   public async update() {
-    let result: UpdateResult;
+    let res: UpdateResult;
     const con = this.pc.jobArgs.connection;
     switch(con.kind) {
       case "pcf_file_connection":
@@ -327,15 +330,14 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           userLabel: instance.userLabel,
           jsonProperties: instance.data,
         } as common.RepositoryLinkProps;
-        result = this.pc.updateElement(repoLinkProps, instance);
-        this.pc.elementCache[instance.key] = result.entityId;
-        this.pc.seenIds.add(result.entityId);
-        this.pc.srcState = result.state;
+        res = this.pc.updateElement(repoLinkProps, instance);
+        this.pc.elementCache[instance.key] = res.entityId;
+        this.pc.seenIds.add(res.entityId);
         break;
       default:
         throw new Error(`${con.kind} is not supported yet.`);
     }
-    return result;
+    return res;
   }
 
   public toJSON() {

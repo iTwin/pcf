@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import { IModelDb } from "@bentley/imodeljs-backend";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, PrimitiveType, Schema as MetaSchema, SchemaChanges, SchemaComparer, SchemaContext, SchemaContextEditor } from "@bentley/ecschema-metadata";
 import { IModelSchemaLoader } from "@bentley/imodeljs-backend/lib/IModelSchemaLoader";

@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import { DbResult, Logger } from "@bentley/bentleyjs-core";
 import { ECSqlStatement, IModelDb } from "@bentley/imodeljs-backend";
 import { LogCategory } from "./LogCategory";
@@ -112,5 +116,11 @@ export async function retryLoop(atomicOp: () => Promise<void>): Promise<void> {
     }
     break;
   }
+}
+
+export async function sleep(seconds: number) {
+  if (process.env.rate_limited === "0")
+    return;
+  await new Promise(resolve => setTimeout(resolve, seconds * 1000));
 }
 

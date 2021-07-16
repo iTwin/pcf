@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import { PrimitiveType, primitiveTypeToString } from "@bentley/ecschema-metadata";
 import { GroupInformationElement, PhysicalElement, PhysicalType } from "@bentley/imodeljs-backend";
 import { ElementDMO } from "../../../DMO";

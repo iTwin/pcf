@@ -56,6 +56,7 @@ jobs:
       displayName: 'npm run test:integration'
       workingDirectory: core
       env:
+        rate_limited: $(rate_limited)
         imjs_test_project_id: $(test_project_id)
         imjs_test_client_id: $(test_client_id)
         imjs_test_regular_user_name: $(test_user_name)

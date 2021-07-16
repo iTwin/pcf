@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
 const yargs = require('yargs');
 const path = require('path');
 const yeoman = require('yeoman-environment');

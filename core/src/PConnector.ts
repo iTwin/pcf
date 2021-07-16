@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; 
 import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb } from "@bentley/imodeljs-backend";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
@@ -90,8 +94,8 @@ export abstract class PConnector extends IModelBridge {
   protected _db?: IModelDb;
   protected _jobArgs?: pcf.JobArgs;
   protected _authReqContext?: AuthorizedBackendRequestContext;
-  protected _jobSubjectId?: Id64String;
   protected _irModel?: pcf.IRModel;
+  protected _jobSubjectId?: Id64String;
   protected _srcState?: pcf.ItemState;
 
   constructor() {
@@ -148,10 +152,6 @@ export abstract class PConnector extends IModelBridge {
     return this._jobSubjectId;
   }
 
-  public set jobSubjectId(subjectId: Id64String) {
-    this._jobSubjectId = subjectId;
-  }
-
   public get irModel() {
     if (!this._irModel) 
       throw new Error("irModel has not been initialized. call loadIRModel to populate its value.");
@@ -162,10 +162,6 @@ export abstract class PConnector extends IModelBridge {
     if (this._srcState === undefined) 
       throw new Error("srcState is undefined. call Loader.update() to populate its value.");
     return this._srcState;
-  }
-
-  public set srcState(state: pcf.ItemState) {
-    this._srcState = state;
   }
 
   public get dynamicSchemaName() {
@@ -197,18 +193,27 @@ export abstract class PConnector extends IModelBridge {
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
-    await this.enterChannel(IModel.repositoryModelId);
-    await this._updateSubject();
-    await this.persistChanges(`Updated Subject`, ChangesType.GlobalProperties);
-
+    Logger.logInfo(LogCategory.PCF, "Started Domain Schema Update...");
     await this.enterChannel(IModel.repositoryModelId);
     await this._updateDomainSchema();
-    await this.persistChanges(`Updated Domain Schema(s)`, ChangesType.Schema);
+    await this.persistChanges(`Domain Schema Update`, ChangesType.Schema);
+    Logger.logInfo(LogCategory.PCF, "Completed Domain Schema Update...");
 
+    Logger.logInfo(LogCategory.PCF, "Started Dynamic Schema Update...");
     await this.enterChannel(IModel.repositoryModelId);
     await this._updateDynamicSchema();
-    await this.persistChanges("Updated Dynamic Schema", ChangesType.Schema);
+    await this.persistChanges("Dynamic Schema Update", ChangesType.Schema);
+    Logger.logInfo(LogCategory.PCF, "Completed Dynamic Schema Update.");
 
+    await util.sleep(60);
+
+    Logger.logInfo(LogCategory.PCF, "Started Subject Update...");
+    await this.enterChannel(IModel.repositoryModelId);
+    await this._updateSubject();
+    await this.persistChanges("Subject Update", ChangesType.Schema);
+    Logger.logInfo(LogCategory.PCF, "Completed Subject Update.");
+
+    Logger.logInfo(LogCategory.PCF, "Started Data Update...");
     await this.enterChannel(this.jobSubjectId);
     await this._updateLoader();
     if (this.srcState !== pcf.ItemState.Unchanged) {
@@ -221,20 +226,25 @@ export abstract class PConnector extends IModelBridge {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
     await this.persistChanges("Updated Data", ChangesType.Regular);
+    Logger.logInfo(LogCategory.PCF, "Completed Data Update.");
 
-    Logger.logInfo(LogCategory.PCF, "Your Connector Job has finished");
+    await util.sleep(60);
+
+    Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
 
   protected async _updateLoader() {
     const loader = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
     await loader.model.update();
-    await loader.update();
+    const res = await loader.update();
+    this._srcState = res.state;
   }
 
   protected async _updateSubject() {
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
-    await subjectNode.update();
+    const res = await subjectNode.update();
+    this._jobSubjectId = res.entityId;
   }
 
   protected async _updateDomainSchema(): Promise<any> {

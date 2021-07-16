@@ -5,6 +5,9 @@
   "main": "lib/pcf.js",
   "typings": "lib/pcf",
   "license": "MIT",
+  "engines": {
+    "node": ">=10.17.0 <15.0"
+  },
   "scripts": {
     "build": "tsc && npm run copyFiles",
     "clean": "rimraf lib",
@@ -22,26 +25,30 @@
     "iModel"
   ],
   "peerDependencies": {
-    "@bentley/bentleyjs-core": "2.16.1",
-    "@bentley/ecschema-metadata": "2.16.1",
-    "@bentley/imodeljs-backend": "2.16.1",
-    "@bentley/imodeljs-common": "2.16.1"
+    "@bentley/bentleyjs-core": "2.16.9",
+    "@bentley/ecschema-metadata": "2.16.9",
+    "@bentley/imodeljs-backend": "2.16.9",
+    "@bentley/imodeljs-common": "2.16.9"
   },
   "dependencies": {
-    "@bentley/backend-itwin-client": "2.16.1",
-    "@bentley/bentleyjs-core": "2.16.1",
-    "@bentley/ecschema-metadata": "2.16.1",
-    "@bentley/electron-manager": "2.16.1",
-    "@bentley/geometry-core": "2.16.1",
-    "@bentley/imodelhub-client": "2.16.1",
-    "@bentley/imodeljs-backend": "2.16.1",
-    "@bentley/imodeljs-common": "2.16.1",
-    "@bentley/itwin-client": "2.16.1",
-    "@bentley/oidc-signin-tool": "2.16.1",
-    "@bentley/presentation-common": "2.16.1",
-    "@bentley/rbac-client": "2.16.1",
-    "@bentley/telemetry-client": "2.16.1",
-    "@bentley/imodel-bridge": "2.16.1",
+    "@bentley/backend-itwin-client": "2.16.9",
+    "@bentley/bentleyjs-core": "2.16.9",
+    "@bentley/ecschema-metadata": "2.16.9",
+    "@bentley/electron-manager": "2.16.9",
+    "@bentley/geometry-core": "2.16.9",
+    "@bentley/imodel-bridge": "2.16.9",
+    "@bentley/imodelhub-client": "2.16.9",
+    "@bentley/imodeljs-backend": "2.16.9",
+    "@bentley/imodeljs-common": "2.16.9",
+    "@bentley/itwin-client": "2.16.9",
+    "@bentley/oidc-signin-tool": "2.16.9",
+    "@bentley/presentation-common": "2.16.9",
+    "@bentley/rbac-client": "2.16.9",
+    "@bentley/telemetry-client": "2.16.9",
+    "@bentley/aec-units-schema": "1.0.3",
+    "@bentley/functional-schema": "1.0.3",
+    "@bentley/building-spatial-schema": "1.0.0",
+    "@bentley/spatial-composition-schema": "1.0.0",
     "@types/sqlite3": "^3.1.6",
     "@types/xmldom": "^0.1.30",
     "dotenv": "^8.2.0",
@@ -53,17 +60,17 @@
     "yargs": "^17.0.1"
   },
   "devDependencies": {
-    "@bentley/build-tools": "2.16.1",
-    "@types/chai": "^4.2.12",
-    "@types/mocha": "^5.2.6",
-    "@types/node": "^10.17.28",
+    "@bentley/build-tools": "2.16.9",
+    "@types/chai": "^4.1.4",
+    "@types/mocha": "^8.2.2",
+    "@types/node": "10.14.1",
     "@types/object-hash": "^1.3.3",
     "babel-cli": "^6.18.0",
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
     "tslint": "^5.20.1",
     "typedoc": "^0.20.36",
-    "typescript": "~4.1.0"
+    "typescript": "~4.3.0"
   },
   "eslintConfig": {
     "plugins": [

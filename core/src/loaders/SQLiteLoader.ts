@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
 import { IREntity, IRInstance, IRRelationship } from "../IRModel";

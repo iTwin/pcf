@@ -1,5 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
 import * as bk from "@bentley/imodeljs-backend";
-import KnownTestLocations from "../KnownTestLocations";
 import * as elements from "./dmos/Elements";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
@@ -13,10 +16,11 @@ export class JSONConnector extends pcf.PConnector {
 
     new PConnectorConfig(this, {
       domainSchemaPaths: [
-        "Functional.ecschema.xml",
-        "SpatialComposition.ecschema.xml",
-        "BuildingSpatial.ecschema.xml"
-      ].map((file: string) => path.join(KnownTestLocations.testAssetsDir, "domain_schemas", file)),
+        path.join(__dirname, "../../../node_modules/@bentley/aec-units-schema/AecUnits.ecschema.xml"),
+        path.join(__dirname, "../../../node_modules/@bentley/functional-schema/Functional.ecschema.xml"),
+        path.join(__dirname, "../../../node_modules/@bentley/spatial-composition-schema/SpatialComposition.ecschema.xml"),
+        path.join(__dirname, "../../../node_modules/@bentley/building-spatial-schema/BuildingSpatial.ecschema.xml"),
+      ],
       dynamicSchema: {
         schemaName: "TestSchema",
         schemaAlias: "ts",

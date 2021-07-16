@@ -15,7 +15,7 @@ export class <%= className %> extends pcf.PConnector {
       appId: "SampleConnector",
       appVersion: "1.0.0.0",
       domainSchemaPaths: [
-        path.join(__dirname, "../assets/Functional.ecschema.xml"),
+        path.join(__dirname, "../node_modules/@bentley/functional-schema/Functional.ecschema.xml"),
       ],
       dynamicSchema: {
         schemaName: "SampleDynamic",
