@@ -1,6 +1,6 @@
-# itwin-pcf cli
+# iTwin pcf cli
 
-The pcf toolkit provides the pcf command-line interface that can be used to work with pcf-powered iTwin.js Connector Apps. 
+pcf command-line interface that can be used to work with pcf-powered iTwin.js Connector Apps. 
 
 # Getting Started 
 
@@ -12,7 +12,7 @@ npm install -g @itwin/pcf-cli
 pcf -h
 ```
 
-# Contributing
+# Install from source
 
 ```console
 # install dependencies
