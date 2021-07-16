@@ -1,12 +1,12 @@
 {
   "name": "@itwin/pcf",
-  "version": "0.0.1",
-  "description": "iTwin Parametric Connector Framework",
+  "version": "0.1.0",
+  "description": "Define digital twin as code with iTwin pcf (Parametric Connector Framework).",
   "main": "lib/pcf.js",
   "typings": "lib/pcf",
   "license": "MIT",
   "engines": {
-    "node": ">=10.17.0 <15.0"
+    "node": ">=12.17.0 <15.0"
   },
   "scripts": {
     "build": "tsc && npm run copyFiles",
