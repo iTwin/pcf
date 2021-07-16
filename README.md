@@ -54,6 +54,9 @@ Currently, all the documentations and API references of this project are embedde
 
 # Cautions
 
+* Dependencies
+    * You should not install any iTwin.js related dependencies aside from schema npm packages (@bentley/<schema name>-schema). If the same package is installed in two different versions by your connector and pcf, you may encounter hidden bugs.
+    * Most existing domain schema packages can be found [here](https://www.npmjs.com/search?q=%40bentley%20schema%20).
 * Nodes
     * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
     * Modifying the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
@@ -64,23 +67,23 @@ Currently, all the documentations and API references of this project are embedde
     * Loader is recorded as a Repository Link element in your iModel.
     * Currently supported loaders can be found in pcf/core/src/loaders directory.
 * "Too Many Requests"
-    * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing. 
+    * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing.
 
-# Concepts 
+# Concepts
 
 Read this only if you want to gain a deeper understanding of what makes pcf great and unique.
 
 ## Declarative Synchronization
 
-pcf allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that every EC Entity corresponding to your source data are correctly inserted, updated, and deleted in your iModel. With pcf, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iTwin.js applications knows what to expect from your iModels. 
+pcf allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that every EC Entity corresponding to your source data are correctly inserted, updated, and deleted in your iModel. With pcf, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iTwin.js applications knows what to expect from your iModels.
 
 ## Minimized Runtime Error and Testing
 
-pcf minimizes runtime errors in its connectors by maximizing the functionalities offered by TypeScript so that most errors can be caught at compile time and runtime before a connector job kicks off. As previously mentioned, pcf follows the declarative paradigm so a connector does not contain any custom logics rather it contains only object definitions, which can be linted strictly.  
+pcf minimizes runtime errors in its connectors by maximizing the functionalities offered by TypeScript so that most errors can be caught at compile time and runtime before a connector job kicks off. As previously mentioned, pcf follows the declarative paradigm so a connector does not contain any custom logics rather it contains only object definitions, which can be linted strictly.
 
-Given that object definitions (**DMOs** and **Nodes**) are the main inputs to your connector, so long as their definitions are correct, each synchronization job is guaranteed to succeed with pcf. 
+Given that object definitions (**DMOs** and **Nodes**) are the main inputs to your connector, so long as their definitions are correct, each synchronization job is guaranteed to succeed with pcf.
 
-Functionalities such as code-completion and code-refactoring available in most modern IDE's (e.g Visual Studio Code) will help you to write the correct definitions for them. Since most runtime errors are avoided at compile time and the source code of a connector only contains a set of object definitions, unit/integration tests are no longer needed for connectors, making them much easier to maintain. (except for geometry transformations) 
+Functionalities such as code-completion and code-refactoring available in most modern IDE's (e.g Visual Studio Code) will help you to write the correct definitions for them. Since most runtime errors are avoided at compile time and the source code of a connector only contains a set of object definitions, unit/integration tests are no longer needed for connectors, making them much easier to maintain. (except for geometry transformations)
 
 ## Single Source of Truth
 
