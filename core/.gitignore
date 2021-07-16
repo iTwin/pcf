@@ -22,12 +22,8 @@ package-deps.json
 *.build.log
 *.build.error.log
 
-# misc
-GeneratedConnector
-
 # build
 lib
-
 .vscode
 
 # integration test
