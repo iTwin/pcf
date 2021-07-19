@@ -129,7 +129,7 @@ This new architecture separates the concern of accessing an external data from t
 
 ## How to write a Loader?
 
-You can write your own Loader by implementing [Loader](https://github.com/zachzhu2016/pcf/blob/main/core/src/loaders/Loader.ts) or extending one of the currently supported Loaders.
+You can write your own Loader by implementing [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts) or extending one of the currently supported Loaders.
 
 # Install from source 
 
