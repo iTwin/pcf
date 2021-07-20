@@ -1,7 +1,7 @@
 {
-  "name": "pcf",
-  "version": "0.1.0",
-  "description": "itwin-pcf command line",
+  "name": "pcf-cli",
+  "version": "0.0.1",
+  "description": "iTwin pcf command line",
   "license": "MIT",
   "keywords": [
     "Bentley",
