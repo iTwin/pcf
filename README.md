@@ -167,15 +167,15 @@ npm run test
 
 # Road Map
 
-- [ ] handles multiple source files in a single job?
-- [ ] update elements in parallel (persist IR model on disk)
+- [ ] handles the situation when IR Model becomes un-managably large. (potential solutions 1. persist IR model on disk 2. lazy load it).
+- [ ] handles multiple source files in a single job? 
 - [ ] add a full suite of command line offerings
-- [ ] add domain schema service and sync them
 - [ ] add wrappers for other programming languages
+- [ ] read large JSON (https://github.com/uhop/stream-json)
 - [ ] data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
 - [ ] dynamically infer the relationship between external entities
-- [ ] read large JSON (https://github.com/uhop/stream-json)
-
+- [ ] update elements in parallel
+ 
 # Inspired by
 
 - [Compiler Design](https://en.wikipedia.org/wiki/Compiler)
