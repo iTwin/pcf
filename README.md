@@ -7,7 +7,7 @@ Table of Contents
 * [Constructs](#constructs)
 * [Getting started](#getting-started)
 * [Cautions](#cautions)
-* [Concepts](#concepts)
+* [Why use iTwin pcf?](#Why-use-itwin-pcf)
   * [Declarative Synchronization](#declarative-synchronization)
   * [Minimized Runtime Error and Testing](#minimized-runtime-error-and-testing)
   * [Single Source of Truth](#single-source-of-truth)
@@ -66,12 +66,10 @@ Currently, all the documentations and API references of this project are embedde
 * Loaders
     * Loader is recorded as a Repository Link element in your iModel.
     * Currently supported loaders can be found in pcf/core/src/loaders directory.
-* "Too Many Requests"
+* Request Limit
     * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing.
 
-# Concepts
-
-Read this only if you want to gain a deeper understanding of what makes pcf great and unique.
+# Why use iTwin pcf?
 
 ## Declarative Synchronization
 
@@ -112,9 +110,6 @@ An IR Model is an intermediate representation of your source data. It is a simpl
 
 We must not always assume that the source data are normalized or well-modeled. Having an IR Model safeguards against dirty source data, thus maintaining the data quality in your iModel. IR Model forces every external class to have a primary key and value so that one can always use information stored in the external source to query an iModel and be confident that only a single EC instance gets returned. This is just one kind of optimization. Other kinds of optimizations could also be implemented on IR Model such as dynamically inferring relationships in your data if they're not provided. 
  
-Why not use an existing file format like SQLite as the Intermediate Representation as opposed to creating our own virtual data store (IR Model)? This is possible, however, the simplicity and flexibility provided by a virtual data store cannot be beaten by any existing file format, specifically there are two compelling reasons:
-1. it makes the job of a Loader significantly easier, as it does not require additional logic & library to write to the IR format (IR format = SQLite in this example). In another word, instead of having a simple ORM to the IR format (TS Object ==write==> SQLite ==read==> TS Object), we use TS Object straight up, removing the two steps of interacting with the IR SQLite database. When file size gets un-managably large to stay in memory, we could allow IR Model to be either lazily loaded or persist its data to disk in a SQLite file and load them as needed, thus hiding the ORM implementation.
-2. since IR Model is **virtual** (being a TS Object in memory), it can be extended easily. With IR Model, pcf is able to provide a set of default Element Properties based on the structure of IR Model. For example, the primary key value of an IR Instance is used as the UserLabel value of an EC Instance and part of its CodeValue. Moreover, subroutines can be implemented to check the integrity of external data as well as performing necessary normalization. 
  
 ## What is the difference between a Connector and a Loader?
 
