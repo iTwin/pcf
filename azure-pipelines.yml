@@ -9,6 +9,19 @@ trigger:
       - README.md
       - LICENSE
 
+
+pr:
+  drafts: false
+  branches:
+    include:
+      - main
+      - release/*
+  paths:
+    exclude:
+      - README.md
+      - LICENSE
+
+
 jobs:
   - job:
     strategy:
@@ -34,7 +47,7 @@ jobs:
         versionSpec: '12.17.0'
       displayName: 'Install Node.js'
 
-    # @itwin/pcf
+    # @itwin/pcf build
 
     - script: |
         npm ci
@@ -67,7 +80,7 @@ jobs:
       displayName: 'npm link'
       workingDirectory: core
 
-    # @itwin/pcf-cli
+    # @itwin/pcf-cli build
 
     - script: |
         npm ci
@@ -93,4 +106,37 @@ jobs:
         npm run build
       displayName: 'build generated connector'
       workingDirectory: cli/output
+
+    # publish artifact
+
+    - script: |
+        npm pack
+      displayName: 'Package @itwin/pcf for release'
+      workingDirectory: core
+
+    - script: |
+        npm pack
+      displayName: 'Package @itwin/pcf-cli for release'
+      workingDirectory: cli
+
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: core
+        contents: '*.tgz'
+        targetFolder: $(Build.ArtifactStagingDirectory)/packages
+      displayName: 'Copy @itwin/pcf archives to artifacts staging directory'
+
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: cli
+        contents: '*.tgz'
+        targetFolder: $(Build.ArtifactStagingDirectory)/packages
+      displayName: 'Copy @itwin/pcf-cli archives to artifacts staging directory'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/packages'
+        artifactName: packages
+      displayName: 'Publish npm package artifacts'
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Agent.OS'], 'Windows_NT'))
 

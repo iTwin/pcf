@@ -1,5 +1,5 @@
 {
-  "name": "pcf-cli",
+  "name": "@itwin/pcf-cli",
   "version": "0.0.1",
   "description": "iTwin pcf command line",
   "license": "MIT",
