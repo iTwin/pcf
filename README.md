@@ -7,7 +7,7 @@ Table of Contents
 * [Constructs](#constructs)
 * [Getting started](#getting-started)
 * [Cautions](#cautions)
-* [Concepts](#concepts)
+* [Why use iTwin pcf?](#Why-use-itwin-pcf)
   * [Declarative Synchronization](#declarative-synchronization)
   * [Minimized Runtime Error and Testing](#minimized-runtime-error-and-testing)
   * [Single Source of Truth](#single-source-of-truth)
@@ -66,12 +66,10 @@ Currently, all the documentations and API references of this project are embedde
 * Loaders
     * Loader is recorded as a Repository Link element in your iModel.
     * Currently supported loaders can be found in pcf/core/src/loaders directory.
-* "Too Many Requests"
+* Request Limit
     * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing.
 
-# Concepts
-
-Read this only if you want to gain a deeper understanding of what makes pcf great and unique.
+# Why use iTwin pcf?
 
 ## Declarative Synchronization
 
