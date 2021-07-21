@@ -75,7 +75,7 @@ describe("Integration Tests", () => {
   });
 
   for (const testCase of testCases) {
-    for (const rmethod of [RunMethods.WithoutFwk, RunMethods.WithFwk]) {
+    for (const rmethod of [RunMethods.WithoutFwk]) { //, RunMethods.WithFwk]) {
       it(`${rmethod} - ${testCase.title}`, async () => {
         await app.createTestBriefcaseDb("app.run Integration Test");
         for (const job of testCase.jobs) {

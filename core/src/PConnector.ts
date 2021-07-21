@@ -205,8 +205,6 @@ export abstract class PConnector extends IModelBridge {
     await this.persistChanges("Dynamic Schema Update", ChangesType.Schema);
     Logger.logInfo(LogCategory.PCF, "Completed Dynamic Schema Update.");
 
-    await util.sleep(60);
-
     Logger.logInfo(LogCategory.PCF, "Started Subject Update...");
     await this.enterChannel(IModel.repositoryModelId);
     await this._updateSubject();
@@ -225,10 +223,8 @@ export abstract class PConnector extends IModelBridge {
     } else {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
-    await this.persistChanges("Updated Data", ChangesType.Regular);
+    await this.persistChanges("Data Update", ChangesType.Regular);
     Logger.logInfo(LogCategory.PCF, "Completed Data Update.");
-
-    await util.sleep(60);
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
