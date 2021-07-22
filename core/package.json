@@ -53,7 +53,7 @@
     "ignore-styles": "^5.0.1",
     "sqlite": "^4.0.12",
     "sqlite3": "^5.0.0",
-    "xlsx": "^0.16.9",
+    "xlsx": "^0.17.0",
     "xmldom": "^0.5.0"
   },
   "devDependencies": {
