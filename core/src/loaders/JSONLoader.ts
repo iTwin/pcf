@@ -34,7 +34,9 @@ export class JSONLoader extends Loader {
     this.json = JSON.parse(fs.readFileSync(con.filepath, "utf8"));
   }
 
-  public async close(): Promise<void> {}
+  public async close(): Promise<void> {
+    this.json = {};
+  }
 
   public async getEntities(): Promise<IREntity[]> {
     return this._getEntities(this.entities);
