@@ -444,6 +444,8 @@ export abstract class PConnector extends IModelBridge {
     if (node.dmo.fromType === "IREntity") {
       const sourceModelId = this.modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
+      if (!sourceValue)
+        return;
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     }
@@ -452,6 +454,8 @@ export abstract class PConnector extends IModelBridge {
     if (node.dmo.toType === "IREntity") {
       const targetModelId = this.modelCache[node.target!.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
+      if (!targetValue)
+        return;
       const targetCode = this.getCode(node.target!.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {

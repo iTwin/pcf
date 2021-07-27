@@ -4,7 +4,7 @@ import * as relatedElements from "./dmos/RelatedElements";
 import * as pcf from "@itwin/pcf";
 import * as path from "path";
 
-const { DefinitionModel, DefinitionPartition, PhysicalModel, PhysicalPartition } = pcf.imodeljs_backend;
+const { DefinitionModel, DefinitionPartition, LinkModel, LinkPartition, PhysicalModel, PhysicalPartition } = pcf.imodeljs_backend;
 
 export class <%= className %> extends pcf.PConnector {
   constructor() {
@@ -25,14 +25,14 @@ export class <%= className %> extends pcf.PConnector {
 
     const subject1 = new pcf.SubjectNode(this, { key: "sample-subject-1" });
 
-    const linkModel = new pcf.ModelNode(this, { key: "LoaderLinkModel", subject: subject1, modelClass: DefinitionModel, partitionClass: DefinitionPartition });
+    const linkModel = new pcf.ModelNode(this, { key: "LoaderLinkModel", subject: subject1, modelClass: LinkModel, partitionClass: LinkPartition });
     const loader = new pcf.LoaderNode(this, {
       key: "sample-xlsx-loader",
       model: linkModel,
       loader: new pcf.XLSXLoader({
         format: "xlsx",
         entities: ["Component", "Category"],
-        relationships: ["Connection"],
+        relationships: ["Component", "Connection"],
         defaultPrimaryKey: "Name",
       }),
     });

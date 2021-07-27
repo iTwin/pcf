@@ -5,14 +5,13 @@
   "main": "lib/App.js",
   "scripts": {
     "start": "tsc && node ./lib/App.js",
-    "build": "tsc",
-    "clean": "rimraf lib"
+    "build": "tsc"
   },
   "dependencies": {
     "@bentley/functional-schema": "1.0.3"
   },
   "devDependencies": {
-    "@bentley/build-tools": "^2.16.9",
     "typescript": "~4.3.0"
   }
 }
+

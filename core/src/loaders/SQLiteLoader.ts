@@ -49,7 +49,7 @@ export class SQLiteLoader extends Loader {
     const instances: IRInstance[] = [];
     for (const row of rows) {
       const firstKey = Object.keys(row)[0];
-      const pkey = this.getPKey(entityKey) ?? [firstKey];
+      const pkey = this.getPKey(entityKey);
       const instance = new IRInstance({
         pkey,
         entityKey,
