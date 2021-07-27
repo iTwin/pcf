@@ -114,17 +114,20 @@ describe("Unit Tests", () => {
     };
 
     const jsonLoader = new pcf.JSONLoader(props);
-    await jsonLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json")});
-    const modelFromJSON = await pcf.IRModel.fromLoader(jsonLoader);
-    await jsonLoader.close();
+    const jsonConnection = { kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json") };
+    const modelFromJSON = new pcf.IRModel(jsonLoader, jsonConnection as pcf.DataConnection)
+    await modelFromJSON.load();
 
     const sqliteLoader = new pcf.SQLiteLoader(props);
-    await sqliteLoader.open({ kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite")});
-    const modelFromSQLite = await pcf.IRModel.fromLoader(sqliteLoader);
-    await sqliteLoader.close();
+    const sqliteConnection = { kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.sqlite") };
+    const modelFromSQLite = new pcf.IRModel(sqliteLoader, sqliteConnection as pcf.DataConnection);
+    await modelFromSQLite.load();
 
     if (!pcf.IRModel.compare(modelFromJSON, modelFromSQLite))
       chai.assert.fail("IR Model from JSON != IR Model from SQLite");
+
+    await modelFromJSON.clear();
+    await modelFromSQLite.clear();
   });
 });
 

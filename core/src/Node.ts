@@ -322,11 +322,12 @@ export class LoaderNode extends Node implements LoaderNodeProps {
         });
         const modelId = this.pc.modelCache[this.model.key];
         const code = bk.RepositoryLink.createCode(this.pc.db, modelId, this.key);
+        const loaderProps = this.loader.toJSON();
         const repoLinkProps = {
           classFullName: bk.RepositoryLink.classFullName,
           model: modelId,
           code,
-          format: this.loader.format,
+          format: loaderProps.format,
           userLabel: instance.userLabel,
           jsonProperties: instance.data,
         } as common.RepositoryLinkProps;
@@ -381,7 +382,10 @@ export class ElementNode extends Node implements ElementNodeProps {
 
   public async update() {
     const resList: UpdateResult[] = [];
-    const instances = this.pc.irModel.getEntityInstances(this.dmo);
+    let instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
+    if (typeof this.dmo.doSyncInstance === "function")
+      instances = instances.filter(this.dmo.doSyncInstance);
+
     for (const instance of instances) {
       const modelId = this.pc.modelCache[this.model.key];
       const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
@@ -457,7 +461,10 @@ export class RelationshipNode extends Node {
 
   public async update() {
     const resList: UpdateResult[] = [];
-    const instances = this.pc.irModel.getRelInstances(this.dmo);
+    let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
+    if (typeof this.dmo.doSyncInstance === "function")
+      instances = instances.filter(this.dmo.doSyncInstance);
+
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
       if (!pair)
@@ -524,7 +531,10 @@ export class RelatedElementNode extends Node {
 
   public async update() {
     const resList: UpdateResult[] = [];
-    const instances = this.pc.irModel.getRelInstances(this.dmo);
+    let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
+    if (typeof this.dmo.doSyncInstance === "function")
+      instances = instances.filter(this.dmo.doSyncInstance);
+
     for (const instance of instances) {
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
       if (!pair)

@@ -30,36 +30,33 @@ export class JSONLoader extends Loader {
 
   public json: any = {};
 
-  public async open(con: FileConnection): Promise<void> {
+  protected async _open(con: FileConnection): Promise<void> {
     this.json = JSON.parse(fs.readFileSync(con.filepath, "utf8"));
   }
 
-  public async close(): Promise<void> {
+  protected async _close(): Promise<void> {
     this.json = {};
   }
 
-  public async getEntities(): Promise<IREntity[]> {
-    return this._getEntities(this.entities);
+  protected async _getEntities(): Promise<IREntity[]> {
+    return this._getAll();
   }
 
-  public async getRelationships(): Promise<IRRelationship[]> {
-    return this._getEntities(this.relationships);
+  protected async _getRelationships(): Promise<IRRelationship[]> {
+    return this._getAll();
   }
 
-  protected async _getEntities(usedKeys: string[]): Promise<IREntity[]> {
+  protected async _getAll(): Promise<IREntity[]> {
     const keys = Object.keys(this.json);
     const entities: IREntity[] = [];
     for (const key of keys) {
-      if (!usedKeys.includes(key))
-        continue;
-      const instances = await this.getInstances(key);
-      const entity = new IREntity({ key, instances });
+      const entity = new IREntity({ key });
       entities.push(entity);
     }
     return entities;
   }
 
-  public async getInstances(entityKey: string): Promise<IRInstance[]> {
+  protected async _getInstances(entityKey: string): Promise<IRInstance[]> {
     if (!(entityKey in this.json))
       throw new Error(`Source data does not have any entity named - ${entityKey}`);
 

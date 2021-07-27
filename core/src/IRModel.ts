@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as hash from "object-hash";
-import { ElementDMO, LogCategory, RelatedElementDMO, RelationshipDMO } from "./pcf";
+import { LogCategory, DataConnection } from "./pcf";
 import { Loader } from "./loaders/Loader";
 import { Logger } from "@bentley/bentleyjs-core";
 
@@ -17,71 +17,132 @@ import { Logger } from "@bentley/bentleyjs-core";
  */
 export class IRModel {
 
-  public entityMap: {[key: string]: IREntity};
-  public relMap: {[key: string]: IRRelationship};
+  private _connection: DataConnection;
+  private _lazyMode: boolean;
+  private _loader: Loader;
+  private _entityMap: { [entityKey: string]: IREntity };
+  private _relMap: { [relationshipKey: string]: IRRelationship };
 
-  constructor(entities: IREntity[], relationships: IRRelationship[]) {
-    this.entityMap = {};
-    for (const e of entities) {
-      this.entityMap[e.key] = IRModel.normalized(e);
-    }
-    this.relMap = {};
-    for (const r of relationships) {
-      this.relMap[r.key] = r;
-    }
+  constructor(loader: Loader, con: DataConnection) {
+    this._lazyMode = con.lazyMode ?? false;
+    this._loader = loader;
+    this._connection = con;
+    this._entityMap = {};
+    this._relMap = {};
   }
 
-  public getEntityInstances(dmo: ElementDMO): IRInstance[] {
-    if (!(dmo.irEntity in this.entityMap)) {
-      Logger.logWarning(LogCategory.PCF, `Cannot find IR Entity ${dmo.irEntity}`);
+  public get lazyMode() {
+    return this._lazyMode;
+  }
+
+  public addEntity(entity: IREntity) {
+    if (entity.key in this._entityMap) {
+      Logger.logWarning(LogCategory.PCF, `IR Entity ${entity.key} already exists in IR Model.`);
+      return;
+    }
+    this._entityMap[entity.key] = entity;
+    if (entity.instances)
+      entity.instances = IRModel.normalized(entity.instances);
+  }
+  
+  public addRelationship(rel: IRRelationship) {
+    if (rel.key in this._relMap) {
+      Logger.logWarning(LogCategory.PCF, `IR Relationship Entity ${rel.key} already exists in IR Model.`);
+      return;
+    }
+    this._relMap[rel.key] = rel;
+    if (rel.instances)
+      rel.instances = IRModel.normalized(rel.instances);
+  }
+
+  public deleteEntity(entity: IREntity) {
+    if (!(entity.key in this._entityMap)) {
+      Logger.logWarning(LogCategory.PCF, `IR Entity ${entity.key} does not exist in IR Model.`);
+      return;
+    }
+    delete this._entityMap[entity.key];
+  }
+  
+  public deleteRelationship(rel: IRRelationship) {
+    if (!(rel.key in this._relMap)) {
+      Logger.logWarning(LogCategory.PCF, `IR Relationship Entity ${rel.key} does not exist in IR Model.`);
+      return;
+    }
+    delete this._relMap[rel.key];
+  }
+
+  public async getEntityInstances(irEntity: string): Promise<IRInstance[]> {
+    if (!(irEntity in this._entityMap)) {
+      Logger.logWarning(LogCategory.PCF, `Cannot find IR Entity ${irEntity}`);
       return [];
     }
-    let instances = this.entityMap[dmo.irEntity].instances;
-    if (typeof dmo.doSyncInstance === "function")
-      instances = instances.filter(dmo.doSyncInstance);
-    return instances;
+
+    const entity = this._entityMap[irEntity];
+    if (!entity.instances)
+      entity.instances = await this._loader.getInstances(irEntity);
+
+    return entity.instances;
   }
 
-  public getRelInstances(dmo: RelationshipDMO | RelatedElementDMO): IRInstance[] {
-    if (!(dmo.irEntity in this.relMap)) {
-      Logger.logWarning(LogCategory.PCF, `Cannot find IR Entity ${dmo.irEntity}`);
+  public async getRelationshipInstances(irRelationship: string): Promise<IRInstance[]> {
+    if (!(irRelationship in this._relMap)) {
+      Logger.logWarning(LogCategory.PCF, `Cannot find IR Relationship Entity ${irRelationship}`);
       return [];
     }
-    let instances = this.relMap[dmo.irEntity].instances;
-    if (typeof dmo.doSyncInstance === "function")
-      instances = instances.filter(dmo.doSyncInstance);
-    return instances;
+
+    const rel = this._relMap[irRelationship];
+    if (!rel.instances)
+      rel.instances = await this._loader.getInstances(irRelationship);
+
+    return rel.instances;
   }
 
-  public static normalized(entity: IREntity): IREntity {
+  public static normalized(instances: IRInstance[]): IRInstance[] {
     const m: {[k: string]: IRInstance} = {};
-    for (const instance of entity.instances) {
+    for (const instance of instances) {
       if (instance.key in m)
         continue;
       m[instance.key.toLowerCase()] = instance;
     }
     const newInstances = Object.values(m);
-    entity.instances = newInstances;
-    return entity;
+    return newInstances;
   }
 
-  public static async fromLoader(loader: Loader) {
-    const entities = await loader.getEntities();
+  public async load() {
+    await this._loader.open(this._connection);
+
+    const entities = await this._loader.getEntities();
     let relationships: IRRelationship[] = [];
-    if (typeof loader.getRelationships === "function")
-      relationships = await loader.getRelationships();
-    await loader.close();
-    return new IRModel(entities, relationships);
+    if (typeof this._loader.getRelationships === "function")
+      relationships = await this._loader.getRelationships();
+
+    for (const entity of entities) {
+      if (!this.lazyMode)
+        entity.instances = await this._loader.getInstances(entity.key);
+      this.addEntity(entity);
+    }
+    for (const relationship of relationships) {
+      if (!this.lazyMode)
+        relationship.instances = await this._loader.getInstances(relationship.key);
+      this.addRelationship(relationship);
+    }
+  }
+
+  public async clear() {
+    this._entityMap = {};
+    this._relMap = {};
+    if (this._lazyMode)
+      await this._loader.close();
   }
 
   public static compare(modelA: IRModel, modelB: IRModel): boolean {
-    const entityMapA = modelA.entityMap;
-    const entityMapB = modelB.entityMap;
+    const entityMapA = modelA._entityMap;
+    const entityMapB = modelB._entityMap;
     if (JSON.stringify(entityMapA) !== JSON.stringify(entityMapB))
       return false;
 
-    const relMapA = modelA.relMap;
-    const relMapB = modelB.relMap;
+    const relMapA = modelA._relMap;
+    const relMapB = modelB._relMap;
     if (JSON.stringify(relMapA) !== JSON.stringify(relMapB))
       return false;
     
@@ -96,7 +157,7 @@ export interface IREntityProps {
    */
   key: string;
 
-  /*
+	/*
    * All the IR Instances that belong to this IR Enitty
    */
   instances?: IRInstance[];
@@ -110,11 +171,11 @@ export interface IREntityProps {
 export class IREntity {
 
   public key: string;
-  public instances: IRInstance[];
+  public instances?: IRInstance[];
 
   constructor(props: IREntityProps) {
     this.key = props.key;
-    this.instances = props.instances ?? [];
+    this.instances = props.instances;
   }
 }
 

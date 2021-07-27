@@ -216,8 +216,12 @@ export abstract class PConnector extends IModelBridge {
     await this._updateLoader();
     if (this.srcState !== pcf.ItemState.Unchanged) {
       this._updateCodeSpecs();
+
       await this._loadIRModel();
+      await this.irModel.load();
       await this._updateData();
+      await this.irModel.clear();
+
       await this._updateDeletedElements();
       await this._updateProjectExtents();
     } else {
@@ -258,6 +262,7 @@ export abstract class PConnector extends IModelBridge {
       const { schemaName, schemaAlias } = this.config.dynamicSchema;
       const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
       const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
+      Logger.logInfo(LogCategory.PCF, `Dynamic Schema State: ${pcf.ItemState[schemaState]}`);
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
         throw new Error("Failed to find dynamically generated schema.");
@@ -267,8 +272,7 @@ export abstract class PConnector extends IModelBridge {
   protected async _loadIRModel() {
     const node = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
     const loader = node.loader;
-    await loader.open(this.jobArgs.connection);
-    this._irModel = await pcf.IRModel.fromLoader(loader);
+    this._irModel = new pcf.IRModel(loader, this.jobArgs.connection);
   }
 
   protected async _updateData() {
@@ -521,7 +525,10 @@ export abstract class PConnector extends IModelBridge {
       return;
 
     await this._loadIRModel();
+    await this.irModel.load();
     await this._updateData();
+    await this.irModel.clear();
+
     await this._updateDeletedElements();
     await this._updateProjectExtents();
   }

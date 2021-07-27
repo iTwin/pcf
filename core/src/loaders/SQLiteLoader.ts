@@ -18,39 +18,33 @@ export class SQLiteLoader extends Loader {
 
   public db?: any;
 
-  public async open(con: FileConnection): Promise<void> {
+  protected async _open(con: FileConnection): Promise<void> {
     this.db = await sqlite.open({ filename: con.filepath, driver: sqlite3.Database });
   }
 
-  public async close(): Promise<void> {
+  protected async _close(): Promise<void> {
     this.db.close();
   }
 
-  public async getEntities(): Promise<IREntity[]> {
-    return this._getEntities(this.entities);
+  protected async _getEntities(): Promise<IREntity[]> {
+    return this._getAll();
   }
 
-  public async getRelationships(): Promise<IRRelationship[]> {
-    return this._getEntities(this.relationships);
+  protected async _getRelationships(): Promise<IRRelationship[]> {
+    return this._getAll();
   }
 
-  protected async _getEntities(usedKeys: string[]): Promise<IREntity[]> {
+  protected async _getAll(): Promise<IREntity[]> {
     const tables: any[] = await this.db.all("select * from sqlite_master where type='table'");
     const entities: IREntity[] = [];
     for (const table of tables) {
-      if (!usedKeys.includes(table.name))
-        continue;
-      const instances = await this.getInstances(table.name);
-      const entity = new IREntity({
-        key: table.name,
-        instances,
-      });
+      const entity = new IREntity({ key: table.name });
       entities.push(entity);
     }
     return entities;
   }
 
-  public async getInstances(entityKey: string): Promise<IRInstance[]> {
+  protected async _getInstances(entityKey: string): Promise<IRInstance[]> {
     const rows: any[] = await this.db.all(`select * from ${entityKey}`);
     const instances: IRInstance[] = [];
     for (const row of rows) {
@@ -66,3 +60,4 @@ export class SQLiteLoader extends Loader {
     return instances;
   }
 }
+

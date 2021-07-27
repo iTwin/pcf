@@ -2,8 +2,10 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+import { Logger } from "@bentley/bentleyjs-core";
 import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { PConnector } from "../PConnector";
+import { LogCategory } from "../LogCategory";
 
 export interface BaseConnection {
   /*
@@ -11,6 +13,12 @@ export interface BaseConnection {
    * pcf will synchronize all the data stored under this subject with source file.
    */
   loaderKey: string;
+
+  /*
+   * source data will be loaded into the IR Model on demand if true.
+   * default = false
+   */
+  lazyMode?: boolean;
 }
 
 export interface FileConnection {
@@ -66,58 +74,99 @@ export type LoaderClass = new (pc: PConnector, props: LoaderProps) => Loader;
  * A Loader converts a data format into an IR Model to be consumed by PConnector while pertaining data integrity.
  * Each PConnector instance needs a Loader to access a specific end data source.
  */
-export abstract class Loader implements LoaderProps {
+export abstract class Loader {
 
-  public format: string;
-  public entities: string[];
-  public relationships: string[];
-  public primaryKeyMap: {[entityKey: string]: string}; 
-  public defaultPrimaryKey: string;
+  private _isOpen: boolean;
+  private _format: string;
+  private _entities: string[];
+  private _relationships: string[];
+  private _primaryKeyMap: {[entityKey: string]: string}; 
+  private _defaultPrimaryKey: string;
 
   constructor(props: LoaderProps) {
-    this.format = props.format;
-    this.entities = props.entities;
-    this.relationships = props.relationships;
-    this.defaultPrimaryKey = props.defaultPrimaryKey;
-    this.primaryKeyMap = props.primaryKeyMap ?? {};
+    this._isOpen = false;
+    this._format = props.format;
+    this._entities = props.entities;
+    this._relationships = props.relationships;
+    this._defaultPrimaryKey = props.defaultPrimaryKey;
+    this._primaryKeyMap = props.primaryKeyMap ?? {};
   }
 
   /*
    * Open connection to a data source. Must be called before loading data.
    */
-  public abstract open(con: DataConnection): Promise<void>;
+  protected abstract _open(con: DataConnection): Promise<void>;
 
   /*
    * Close connection. Do nothing if open already read in the entire source file.
    */
-  public abstract close(): Promise<void>;
+  protected abstract _close(): Promise<void>;
 
   /*
    * Returns all the entities (e.g. all sheets in xlsx, all tables in database)
    */
-  public abstract getEntities(): Promise<IREntity[]>;
+  protected abstract _getEntities(): Promise<IREntity[]>;
 
   /*
    * Returns all relationship instances (e.g. the rows of link tables)
    */
-  public abstract getRelationships(): Promise<IRRelationship[]>;
+  protected abstract _getRelationships(): Promise<IRRelationship[]>;
 
   /*
    * Returns all non-relationship instances (e.g. the rows of non-link tables)
    */
-  public abstract getInstances(entityKey: string): Promise<IRInstance[]>;
+  protected abstract _getInstances(entityKey: string): Promise<IRInstance[]>;
 
-  /*
-   * Returns the primary key of an entity. Data integrity may be compromised if primary key is neglected.
-   */
+  public async open(con: DataConnection): Promise<void> {
+    if (this.isOpen) {
+      Logger.logError(LogCategory.PCF, "Loader is already open.");
+      return;
+    }
+    this._isOpen = true;
+    await this._open(con);
+  }
+
+  public async close(): Promise<void> {
+    if (!this.isOpen) {
+      Logger.logError(LogCategory.PCF, "Cannot close a Loader that hasn't been opened.");
+      return;
+    }
+    this._isOpen = false;
+    await this._close();
+  }
+
+  public async getEntities(): Promise<IREntity[]> {
+    const allEntities = await this._getEntities();
+    return allEntities.filter((entity: IREntity) => this._entities.includes(entity.key));
+  }
+
+  public async getRelationships(): Promise<IRRelationship[]> {
+    const allRels = await this._getRelationships();
+    return allRels.filter((rel: IRRelationship) => this._relationships.includes(rel.key));
+  }
+
+  public async getInstances(entityKey: string): Promise<IRInstance[]> {
+    const instances = await this._getInstances(entityKey);
+    return instances;
+  }
+
   public getPKey(entityKey: string): string {
-    if (this.primaryKeyMap && entityKey in this.primaryKeyMap)
-      return this.primaryKeyMap[entityKey];
-    return this.defaultPrimaryKey
+    if (this._primaryKeyMap && entityKey in this._primaryKeyMap)
+      return this._primaryKeyMap[entityKey];
+    return this._defaultPrimaryKey
   };
 
-  public toJSON() {
-    const { format, entities, relationships, primaryKeyMap, defaultPrimaryKey } = this;
-    return { format, entities, relationships, primaryKeyMap, defaultPrimaryKey };
+  public toJSON(): LoaderProps {
+    return { 
+      format: this._format, 
+      entities: this._entities, 
+      relationships: this._relationships, 
+      primaryKeyMap: this._primaryKeyMap, 
+      defaultPrimaryKey: this._defaultPrimaryKey,
+    };
+  }
+
+  public get isOpen() {
+    return this._isOpen;
   }
 }
