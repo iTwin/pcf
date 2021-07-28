@@ -1,4 +1,3 @@
-
 trigger:
   branches:
     include:
@@ -8,7 +7,6 @@ trigger:
     exclude:
       - README.md
       - LICENSE
-
 
 pr:
   drafts: false
@@ -21,122 +19,211 @@ pr:
       - README.md
       - LICENSE
 
+resources:
+  repositories:
+    - repository: build-pipeline-scripts
+      type: git
+      ref: create-unique-name # temp
+      name: iModelTechnologies/imodeljs-build-pipeline-scripts
 
-jobs:
-  - job:
-    strategy:
-      matrix:
-        linux:
-          imageName: 'ubuntu-latest'
-        mac:
-          imageName: 'macos-latest'
-        windows:
-          imageName: 'windows-latest'
+stages:
+- stage: Build
+  displayName: Build
+  jobs:
+    - job: BuildPCFPackages
 
-    pool:
-      vmImage: $(imageName)
+      strategy:
+        matrix:
+          linux:
+            imageName: 'ubuntu-latest'
+          mac:
+            imageName: 'macos-latest'
+          windows:
+            imageName: 'windows-latest'
 
-    steps:
+      pool:
+        vmImage: $(imageName)
 
-    - checkout: self
-      persistCredentials: true
-      clean: true
+      steps:
 
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '12.17.0'
-      displayName: 'Install Node.js'
+      - checkout: self
+        persistCredentials: true
+        clean: true
 
-    # @itwin/pcf build
+      - task: NodeTool@0
+        inputs:
+          versionSpec: '12.17.0'
+        displayName: 'Install Node.js'
 
-    - script: |
-        npm ci
-      displayName: 'npm ci'
-      workingDirectory: core
+      # @itwin/pcf build
 
-    - script: |
-         npm run build
-      displayName: 'npm run build'
-      workingDirectory: core
+      - script: |
+          npm ci
+        displayName: 'npm ci'
+        workingDirectory: core
 
-    - script: |
-        npm run test:unit
-      displayName: 'npm run test:unit'
-      workingDirectory: core
+      - script: |
+           npm run build
+        displayName: 'npm run build'
+        workingDirectory: core
 
-    - script: |
-        npm run test:integration
-      displayName: 'npm run test:integration'
-      workingDirectory: core
-      env:
-        rate_limited: $(rate_limited)
-        imjs_test_project_id: $(test_project_id)
-        imjs_test_client_id: $(test_client_id)
-        imjs_test_regular_user_name: $(test_user_name)
-        imjs_test_regular_user_password: $(test_user_password)
+      - script: |
+          npm run test:unit
+        displayName: 'npm run test:unit'
+        workingDirectory: core
 
-    - script: |
-        npm link
-      displayName: 'npm link'
-      workingDirectory: core
+      - script: |
+          npm run test:integration
+        displayName: 'npm run test:integration'
+        workingDirectory: core
+        env:
+          rate_limited: $(rate_limited)
+          imjs_test_project_id: $(test_project_id)
+          imjs_test_client_id: $(test_client_id)
+          imjs_test_regular_user_name: $(test_user_name)
+          imjs_test_regular_user_password: $(test_user_password)
 
-    # @itwin/pcf-cli build
+      - script: |
+          npm link
+        displayName: 'npm link'
+        workingDirectory: core
 
-    - script: |
-        npm ci
-      displayName: 'npm ci'
-      workingDirectory: cli
+      # @itwin/pcf-cli build
 
-    - script: |
-        npm install -g .
-      displayName: 'npm install -g .'
-      workingDirectory: cli
+      - script: |
+          npm ci
+        displayName: 'npm ci'
+        workingDirectory: cli
 
-    - script: |
-        pcf init TestConnector TestClientId
-      displayName: 'pcf init'
-      workingDirectory: cli
+      - script: |
+          npm install -g .
+        displayName: 'npm install -g .'
+        workingDirectory: cli
 
-    - script: |
-        npm link @itwin/pcf
-      displayName: 'npm link @itwin/pcf'
-      workingDirectory: cli/output
+      - script: |
+          pcf init TestConnector TestClientId
+        displayName: 'pcf init'
+        workingDirectory: cli
 
-    - script: |
-        npm run build
-      displayName: 'build generated connector'
-      workingDirectory: cli/output
+      - script: |
+          npm link @itwin/pcf
+        displayName: 'npm link @itwin/pcf'
+        workingDirectory: cli/output
 
-    # publish artifact
+      - script: |
+          npm run build
+        displayName: 'Build Generated Connector'
+        workingDirectory: cli/output
 
-    - script: |
-        npm pack
-      displayName: 'Package @itwin/pcf for release'
-      workingDirectory: core
+      # publish artifact
 
-    - script: |
-        npm pack
-      displayName: 'Package @itwin/pcf-cli for release'
-      workingDirectory: cli
+      - bash: |
+          coreVer=$(node -p "require('./core/package.json').version")
+          coreName=$(node -p "require('./core/package.json').name")
+          cliVer=$(node -p "require('./cli/package.json').version")
+          cliName=$(node -p "require('./cli/package.json').name")
 
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: core
-        contents: '*.tgz'
-        targetFolder: $(Build.ArtifactStagingDirectory)/packages
-      displayName: 'Copy @itwin/pcf archives to artifacts staging directory'
+          checkVer() {
+            localVer=$1
+            name=$2
 
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: cli
-        contents: '*.tgz'
-        targetFolder: $(Build.ArtifactStagingDirectory)/packages
-      displayName: 'Copy @itwin/pcf-cli archives to artifacts staging directory'
+            remoteVer=$(npm view $name version)
+            if [ -z "$remoteVer" ]; then
+              remoteVer=0.0.0
+            fi
 
-    - task: PublishBuildArtifacts@1
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/packages'
-        artifactName: packages
-      displayName: 'Publish npm package artifacts'
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Agent.OS'], 'Windows_NT'))
+            olderVer=$(printf '%s\n' "$localVer" "$remoteVer" | sort -V | head -n1)
+            if [ "$localVer" != "$remoteVer" ] && [ "$remoteVer" = "$olderVer" ]; then
+              echo true
+            else
+              echo false
+            fi
+          }
+
+          updateCore=$(checkVer $coreVer $coreName)
+          updateCli=$(checkVer $cliVer $cliName)
+
+          if [ "$updateCore" = "true" ] && [ "$updateCore" = "$updateCli" ] && [ "$coreVer" = "$cliVer" ]; then
+            echo "package publishing conditions are met."
+            shouldPublish=true
+          else
+            echo "package publishing conditions not met."
+            shouldPublish=false
+          fi
+
+          echo "##vso[task.setvariable variable=shouldPublish;isOutput=true]$shouldPublish"
+          echo "##vso[task.setvariable variable=coreVer;isOutput=true]$coreVer"
+          echo "##vso[task.setvariable variable=coreName;isOutput=true]$coreName"
+          echo "##vso[task.setvariable variable=cliVer;isOutput=true]$cliVer"
+          echo "##vso[task.setvariable variable=cliName;isOutput=true]$cliName"
+
+        displayName: 'Store Build Info'
+        name: info
+        condition: and(succeeded(), eq(variables.attempt_publish, true), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Agent.OS'], 'Linux'))
+
+      - bash: |
+          echo "shouldPublish: $(info.shouldPublish)"
+          echo "coreVer: $(info.coreVer)"
+          echo "coreName: $(info.coreName)"
+          echo "cliVer: $(info.cliVer)"
+          echo "cliName: $(info.cliName)"
+        displayName: 'Show Build Info'
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+      - script: |
+          npm pack
+        displayName: 'npm pack @itwin/pcf'
+        workingDirectory: core
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+      - script: |
+          npm pack
+        displayName: 'npm pack @itwin/pcf-cli'
+        workingDirectory: cli
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: core
+          contents: '*.tgz'
+          targetFolder: $(Build.ArtifactStagingDirectory)/core
+        displayName: 'Copy @itwin/pcf'
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: cli
+          contents: '*.tgz'
+          targetFolder: $(Build.ArtifactStagingDirectory)/cli
+        displayName: 'Copy @itwin/pcf-cli'
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)/core'
+          artifactName: core
+        displayName: 'Publish PCF Core Artifact'
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)/cli'
+          artifactName: cli
+        displayName: 'Publish PCF Cli Artifact'
+        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
+
+- stage: Publish
+  displayName: Publish
+  condition: and(succeeded(), eq(dependencies.Build.outputs['BuildPCFPackages.linux.info.shouldPublish'], 'true'))
+  dependsOn: Build
+
+  jobs:
+    - template: templates/npmjs-publish-deployment.yaml@build-pipeline-scripts
+      parameters:
+        path: '*.tgz'
+        artifactName: core
+    - template: templates/npmjs-publish-deployment.yaml@build-pipeline-scripts
+      parameters:
+        path: '*.tgz'
+        artifactName: cli
 
