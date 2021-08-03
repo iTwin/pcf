@@ -2,19 +2,30 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { IModelDb } from "@bentley/imodeljs-backend";
-import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, PrimitiveType, Schema as MetaSchema, SchemaChanges, SchemaComparer, SchemaContext, SchemaContextEditor } from "@bentley/ecschema-metadata";
+import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, Schema as MetaSchema, SchemaChanges, SchemaComparer, SchemaContext, SchemaContextEditor } from "@bentley/ecschema-metadata";
 import { IModelSchemaLoader } from "@bentley/imodeljs-backend/lib/IModelSchemaLoader";
 import { MutableSchema } from "@bentley/ecschema-metadata/lib/Metadata/Schema";
 import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { ClientRequestContext } from "@bentley/bentleyjs-core";
-import { ItemState, DMOMap } from "./pcf";
 import { DOMParser, XMLSerializer } from "xmldom";
+import * as bk from "@bentley/imodeljs-backend";
+import * as pcf from "./pcf";
+
+export interface DynamicEntityMap {
+  elements: {
+    props: pcf.ECDynamicElementClassProps,
+    registeredClass?: typeof bk.Element,
+  }[],
+  relationships: {
+    props: pcf.ECDynamicRelationshipClassProps,
+    registeredClass?: typeof bk.Relationship,
+  }[],
+}
 
 export interface DynamicSchemaProps {
   schemaName: string,
   schemaAlias: string,
-  dmoMap: DMOMap,
+  dynamicEntityMap: DynamicEntityMap,
 }
 
 export interface SchemaVersion {
@@ -23,18 +34,18 @@ export interface SchemaVersion {
   minorVersion: number;
 }
 
-export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
+export async function tryGetSchema(db: bk.IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
   const loader = new IModelSchemaLoader(db);
   const schema = loader.tryGetSchema(schemaName);
   return schema;
 }
 
 export async function syncDynamicSchema(
-  db: IModelDb, 
+  db: bk.IModelDb, 
   requestContext: AuthorizedClientRequestContext | ClientRequestContext, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
-  ): Promise<ItemState> {
+  ): Promise<pcf.ItemState> {
 
   const { schemaName } = props;
   const existingSchema = await tryGetSchema(db, schemaName);
@@ -42,7 +53,7 @@ export async function syncDynamicSchema(
   const version = getSchemaVersion(db, schemaName);
   const latestSchema = await createDynamicSchema(db, version, domainSchemaNames, props);
 
-  let schemaState: ItemState = ItemState.New;
+  let schemaState: pcf.ItemState = pcf.ItemState.New;
   let dynamicSchema = latestSchema;
 
   if (existingSchema) {
@@ -52,47 +63,76 @@ export async function syncDynamicSchema(
     const schemaIsChanged = reporter.diagnostics.length > 0;
 
     if (schemaIsChanged) {
-      schemaState = ItemState.Changed;
+      schemaState = pcf.ItemState.Changed;
       version.minorVersion = existingSchema.minorVersion + 1;
       dynamicSchema = await createDynamicSchema(db, version, domainSchemaNames, props);
     } else {
-      schemaState = ItemState.Unchanged;
+      schemaState = pcf.ItemState.Unchanged;
       dynamicSchema = existingSchema;
     }
   }
 
-  if (schemaState !== ItemState.Unchanged) {
+  if (schemaState !== pcf.ItemState.Unchanged) {
     const schemaString = await schemaToXmlString(dynamicSchema);
     await db.importSchemaStrings(requestContext, [schemaString]);
+    registerDynamicSchema(props);
   }
 
   return schemaState;
 }
 
+function registerDynamicSchema(props: DynamicSchemaProps) {
+
+  const elementsModule: any = {};
+  for (const element of props.dynamicEntityMap.elements) {
+    if (element.registeredClass) {
+      elementsModule[element.registeredClass.className] = element.registeredClass;
+    }
+  }
+
+  const relationshipsModule: any = {};
+  for (const rel of props.dynamicEntityMap.relationships) {
+    if (rel.registeredClass) {
+      relationshipsModule[rel.registeredClass.className] = rel.registeredClass;
+    }
+  }
+
+  const dynamicSchemaClass = class BackendDynamicSchema extends bk.Schema {
+    public static get schemaName(): string {
+      return props.schemaName;
+    }
+    public static registerSchema() {
+      if (this !== bk.Schemas.getRegisteredSchema(this.schemaName)) {
+        bk.Schemas.unregisterSchema(this.schemaName);
+        bk.Schemas.registerSchema(this);
+        bk.ClassRegistry.registerModule(elementsModule, this);
+        bk.ClassRegistry.registerModule(relationshipsModule, this);
+      }
+    }
+  }
+  dynamicSchemaClass.registerSchema();
+}
+
 // Generates an in-memory [Dynamic EC Schema](https://www.itwinjs.org/bis/intro/schema-customization/) from user-defined DMO.
-export async function createDynamicSchema(
-  db: IModelDb, 
+async function createDynamicSchema(
+  db: bk.IModelDb, 
   version: SchemaVersion, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
   ): Promise<MetaSchema> {
 
-  const dmoMap = props.dmoMap;
+  const map = props.dynamicEntityMap;
   const context = new SchemaContext();
   const editor = new SchemaContextEditor(context);
 
   const createElementClass = async (schema: MetaSchema) => {
-    const elementDmos = dmoMap.elements ?? [];
-    for (const dmo of elementDmos) {
-      if (typeof dmo.ecElement === "string")
-        continue;
-
-      const entityResult = await editor.entities.createFromProps(schema.schemaKey, dmo.ecElement);
+    for (const element of map.elements) {
+      const entityResult = await editor.entities.createFromProps(schema.schemaKey, element.props);
       if (!entityResult.itemKey)
         throw new Error(`Failed to create EC Entity Class - ${entityResult.errorMessage}`);
 
-      if (dmo.ecElement.properties) {
-        for (const prop of dmo.ecElement.properties) {
+      if (element.props.properties) {
+        for (const prop of element.props.properties) {
           const propResult = await editor.entities.createPrimitiveProperty(entityResult.itemKey, prop.name, prop.type as any);
           if (!propResult.itemKey)
             throw new Error(`Failed to create EC Property - ${propResult.errorMessage}`);
@@ -102,20 +142,8 @@ export async function createDynamicSchema(
   };
 
   const createRelClasses = async (schema: MetaSchema) => {
-    const relationshipDmos = dmoMap.relationships ?? [];
-    for (const dmo of relationshipDmos) {
-      if (typeof dmo.ecRelationship === "string")
-        continue;
-      const result = await editor.relationships.createFromProps(schema.schemaKey, dmo.ecRelationship);
-      if (!result.itemKey)
-        throw new Error(`Failed to create EC Relationship Class - ${result.errorMessage}`);
-    }
-
-    const relatedElementDmos = dmoMap.relatedElements ?? [];
-    for (const dmo of relatedElementDmos) {
-      if (typeof dmo.ecRelationship === "string")
-        continue;
-      const result = await editor.relationships.createFromProps(schema.schemaKey, dmo.ecRelationship);
+    for (const rel of map.relationships) {
+      const result = await editor.relationships.createFromProps(schema.schemaKey, rel.props);
       if (!result.itemKey)
         throw new Error(`Failed to create EC Relationship Class - ${result.errorMessage}`);
     }
@@ -142,7 +170,7 @@ export async function createDynamicSchema(
   return newSchema;
 }
 
-function getSchemaVersion(db: IModelDb, schemaName: string): SchemaVersion {
+function getSchemaVersion(db: bk.IModelDb, schemaName: string): SchemaVersion {
   const versionStr = db.querySchemaVersion(schemaName);
   if (!versionStr)
     return { readVersion: 1, writeVersion: 0, minorVersion: 0 };

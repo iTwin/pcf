@@ -6,11 +6,12 @@ import { Id64String } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
 import * as common from "@bentley/imodeljs-common";
 import { JobArgs } from "./BaseApp";
-import { DMOMap, ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
+import { ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
 import { PConnector } from "./PConnector";
 import * as fs from "fs";
 import { Loader } from "./loaders";
+import { DynamicEntityMap } from "./DynamicSchema";
 
 /* 
  * Represents the Repository Model (the root of an iModel).
@@ -21,12 +22,14 @@ export class RepoTree {
   public subjects: SubjectNode[];
   public relatedElements: RelatedElementNode[];
   public relationships: RelationshipNode[];
+  public dynamicEntityMap: DynamicEntityMap;
 
   constructor() {
     this.loaders = [];
     this.subjects = [];
     this.relatedElements = [];
     this.relationships = [];
+    this.dynamicEntityMap = { elements: [], relationships: [] };
   }
 
   public validate(jobArgs: JobArgs): void {
@@ -50,24 +53,6 @@ export class RepoTree {
     if (!subject)
       throw new Error(`SubjectNode with key "${key}" is not defined in your connector class.`);
     return subject;
-  }
-
-  public buildDMOMap(): DMOMap {
-    const map: DMOMap = {
-      elements: [],
-      relationships: [],
-      relatedElements: [],
-    };
-    function build(node: Node) {
-      if (node instanceof ElementNode && typeof node.dmo.ecElement !== "string")
-        map.elements.push(node.dmo);
-      else if (node instanceof RelationshipNode && typeof node.dmo.ecRelationship !== "string")
-        map.relationships.push(node.dmo);
-      else if (node instanceof RelatedElementNode && typeof node.dmo.ecRelationship !== "string")
-        map.relatedElements.push(node.dmo);
-    }
-    this.walk(build);
-    return map;
   }
 
   public walk(callback: (node: Node) => void) {
@@ -111,6 +96,7 @@ export enum ItemState {
   New,
   Changed,
 }
+
 export interface UpdateResult {
   entityId: Id64String;
   state: ItemState;
@@ -122,17 +108,29 @@ export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
+  protected _hasUpdated: boolean = false;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
     this.key = props.key;
 
-    if (props.key in this.pc.nodeMap)
+    if (this.pc.nodeMap.has(props.key))
       throw new Error(`Node with key "${props.key}" already exists. Each Node must have a unique key.`);
-    this.pc.nodeMap[props.key] = this;
+
+    this.pc.nodeMap.set(props.key, this);
   }
 
-  public abstract update(): Promise<UpdateResult | UpdateResult[]>;
+  public get hasUpdated() {
+    return this._hasUpdated;
+  }
+
+  public async update(): Promise<UpdateResult | UpdateResult[]> {
+    this._hasUpdated = true;
+    return this._update();
+  };
+
+  protected abstract _update(): Promise<UpdateResult | UpdateResult[]>;
+
   public abstract toJSON(): any;
 }
 
@@ -152,7 +150,7 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     pc.tree.subjects.push(this);
   }
 
-  public async update() {
+  protected async _update() {
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
@@ -235,7 +233,7 @@ export class ModelNode extends Node implements ModelNodeProps {
     this.subject.models.push(this);
   }
 
-  public async update() {
+  protected async _update() {
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
@@ -306,7 +304,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     pc.tree.loaders.push(this);
   }
 
-  public async update() {
+  protected async _update() {
     let res: UpdateResult;
     const con = this.pc.jobArgs.connection;
     switch(con.kind) {
@@ -333,7 +331,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
         } as common.RepositoryLinkProps;
         res = this.pc.updateElement(repoLinkProps, instance);
         this.pc.elementCache[instance.key] = res.entityId;
-        this.pc.seenIds.add(res.entityId);
+        this.pc.seenIdSet.add(res.entityId);
         break;
       default:
         throw new Error(`${con.kind} is not supported yet.`);
@@ -378,9 +376,15 @@ export class ElementNode extends Node implements ElementNodeProps {
     this.category = props.category;
     this.model = props.model;
     this.model.elements.push(this);
+
+    if (typeof this.dmo.ecElement !== "string") {
+      this.pc.tree.dynamicEntityMap.elements.push({ 
+        props: this.dmo.ecElement,
+      });
+    }
   }
 
-  public async update() {
+  protected async _update() {
     const resList: UpdateResult[] = [];
     let instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
     if (typeof this.dmo.doSyncInstance === "function")
@@ -415,7 +419,10 @@ export class ElementNode extends Node implements ElementNodeProps {
       const res = this.pc.updateElement(props, instance);
       resList.push(res);
       this.pc.elementCache[instance.key] = res.entityId;
-      this.pc.seenIds.add(res.entityId);
+      this.pc.seenIdSet.add(res.entityId);
+      // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
+      // (classRef as any).onInsert = (args: bk.OnElementPropsArg) => console.log("hello");
+      // console.log(classRef);
     }
     return resList;
   }
@@ -457,9 +464,15 @@ export class RelationshipNode extends Node {
     this.source = props.source;
     this.target = props.target;
     pc.tree.relationships.push(this);
+
+    if (typeof this.dmo.ecRelationship !== "string") {
+      this.pc.tree.dynamicEntityMap.relationships.push({ 
+        props: this.dmo.ecRelationship,
+      });
+    }
   }
 
-  public async update() {
+  protected async _update() {
     const resList: UpdateResult[] = [];
     let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
     if (typeof this.dmo.doSyncInstance === "function")
@@ -527,9 +540,15 @@ export class RelatedElementNode extends Node {
     this.source = props.source;
     this.target = props.target;
     pc.tree.relatedElements.push(this);
+
+    if (typeof this.dmo.ecRelationship !== "string") {
+      this.pc.tree.dynamicEntityMap.relationships.push({ 
+        props: this.dmo.ecRelationship,
+      });
+    }
   }
 
-  public async update() {
+  protected async _update() {
     const resList: UpdateResult[] = [];
     let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
     if (typeof this.dmo.doSyncInstance === "function")

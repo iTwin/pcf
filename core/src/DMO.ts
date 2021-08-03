@@ -66,9 +66,13 @@ export interface ElementDMO extends DMO {
    * References the attribute name used to identify the EC RelatedElement
    */
   readonly relatedElementAttr?: string;
+
+  /*
+   * Definition of registered element class that extends an existing BIS element class
+   * An example: class Component extends PhysicalElement { ... }
+   */
+  // readonly registeredClass?: typeof BisElement;
 }
-
-
 
 /*
  * Dynamic Mapping Object for EC Relationship Class
@@ -104,6 +108,11 @@ export interface RelationshipDMO extends DMO {
    * toAttr must contain a SearchKey if toType = "ECEntity"
    */
   readonly toType: "ECEntity" | "IREntity";
+
+  /*
+   * Definition of registered relationship class that extends an existing BIS Relationship class
+   */
+  // readonly registeredClass?: typeof Relationship;
 }
 
 /*
@@ -116,15 +125,6 @@ export interface RelatedElementDMO extends RelationshipDMO {
    * e.g. the EC property named "parent" in BisCore:PhysicalElement
    */
   readonly ecProperty: string;
-}
-
-/*
- * Input for generating an EC Dynamic Schema
- */
-export interface DMOMap {
-  readonly elements: ElementDMO[];
-  readonly relationships: RelationshipDMO[];
-  readonly relatedElements: RelatedElementDMO[];
 }
 
 // WIP: Dynamic Mapping Object for EC Aspect Class

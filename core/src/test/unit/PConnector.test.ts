@@ -89,8 +89,7 @@ describe("Unit Tests", () => {
         const db = bk.StandaloneDb.openFile(targetPath);
         const jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
         const connector: pcf.PConnector = require(jobArgs.connectorPath).getBridgeInstance();
-        connector.init({ db, jobArgs });
-        await connector.runJob();
+        await connector.runJob({ db, jobArgs });
         db.close();
 
         const updatedDb = bk.StandaloneDb.openFile(targetPath);

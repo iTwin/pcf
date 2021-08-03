@@ -13,6 +13,7 @@ import { BridgeRunner, BridgeJobDefArgs } from "@bentley/imodel-bridge";
 import { ServerArgs } from "@bentley/imodel-bridge/lib/IModelHubUtils"
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
+import * as fs from "fs";
 import * as path from "path";
 import * as util from "./Util";
 
@@ -86,6 +87,12 @@ export class JobArgs implements JobArgsProps {
       this.enableDelete = props.enableDelete;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
+    this.validate();
+  }
+
+  public validate() {
+    if (this.connection.kind === "pcf_file_connection" && !fs.existsSync(this.connection.filepath))
+      throw new Error("Could not find file with JobArgs.connection.filepath");
   }
 }
 
@@ -97,16 +104,16 @@ export interface HubArgsProps {
   projectId: Id64String;
 
   /*
-   * your iModel GUID 
+   * your iModel GUID
    */
   iModelId: Id64String;
 
-  /* 
+  /*
    * you may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
   clientConfig: NativeAppAuthorizationConfiguration;
 
-  /* 
+  /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
    */
   env?: Environment;
@@ -126,7 +133,10 @@ export class HubArgs implements HubArgsProps {
     this.clientConfig = props.clientConfig;
     if (props.env !== undefined)
       this.env = props.env;
+    this.validate();
   }
+
+  public validate() {}
 }
 
 /*
@@ -148,13 +158,7 @@ export class BaseApp {
   constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
     this.hubArgs = hubArgs;
     this.jobArgs = jobArgs;
-    this.init();
-  }
 
-  /*
-   * initialize app settings based on current jobArgs and hubArgs. every public method should call this first.
-   */
-  public init() {
     const envStr = String(this.hubArgs.env);
     Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
 
@@ -175,19 +179,17 @@ export class BaseApp {
    * Safely executes a connector job to synchronize a BriefcaseDb.
    */
   public async run(): Promise<BentleyStatus> {
-    this.init();
     let db: BriefcaseDb | undefined = undefined;
-    await IModelHost.startup();
-    await this.signin();
     try {
+      await IModelHost.startup();
+      await this.signin();
       db = await this.openBriefcaseDb();
       const connector = require(this.jobArgs.connectorPath).getBridgeInstance();
-      connector.init({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
-      await connector.runJob();
+      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
     } catch(err) {
-      console.error(err);
-      if ((err as any).status === 403) // out of call volumn quota (10+ mins wait)
-        return BentleyStatus.ERROR;
+      Logger.logError(LogCategory.PCF, (err as any).message);
+      if ((err as any).status === 403)
+        Logger.logError(LogCategory.PCF, "Out of call volumn quota. Try in the next hour.");
       await util.retryLoop(async () => {
         if (db && db.isBriefcaseDb()) {
           await db.concurrencyControl.abandonResources(this.authReqContext);
@@ -206,10 +208,9 @@ export class BaseApp {
   }
 
   /*
-   * Executes itwin-connector-framework in BaseApp
+   * Executes connector-framework in BaseApp
    */
   public async runFwk(): Promise<BentleyStatus> {
-    this.init();
     await IModelHost.startup();
     const authReqContext = await this.signin();
 
@@ -247,7 +248,6 @@ export class BaseApp {
    * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
    */
   public async signin(): Promise<AuthorizedBackendRequestContext> {
-    this.init();
     if (this._authReqContext)
       return this._authReqContext;
     const token = await this.getToken();
@@ -256,7 +256,6 @@ export class BaseApp {
   }
 
   public async getToken(): Promise<AccessToken> {
-    this.init();
     const client = new ElectronAuthorizationBackend();
     await client.initialize(this.hubArgs.clientConfig);
     return new Promise<AccessToken>((resolve, reject) => {
@@ -266,7 +265,7 @@ export class BaseApp {
         else
           reject(new Error("Failed to sign in"));
       });
-      client.signIn().catch((err) => reject(err));
+      client.signIn();
     });
   }
 
@@ -274,8 +273,6 @@ export class BaseApp {
    * Open a previously downloaded BriefcaseDb on disk if present.
    */
   public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
-    this.init();
-
     const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
     const cachedDb = cachedDbs[0];
     if (!cachedDb)
@@ -292,8 +289,6 @@ export class BaseApp {
    * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    this.init();
-
     const cachedDb = await this.openCachedBriefcaseDb(false);
     if (cachedDb) {
       await cachedDb.pullAndMergeChanges(this.authReqContext);
@@ -371,14 +366,12 @@ export class IntegrationTestApp extends BaseApp {
     super(testJobArgs, testHubArgs);
     this.jobArgs = testJobArgs;
     this.hubArgs = testHubArgs;
-    this.init();
   }
 
   /*
    * Sign in through your iModelHub test user account. This call would grab your test user credentials from environment variables.
    */
   public async silentSignin(): Promise<AuthorizedBackendRequestContext> {
-    this.init();
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (!email)
@@ -395,7 +388,6 @@ export class IntegrationTestApp extends BaseApp {
    * Simulates another user downloading the same briefcase (with a different BriefcaseId)
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    this.init();
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.authReqContext);
     let db: BriefcaseDb | undefined = undefined;
@@ -409,7 +401,6 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(name: string): Promise<GuidString> {
-    this.init();
     const testIModelName = `${name} - ${process.platform}`;
     const existingTestIModels: HubIModel[] = await IModelHost.iModelClient.iModels.get(this.authReqContext, this.hubArgs.projectId, new IModelQuery().byName(testIModelName));
     for (const testIModel of existingTestIModels) {
@@ -424,7 +415,6 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async purgeTestBriefcaseDb(): Promise<void> {
-    this.init();
     await util.retryLoop(async () => {
       await IModelHost.iModelClient.iModels.delete(this.authReqContext, this.hubArgs.projectId, this.hubArgs.iModelId);
     });

@@ -3,12 +3,12 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@bentley/bentleyjs-core"; 
-import { AuthorizedBackendRequestContext, BackendRequestContext, BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb } from "@bentley/imodeljs-backend";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
 import { BridgeJobDefArgs, IModelBridge } from "@bentley/imodel-bridge";
 import { LogCategory } from "./LogCategory";
+import * as bk from "@bentley/imodeljs-backend";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
@@ -85,15 +85,15 @@ export abstract class PConnector extends IModelBridge {
   public modelCache: { [modelNodeKey: string]: Id64String };
   public elementCache: { [instanceKey: string]: Id64String };
   public aspectCache: { [instanceKey: string]: Id64String };
-  public seenIds: Set<Id64String>;
+  public seenIdSet: Set<Id64String>;
 
   public readonly tree: pcf.RepoTree;
-  public readonly nodeMap: { [nodeKey: string]: pcf.Node };
+  public readonly nodeMap: Map<string, pcf.Node>;
 
   protected _config?: PConnectorConfig;
-  protected _db?: IModelDb;
+  protected _db?: bk.IModelDb;
   protected _jobArgs?: pcf.JobArgs;
-  protected _authReqContext?: AuthorizedBackendRequestContext;
+  protected _authReqContext?: bk.AuthorizedBackendRequestContext;
   protected _irModel?: pcf.IRModel;
   protected _jobSubjectId?: Id64String;
   protected _srcState?: pcf.ItemState;
@@ -104,9 +104,9 @@ export abstract class PConnector extends IModelBridge {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
-    this.seenIds = new Set<Id64String>();
     this.tree = new pcf.RepoTree();
-    this.nodeMap = {};
+    this.seenIdSet = new Set<Id64String>();
+    this.nodeMap = new Map<string, pcf.Node>();
   }
 
   public get config() {
@@ -143,7 +143,7 @@ export abstract class PConnector extends IModelBridge {
         throw new Error("Authorized Request Context is not passed in by BaseApp.");
       return this._authReqContext;
     }
-    return new BackendRequestContext();
+    return new bk.BackendRequestContext();
   }
 
   public get jobSubjectId() {
@@ -176,20 +176,19 @@ export abstract class PConnector extends IModelBridge {
     fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
   }
 
-  public init(props: { db: IModelDb, jobArgs: pcf.JobArgs, authReqContext?: AuthorizedBackendRequestContext }): void {
+  public async runJob(props: { db: bk.IModelDb, jobArgs: pcf.JobArgs, authReqContext?: bk.AuthorizedBackendRequestContext }): Promise<void> {
+
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
-    this.seenIds = new Set<Id64String>();
+    this.seenIdSet = new Set<Id64String>();
 
     this._db = props.db;
+
+    this.tree.validate(props.jobArgs);
     this._jobArgs = props.jobArgs;
+
     this._authReqContext = props.authReqContext;
-  }
-
-  public async runJob(): Promise<void> {
-
-    this.tree.validate(this.jobArgs);
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
@@ -236,14 +235,14 @@ export abstract class PConnector extends IModelBridge {
   protected async _updateLoader() {
     const loader = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
     await loader.model.update();
-    const res = await loader.update();
+    const res = await loader.update() as pcf.UpdateResult;
     this._srcState = res.state;
   }
 
   protected async _updateSubject() {
     const subjectKey = this.jobArgs.subjectKey;
     const subjectNode = this.tree.getSubjectNode(subjectKey);
-    const res = await subjectNode.update();
+    const res = await subjectNode.update() as pcf.UpdateResult;
     this._jobSubjectId = res.entityId;
   }
 
@@ -254,14 +253,14 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
-    const dmoMap = this.tree.buildDMOMap();
-    const shouldGenerateSchema = dmoMap.elements.length + dmoMap.relationships.length + dmoMap.relatedElements.length > 0;
+    const { dynamicEntityMap } = this.tree;
+    const shouldGenerateSchema = dynamicEntityMap.elements.length + dynamicEntityMap.relationships.length > 0;
     if (shouldGenerateSchema) {
       if (!this.config.dynamicSchema)
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
       const { schemaName, schemaAlias } = this.config.dynamicSchema;
       const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dmoMap });
+      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
       Logger.logInfo(LogCategory.PCF, `Dynamic Schema State: ${pcf.ItemState[schemaState]}`);
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
@@ -276,27 +275,10 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateData() {
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
-
-    const defModels = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className === "DefinitionPartition");
-    for (const model of defModels) {
-      await model.update();
-      for (const element of model.elements)
-        await element.update();
+    for (const node of this.nodeMap.values()) {
+      if (!node.hasUpdated)
+        await node.update();
     }
-
-    const models = subjectNode.models.filter((model: pcf.ModelNode) => model.subject.key === subjectKey && model.partitionClass.className !== "DefinitionPartition");
-    for (const model of models) {
-      await model.update();
-      for (const element of model.elements)
-        await element.update();
-    }
-
-    for (const relationship of this.tree.relationships)
-      await relationship.update();
-    for (const relatedElement of this.tree.relatedElements)
-      await relatedElement.update();
   }
 
   protected async _updateDeletedElements() {
@@ -305,7 +287,7 @@ export abstract class PConnector extends IModelBridge {
       return;
     }
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${bk.ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
     const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
@@ -313,7 +295,7 @@ export abstract class PConnector extends IModelBridge {
 
     for (const row of rows) {
       const elementId = row.elementId;
-      if (this.seenIds.has(elementId))
+      if (this.seenIdSet.has(elementId))
         continue;
       if (this.db.isBriefcaseDb()) {
         const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
@@ -322,7 +304,7 @@ export abstract class PConnector extends IModelBridge {
           continue;
       }
       const element = this.db.elements.getElement(elementId);
-      if (element instanceof DefinitionElement)
+      if (element instanceof bk.DefinitionElement)
         defElementIds.push(elementId);
       else
         elementIds.push(elementId);
@@ -340,7 +322,7 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateProjectExtents() {
-    const options: ComputeProjectExtentsOptions = {
+    const options: bk.ComputeProjectExtentsOptions = {
       reportExtentsWithOutliers: false,
       reportOutliers: false,
     };
@@ -362,15 +344,13 @@ export abstract class PConnector extends IModelBridge {
     const comment = `${header} - ${changeDesc}`;
     if (this.db.isBriefcaseDb()) {
       await util.retryLoop(async () => {
-        await (this.db as BriefcaseDb).concurrencyControl.request(this.authReqContext);
+        await (this.db as bk.BriefcaseDb).concurrencyControl.request(this.authReqContext);
       });
       await util.retryLoop(async () => {
-        await (this.db as BriefcaseDb).pullAndMergeChanges(this.authReqContext);
+        await (this.db as bk.BriefcaseDb).pullAndMergeChanges(this.authReqContext);
       });
       this.db.saveChanges(comment);
-      await util.retryLoop(async () => {
-        await (this.db as BriefcaseDb).pushChanges(this.authReqContext, comment, ctype);
-      });
+      await (this.db as bk.BriefcaseDb).pushChanges(this.authReqContext, comment, ctype); // not atomic
     } else {
       this.db.saveChanges(comment);
     }
@@ -380,18 +360,18 @@ export abstract class PConnector extends IModelBridge {
     if (!this.db.isBriefcaseDb())
       return;
     await util.retryLoop(async () => {
-      if (!(this.db as BriefcaseDb).concurrencyControl.isBulkMode)
-        (this.db as BriefcaseDb).concurrencyControl.startBulkMode();
-      if ((this.db as BriefcaseDb).concurrencyControl.hasPendingRequests)
+      if (!(this.db as bk.BriefcaseDb).concurrencyControl.isBulkMode)
+        (this.db as bk.BriefcaseDb).concurrencyControl.startBulkMode();
+      if ((this.db as bk.BriefcaseDb).concurrencyControl.hasPendingRequests)
         throw new Error("has pending requests");
-      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
+      if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
         throw new Error("has schema lock");
-      if ((this.db as BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
+      if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
         throw new Error("has code spec lock");
-      if ((this.db as BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
+      if ((this.db as bk.BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
         throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
-      (this.db as BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
-      await (this.db as BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
+      (this.db as bk.BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
+      await (this.db as bk.BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
     });
   }
 
@@ -406,11 +386,11 @@ export abstract class PConnector extends IModelBridge {
     if (existingElement)
       element.id = existingElement.id;
 
-    const { aspectId } = ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
+    const { aspectId } = bk.ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
     if (!aspectId) {
       element.insert();
       this.db.elements.insertAspect({
-        classFullName: ExternalSourceAspect.classFullName,
+        classFullName: bk.ExternalSourceAspect.classFullName,
         element: { id: element.id },
         scope: { id: element.model },
         identifier,
@@ -421,7 +401,7 @@ export abstract class PConnector extends IModelBridge {
       return { entityId: element.id, state: pcf.ItemState.New, comment: "" };
     }
 
-    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
+    const xsa: bk.ExternalSourceAspect = this.db.elements.getAspect(aspectId) as bk.ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
@@ -431,7 +411,7 @@ export abstract class PConnector extends IModelBridge {
     xsa.checksum = checksum;
 
     element.update();
-    this.db.elements.updateAspect(xsa as ElementAspect);
+    this.db.elements.updateAspect(xsa as bk.ElementAspect);
     return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
   }
 
@@ -440,7 +420,7 @@ export abstract class PConnector extends IModelBridge {
     if (!node.dmo.fromAttr || !node.dmo.toAttr)
       return;
 
-    let sourceId;
+    let sourceId: Id64String | undefined;
     if (node.dmo.fromType === "IREntity") {
       const sourceModelId = this.modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
@@ -450,7 +430,7 @@ export abstract class PConnector extends IModelBridge {
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     }
 
-    let targetId;
+    let targetId: Id64String | undefined;
     if (node.dmo.toType === "IREntity") {
       const targetModelId = this.modelCache[node.target!.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
