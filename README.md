@@ -3,11 +3,12 @@
 Table of Contents
 =======================
 
-* [What is iTwin pcf?](#what-is-itwin-pcf)
+* [About](#about)
+* [Why use it?](#why-use-it)
 * [Constructs](#constructs)
 * [Getting started](#getting-started)
 * [Cautions](#cautions)
-* [Why use iTwin pcf?](#Why-use-itwin-pcf)
+* [Advanced Topics](#advanced-topics)
   * [Declarative Synchronization](#declarative-synchronization)
   * [Minimized Runtime Error and Testing](#minimized-runtime-error-and-testing)
   * [Single Source of Truth](#single-source-of-truth)
@@ -18,9 +19,13 @@ Table of Contents
 * [Install from source](#install-from-source)
 * [Road Map](#road-map)
 
-# What is iTwin pcf?
+# About
 
-pcf (Parametric Connector Framework) is a tool for synchronizing external data with your digital twin, iModel, deterministically and efficiently. As opposed to traditional [iTwin Connectors](https://www.itwinjs.org/learning/imodel-connectors/), pcf allows you to **define** your iModel as code then it takes care of the steps to synchronize it to your desired state. With pcf, you have the full control over how you would like your data to end up in an iModel with minimal programming effort.
+pcf (Parametric Connector Framework) is a tool for synchronizing external data with your digital twin, iModel, via a declarative syntax as opposed to flow-control logics. pcf allows you to **define** your iModel as code then it takes care of the steps to synchronize it to your desired state. With pcf, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
+
+# Why use it?
+
+pcf 
 
 
 # Constructs
@@ -69,7 +74,7 @@ Currently, all the documentations and API references of this project are embedde
 * Request Limit
     * If you saw this message - "Requests are sent too frequent. Sleep for 60 seconds", it means your registered Client ID should probably be upgraded due to rate limiting, otherwise your job will be slowed down with a slight chance of failing.
 
-# Why use iTwin pcf?
+# Advanced Topics
 
 ## Declarative Synchronization
 
@@ -162,14 +167,13 @@ npm run test
 
 # Road Map
 
-- [ ] handles the situation when IR Model becomes un-managably large. (potential solutions 1. persist IR model on disk 2. lazy load it).
-- [ ] handles multiple source files in a single job? 
-- [ ] add a full suite of command line offerings
-- [ ] add wrappers for other programming languages
-- [ ] read large JSON (https://github.com/uhop/stream-json)
-- [ ] data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
-- [ ] dynamically infer the relationship between external entities
-- [ ] update elements in parallel
+- handles multiple source files in a single job? 
+- add a full suite of command line offerings
+- add wrappers for other programming languages
+- read large JSON (https://github.com/uhop/stream-json)
+- data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
+- dynamically infer the relationship between external entities
+- update elements in parallel
  
 # Inspired by
 
