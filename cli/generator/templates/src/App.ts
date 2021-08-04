@@ -5,10 +5,7 @@
 import * as pcf from "@itwin/pcf";
 import * as path from "path";
 
-const { IModelHost } = pcf.imodeljs_backend;
-
 export async function main() {
-  await IModelHost.startup();
   // define job specific arguments
   const jobArgs = new pcf.JobArgs({
     connectorPath: path.join(__dirname, "<%= className %>.js"),
@@ -34,7 +31,6 @@ export async function main() {
   });
   const app = new pcf.BaseApp(jobArgs, hubArgs);
   await app.run();
-  await IModelHost.shutdown();
 }
 
 main();

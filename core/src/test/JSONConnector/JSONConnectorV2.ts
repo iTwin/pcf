@@ -6,8 +6,9 @@ import { PrimitiveType } from "@bentley/ecschema-metadata";
 import { JSONConnector } from "./JSONConnector";
 import * as pcf from "../../pcf";
 
-export function getBridgeInstance() {
+export async function getBridgeInstance() {
   const connector = new JSONConnector();
+  await connector.form();
   const subjectNode = connector.tree.getSubjectNode("Subject1");
   subjectNode.models.forEach((model: pcf.ModelNode) => {
     // add a new dynamic property

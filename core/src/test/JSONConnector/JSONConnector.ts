@@ -11,9 +11,7 @@ import * as path from "path";
 import { PConnectorConfig } from "../../PConnector";
 
 export class JSONConnector extends pcf.PConnector {
-  constructor() {
-    super();
-
+  public async form() {
     new PConnectorConfig(this, {
       domainSchemaPaths: [
         path.join(__dirname, "../../../node_modules/@bentley/aec-units-schema/AecUnits.ecschema.xml"),
@@ -85,7 +83,9 @@ export class JSONConnector extends pcf.PConnector {
   }
 }
 
-export function getBridgeInstance() {
-  return new JSONConnector();
+export async function getBridgeInstance() {
+  const connector = new JSONConnector();
+  await connector.form();
+  return connector;
 }
 

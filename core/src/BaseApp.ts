@@ -180,11 +180,12 @@ export class BaseApp {
    */
   public async run(): Promise<BentleyStatus> {
     let db: BriefcaseDb | undefined = undefined;
+    let runStatus = BentleyStatus.SUCCESS;
     try {
       await IModelHost.startup();
       await this.signin();
       db = await this.openBriefcaseDb();
-      const connector = require(this.jobArgs.connectorPath).getBridgeInstance();
+      const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
@@ -195,7 +196,7 @@ export class BaseApp {
           await db.concurrencyControl.abandonResources(this.authReqContext);
         }
       });
-      return BentleyStatus.ERROR;
+      runStatus = BentleyStatus.ERROR;
     } finally {
       if (db) {
         await BaseApp.clearRetiredCodes(this.authReqContext, this.hubArgs.iModelId, db.briefcaseId);
@@ -204,7 +205,7 @@ export class BaseApp {
       }
       await IModelHost.shutdown();
     }
-    return BentleyStatus.SUCCESS;
+    return runStatus;
   }
 
   /*

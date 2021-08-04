@@ -7,9 +7,7 @@ import * as path from "path";
 const { DefinitionModel, DefinitionPartition, LinkModel, LinkPartition, PhysicalModel, PhysicalPartition } = pcf.imodeljs_backend;
 
 export class <%= className %> extends pcf.PConnector {
-  constructor() {
-    super();
-
+  public async form() {
     new pcf.PConnectorConfig(this, {
       connectorName: "SampleConnector",
       appId: "SampleConnector",
@@ -58,7 +56,9 @@ export class <%= className %> extends pcf.PConnector {
   }
 }
 
-export function getBridgeInstance() {
-  return new <%= className %>();
+export async function getBridgeInstance() {
+  const connector = new <%= className %>();
+  await connector.form();
+  return connector;
 }
 

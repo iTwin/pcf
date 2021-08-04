@@ -2,28 +2,24 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import * as bk from "@bentley/imodeljs-backend";
 import * as path from "path";
 import * as pcf from "../../pcf";
 import { LogLevel } from "@bentley/bentleyjs-core";
 
 export async function main() {
-  await bk.IModelHost.startup();
-
   const jobArgs = new pcf.JobArgs({ 
     connectorPath: path.join(__dirname, "JSONConnector"),
     subjectKey: "Subject1",
     connection: {
       loaderKey: "json-loader-1",
       kind: "pcf_file_connection",
-      filepath: path.join(__dirname, "../assets/temp.json"),
+      filepath: path.join(__dirname, "../assets/v1.json"),
     },
     logLevel: LogLevel.Info,
   });
-
   const hubArgs = new pcf.HubArgs({
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
-    iModelId: "2f0c6220-3a68-482d-8455-78030edec752",
+    iModelId: "b4e9902b-0839-43d3-a409-cc1f37db9a49",
     clientConfig: { 
       clientId: "",
       redirectUri: "http://localhost:3000/signin-callback",
@@ -31,10 +27,8 @@ export async function main() {
     },
     env: pcf.Environment.QA,
   });
-
   const app = new pcf.BaseApp(jobArgs, hubArgs);
   await app.run();
-  await bk.IModelHost.shutdown();
 }
 
 main();

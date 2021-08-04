@@ -62,7 +62,6 @@ describe("Integration Tests", () => {
   const app = new pcf.IntegrationTestApp({ connectorPath: testConnectorPath, connection: testConnection } as JobArgs);
 
   before(async () => {
-    await bk.IModelHost.startup();
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
     await app.silentSignin();
@@ -71,12 +70,11 @@ describe("Integration Tests", () => {
   after(async () => {
     if (app.hubArgs.iModelId !== "")
       await app.purgeTestBriefcaseDb();
-    await bk.IModelHost.shutdown();
   });
 
   for (const testCase of testCases) {
-    for (const rmethod of [RunMethods.WithoutFwk, RunMethods.WithFwk]) {
-      it(`${rmethod} - ${testCase.title}`, async () => {
+    for (const method of [RunMethods.WithoutFwk /*, RunMethods.WithFwk*/]) {
+      it(`${method} - ${testCase.title}`, async () => {
         await app.createTestBriefcaseDb("app.run Integration Test");
         for (const job of testCase.jobs) {
           const { subjectKey, sourceFile, connection, connectorFile } = job;
@@ -89,9 +87,9 @@ describe("Integration Tests", () => {
           app.jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as JobArgsProps);
 
           let status: BentleyStatus;
-          if (rmethod === RunMethods.WithoutFwk)
+          if (method === RunMethods.WithoutFwk)
             status = await app.run();
-          else if (rmethod === RunMethods.WithFwk)
+          else if (method === RunMethods.WithFwk)
             status = await app.runFwk();
           else
             throw new Error("Unknown RunMethod");

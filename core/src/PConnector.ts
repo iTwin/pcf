@@ -2,7 +2,7 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String, Logger } from "@bentley/bentleyjs-core"; 
+import { Id64String, Logger } from "@bentley/bentleyjs-core";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
@@ -97,6 +97,8 @@ export abstract class PConnector extends IModelBridge {
   protected _irModel?: pcf.IRModel;
   protected _jobSubjectId?: Id64String;
   protected _srcState?: pcf.ItemState;
+
+  public abstract form(): Promise<void>;
 
   constructor() {
     super();
