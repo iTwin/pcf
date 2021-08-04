@@ -16,7 +16,7 @@ Table of Contents
   * [Intermediate Representation](#intermediate-representation)
   * [What is the difference between a Connector and a Loader?](#what-is-the-difference-between-a-connector-and-a-loader)
   * [How to write a Loader?](#how-to-write-a-loader)
-  * [Programmatically Generate DMOs](#programmatically-generate-dmos)
+  * [Programmatically Generate Construct Instances](#programmatically-generate-construct-instances)
 * [Install from source](#install-from-source)
 * [Road Map](#road-map)
 
@@ -142,7 +142,7 @@ This new architecture separates the concern of accessing an external data from t
 
 You can write your own Loader by implementing [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts) or extending one of the currently supported Loaders.
 
-## Programmatically Generate Nodes & DMOs
+## Programmatically Generate Construct Instances
 
 Since your connector is represented by objects (DMOs & Nodes), you can programmatically generate them based on external source data.
 
