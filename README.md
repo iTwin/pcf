@@ -4,8 +4,8 @@ Table of Contents
 =======================
 
 * [About](#about)
-* [Why use it?](#why-use-it)
 * [Constructs](#constructs)
+* [PCF vs. Compiler](#pcf-vs-compiler)
 * [Getting started](#getting-started)
 * [Cautions](#cautions)
 * [Advanced Topics](#advanced-topics)
@@ -21,11 +21,7 @@ Table of Contents
 
 # About
 
-pcf (Parametric Connector Framework) is a tool for synchronizing external data with your digital twin, iModel, via a declarative syntax as opposed to flow-control logics. pcf allows you to **define** your iModel as code then it takes care of the steps to synchronize it to your desired state. With pcf, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
-
-# Why use it?
-
-pcf 
+PCF (Parametric Connector Framework) is the most advanced tool for synchronizing external data with digital twins. PCF allows you to **define** your iModel as code then it takes care of the steps to synchronize it to your desired state. With PCF, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
 
 
 # Constructs
@@ -36,6 +32,17 @@ pcf
 |**Loader**        | An accessor to a data format, converting the source data format to an IR Model (intermediate representation model). You may use an existing Loader or write your own. |
 |**DMO**           | A DMO (Dynamic Mapping Object) defines the mappings between IR Model and EC schema. |
 |**Node**          | A Node represents a unit of synchronization and some Nodes use DMO to populate multiple EC Instances. An iModel is synchronized based on user-defined Nodes and linkages between them. |
+|**RepoTree**      | A tree data structure made of **Nodes**. |
+
+
+# PCF vs. Compiler
+
+| Programming Language | PCF                                 |
+| -------------------- | ----------------------------------- |
+| Compiler             | PCF Core                            |
+| Lexical Tokens       | User-defined instances of **Nodes** |
+| Abstract Syntax Tree | **RepoTree**                        |
+| Compiled Executable  | Synchronized iModel                 |
 
 
 # Getting started
@@ -60,7 +67,7 @@ Currently, all the documentations and API references of this project are embedde
 # Cautions
 
 * Dependencies
-    * You should not install any iTwin.js related dependencies aside from schema npm packages (@bentley/<schema name>-schema). If the same package is installed in two different versions by your connector and pcf, you may encounter hidden bugs.
+    * You should not install any iTwin.js related dependencies aside from schema npm packages (@bentley/<schema name>-schema). If the same package is installed in two different versions by your connector and PCF, you may encounter hidden bugs.
     * Most existing domain schema packages can be found [here](https://www.npmjs.com/search?q=%40bentley%20schema%20).
 * Nodes
     * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
@@ -78,13 +85,13 @@ Currently, all the documentations and API references of this project are embedde
 
 ## Declarative Synchronization
 
-pcf allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that every EC Entity corresponding to your source data are correctly inserted, updated, and deleted in your iModel. With pcf, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iTwin.js applications knows what to expect from your iModels.
+PCF allows you to represent your external source data in an iModel using two constructs: **DMO's** and **Nodes** (see definitions below). It makes sure that every EC Entity corresponding to your source data are correctly inserted, updated, and deleted in your iModel. With PCF, you also gain the power to organize [the hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/) of your digital twin (iModel) so your end iTwin.js applications knows what to expect from your iModels.
 
 ## Minimized Runtime Error and Testing
 
-pcf minimizes runtime errors in its connectors by maximizing the functionalities offered by TypeScript so that most errors can be caught at compile time and runtime before a connector job kicks off. As previously mentioned, pcf follows the declarative paradigm so a connector does not contain any custom logics rather it contains only object definitions, which can be linted strictly.
+PCF minimizes runtime errors in its connectors by maximizing the functionalities offered by TypeScript so that most errors can be caught at compile time and runtime before a connector job kicks off. As previously mentioned, PCF follows the declarative paradigm so a connector does not contain any custom logics rather it contains only object definitions, which can be linted strictly.
 
-Given that object definitions (**DMOs** and **Nodes**) are the main inputs to your connector, so long as their definitions are correct, each synchronization job is guaranteed to succeed with pcf.
+Given that object definitions (**DMOs** and **Nodes**) are the main inputs to your connector, so long as their definitions are correct, each synchronization job is guaranteed to succeed with PCF.
 
 Functionalities such as code-completion and code-refactoring available in most modern IDE's (e.g Visual Studio Code) will help you to write the correct definitions for them. Since most runtime errors are avoided at compile time and the source code of a connector only contains a set of object definitions, unit/integration tests are no longer needed for connectors, making them much easier to maintain. (except for geometry transformations)
 
@@ -96,22 +103,22 @@ As both of your connector and source data evolve, it is often that two types of 
 1. mapping changes between the source schema and EC schema. 
 2. iModel hierarchy changes of the EC Entities created from the source data. 
 
-As we are constantly dealing with changes, it is important to have an easy way to precisely capture these changes and inform downstream iTwin.js applications about them. pcf solves this problem by making **DMO** the SSOT of the mappings between source schema and EC schema and making **Node** the SSOT of the hierarchy of mapped EC Entities within the source discipline. 
+As we are constantly dealing with changes, it is important to have an easy way to precisely capture these changes and inform downstream iTwin.js applications about them. PCF solves this problem by making **DMO** the SSOT of the mappings between source schema and EC schema and making **Node** the SSOT of the hierarchy of mapped EC Entities within the source discipline. 
 
-Sometimes you may want to define and update your own schema (called "dynamic schema" in EC terms) to better represent your source schema in the EC world. With pcf, you no longer need to hand-write a xml EC Schema, it is auto-generated and imported into your iModel if you have defined your own EC classes in **DMO's**. Traditional iTwin Connectors keep schema in a separate xml file and embed mapping details across source files.
+Sometimes you may want to define and update your own schema (called "dynamic schema" in EC terms) to better represent your source schema in the EC world. With PCF, you no longer need to hand-write a xml EC Schema, it is auto-generated and imported into your iModel if you have defined your own EC classes in **DMO's**. Traditional iTwin Connectors keep schema in a separate xml file and embed mapping details across source files.
 
 ## Empowering Lossless Synchronization
 
 The term “lossless” here means all the structures and properties of the source data are maintained, not purely bytes. Missing a few pieces of information is ok because we can always add them later, but missing constraints could corrupt things. 
 
-When one converts a data format to another, it is likely that not all the properties of the source data are maintained in the target format (considered as a lossy transformation in pcf). For example, referential integrity gets lost if a synchronization job missed a database relationship. This could cause a disastrous consequence by allowing the target data to be modified without the relationship constraint.  
+When one converts a data format to another, it is likely that not all the properties of the source data are maintained in the target format (considered as a lossy transformation in PCF). For example, referential integrity gets lost if a synchronization job missed a database relationship. This could cause a disastrous consequence by allowing the target data to be modified without the relationship constraint.  
 
-This mistake cannot be avoided at the framework level, the person who's responsible for the mappings between the source and target format must always be extreme cautious in defining mappings. However, the way mappings are presented through DMO in pcf significantly makes the job of this person easier and allows someone without much programming expertise to inspect the mappings. 
+This mistake cannot be avoided at the framework level, the person who's responsible for the mappings between the source and target format must always be extreme cautious in defining mappings. However, the way mappings are presented through DMO in PCF significantly makes the job of this person easier and allows someone without much programming expertise to inspect the mappings. 
 
 
 ## Intermediate Representation
 
-An IR Model is an intermediate representation of your source data. It is a simple virtual Entity-Relationship store generated by a **Loader**. A **Loader** is a simple class that handles the conversion from a source data format to IR Model. In pcf, **Loader** is the only construct that interacts with the outside world. There could be a **Loader** for any data format, currently supported ones are JSON Loader, XLSX (Excel) Loader, and SQLite Loader. So long as a data format has a Loader, it can be imported into an iModel through pcf. 
+An IR Model is an intermediate representation of your source data. It is a simple virtual Entity-Relationship store generated by a **Loader**. A **Loader** is a simple class that handles the conversion from a source data format to IR Model. In PCF, **Loader** is the only construct that interacts with the outside world. There could be a **Loader** for any data format, currently supported ones are JSON Loader, XLSX (Excel) Loader, and SQLite Loader. So long as a data format has a Loader, it can be imported into an iModel through PCF. 
 
 We must not always assume that the source data are normalized or well-modeled. Having an IR Model safeguards against dirty source data, thus maintaining the data quality in your iModel. IR Model forces every external class to have a primary key and value so that one can always use information stored in the external source to query an iModel and be confident that only a single EC instance gets returned. This is just one kind of optimization. Other kinds of optimizations could also be implemented on IR Model such as dynamically inferring relationships in your data if they're not provided. 
  
@@ -122,13 +129,13 @@ One reason that a highly configurable connector is needed is that it's not possi
 
 ```
 
-Without pcf: data source A == Connector for A => iModel
+Without PCF: data source A == Connector for A => iModel
 
-With    pcf: data source A == Loader    for A => IR Model == PConnector => iModel 
+With    PCF: data source A == Loader    for A => IR Model == PConnector => iModel 
 
 ```
 
-This new architecture separates the concern of accessing an external data from the connector so that we can reuse a connector to populate iModels. It's much easier to write a Loader than to write a full-blown Connector as you don't have to deal with the intricacies in the iTwin.js world. It requires zero expertise in iTwin.js to write a Loader. As long as there's a **Loader** for a data format, its data can be imported into an iModel through pcf.
+This new architecture separates the concern of accessing an external data from the connector so that we can reuse a connector to populate iModels. It's much easier to write a Loader than to write a full-blown Connector as you don't have to deal with the intricacies in the iTwin.js world. It requires zero expertise in iTwin.js to write a Loader. As long as there's a **Loader** for a data format, its data can be imported into an iModel through PCF.
 
 
 ## How to write a Loader?
@@ -139,10 +146,10 @@ You can write your own Loader by implementing [Loader](https://github.com/itwin/
 
 ### pre-steps:
 ```console
-# clone pcf repo
+# clone PCF repo
 git clone https://github.com/iTwin/pcf.git
 
-# install pcf core dependencies
+# install PCF core dependencies
 cd core
 npm ci 
 
@@ -150,7 +157,7 @@ npm ci
 npm run build
 ```
 
-### Option 1: try pcf locally with your connector:
+### Option 1: try PCF locally with your connector:
 ```console
 # create global symlink
 npm link
@@ -160,21 +167,21 @@ cd <your connector project dir>
 npm link @itwin/pcf
 ```
 
-### Option 2: run pcf unit tests:
+### Option 2: run PCF unit tests:
 ```console
 npm run test
 ```
 
 # Road Map
 
-- handles multiple source files in a single job? 
+- handles multiple source files in a single job?
 - add a full suite of command line offerings
 - add wrappers for other programming languages
 - read large JSON (https://github.com/uhop/stream-json)
 - data lineage, add a wrapper around Element classes that records the transformations, maybe useful for iModel exporter
 - dynamically infer the relationship between external entities
 - update elements in parallel
- 
+
 # Inspired by
 
 - [Compiler Design](https://en.wikipedia.org/wiki/Compiler)
