@@ -88,7 +88,6 @@ export abstract class PConnector extends IModelBridge {
   public seenIdSet: Set<Id64String>;
 
   public readonly tree: pcf.RepoTree;
-  public readonly nodeMap: Map<string, pcf.Node>;
 
   protected _config?: PConnectorConfig;
   protected _db?: bk.IModelDb;
@@ -98,6 +97,9 @@ export abstract class PConnector extends IModelBridge {
   protected _jobSubjectId?: Id64String;
   protected _srcState?: pcf.ItemState;
 
+  /*
+   * Define construct instances in this function.
+   */
   public abstract form(): Promise<void>;
 
   constructor() {
@@ -108,7 +110,6 @@ export abstract class PConnector extends IModelBridge {
     this.aspectCache = {};
     this.tree = new pcf.RepoTree();
     this.seenIdSet = new Set<Id64String>();
-    this.nodeMap = new Map<string, pcf.Node>();
   }
 
   public get config() {
@@ -172,12 +173,6 @@ export abstract class PConnector extends IModelBridge {
     return this.config.dynamicSchema.schemaName;
   }
 
-  public async save() {
-    const tree = this.tree.toJSON();
-    const compressed = { tree, config: this.config };
-    fs.writeFileSync(path.join(process.cwd(), "tree.json"), JSON.stringify(compressed, null, 4) , "utf-8");
-  }
-
   public async runJob(props: { db: bk.IModelDb, jobArgs: pcf.JobArgs, authReqContext?: bk.AuthorizedBackendRequestContext }): Promise<void> {
 
     this.modelCache = {};
@@ -235,15 +230,14 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateLoader() {
-    const loader = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
-    await loader.model.update();
-    const res = await loader.update() as pcf.UpdateResult;
+    const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
+    await loaderNode.model.update();
+    const res = await loaderNode.update() as pcf.UpdateResult;
     this._srcState = res.state;
   }
 
   protected async _updateSubject() {
-    const subjectKey = this.jobArgs.subjectKey;
-    const subjectNode = this.tree.getSubjectNode(subjectKey);
+    const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectKey, pcf.SubjectNode);
     const res = await subjectNode.update() as pcf.UpdateResult;
     this._jobSubjectId = res.entityId;
   }
@@ -255,7 +249,7 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
-    const { dynamicEntityMap } = this.tree;
+    const { entityMap: dynamicEntityMap } = this.tree;
     const shouldGenerateSchema = dynamicEntityMap.elements.length + dynamicEntityMap.relationships.length > 0;
     if (shouldGenerateSchema) {
       if (!this.config.dynamicSchema)
@@ -271,13 +265,13 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _loadIRModel() {
-    const node = this.tree.getLoaderNode(this.jobArgs.connection.loaderKey);
+    const node = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
     const loader = node.loader;
     this._irModel = new pcf.IRModel(loader, this.jobArgs.connection);
   }
 
   protected async _updateData() {
-    for (const node of this.nodeMap.values()) {
+    for (const node of this.tree.nodes) {
       if (!node.hasUpdated)
         await node.update();
     }

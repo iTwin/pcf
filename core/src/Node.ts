@@ -9,77 +9,56 @@ import { JobArgs } from "./BaseApp";
 import { ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
 import { PConnector } from "./PConnector";
-import * as fs from "fs";
 import { Loader } from "./loaders";
 import { DynamicEntityMap } from "./DynamicSchema";
+import * as fs from "fs";
 
 /* 
  * Represents the Repository Model (the root of an iModel).
  */
 export class RepoTree {
 
-  public loaders: LoaderNode[];
-  public subjects: SubjectNode[];
-  public relatedElements: RelatedElementNode[];
-  public relationships: RelationshipNode[];
-  public dynamicEntityMap: DynamicEntityMap;
+  public entityMap: DynamicEntityMap;
+  public nodeMap: Map<string, Node>;
 
   constructor() {
-    this.loaders = [];
-    this.subjects = [];
-    this.relatedElements = [];
-    this.relationships = [];
-    this.dynamicEntityMap = { elements: [], relationships: [] };
+    this.entityMap = { elements: [], relationships: [] };
+    this.nodeMap = new Map<string, Node>();
+  }
+
+  public get nodes() {
+    return this.nodeMap.values();
+  }
+
+  public insert<T extends Node>(node: T) {
+    if (this.nodeMap.has(node.key))
+      throw new Error(`Node with key "${node.key}" already exists. Each Node must have a unique key.`);
+
+    this.nodeMap.set(node.key, node);
+
+    if ((node instanceof ElementNode) && (typeof node.dmo.ecElement !== "string")) {
+      this.entityMap.elements.push({ 
+        props: node.dmo.ecElement,
+      });
+    }
+
+    if (((node instanceof RelationshipNode) || (node instanceof RelatedElementNode)) && (typeof node.dmo.ecRelationship !== "string")) {
+      this.entityMap.relationships.push({ 
+        props: node.dmo.ecRelationship,
+      });
+    }
+  }
+
+  public find<T extends Node>(nodeKey: string, nodeClass: typeof Node): T {
+    const node = this.nodeMap.get(nodeKey);
+    if (!(node instanceof nodeClass))
+      throw new Error(`Node with key "${nodeKey}" is not defined in your connector class.`);
+    return node as T;
   }
 
   public validate(jobArgs: JobArgs): void {
-    if (this.subjects.length === 0)
-      throw new Error(`At least one subject node must be defined in your connector class.`);
-    if (this.loaders.length === 0)
-      throw new Error(`At least one loader must be defined in your connector class.`);
-    this.getLoaderNode(jobArgs.connection.loaderKey);
-    this.getSubjectNode(jobArgs.subjectKey);
-  }
-
-  public getLoaderNode(key: string) {
-    const loader = this.loaders.find((loader: LoaderNode) => loader.key === key);
-    if (!loader)
-      throw new Error(`Loader with key "${key}" is not defined in your connector class.`);
-    return loader;
-  }
-
-  public getSubjectNode(key: string) {
-    const subject = this.subjects.find((node: SubjectNode) => node.key === key);
-    if (!subject)
-      throw new Error(`SubjectNode with key "${key}" is not defined in your connector class.`);
-    return subject;
-  }
-
-  public walk(callback: (node: Node) => void) {
-    for (const subject of this.subjects) {
-      callback(subject);
-      for (const modelNode of subject.models) {
-        callback(modelNode);
-        for (const elementNode of modelNode.elements) {
-          callback(elementNode);
-        }
-      }
-    }
-    for (const relationship of this.relationships) {
-      callback(relationship);
-    }
-    for (const relatedElement of this.relatedElements) {
-      callback(relatedElement);
-    }
-  }
-
-  public toJSON() {
-    return { 
-      subjectNodes: this.subjects.map((subject: SubjectNode) => subject.toJSON()),
-      loaders: this.loaders.map((loader: LoaderNode) => loader.toJSON()),
-      relationshipNodes: this.relationships.map((relationship: RelationshipNode) => relationship.toJSON()),
-      relatedElementNodes: this.relatedElements.map((related: RelatedElementNode) => related.toJSON()),
-    };
+    this.find<LoaderNode>(jobArgs.connection.loaderKey, LoaderNode);
+    this.find<SubjectNode>(jobArgs.subjectKey, SubjectNode);
   }
 }
 
@@ -103,7 +82,6 @@ export interface UpdateResult {
   comment: string;
 }
 
-// No > 1 subclassing
 export abstract class Node implements NodeProps {
 
   public pc: PConnector;
@@ -113,11 +91,6 @@ export abstract class Node implements NodeProps {
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
     this.key = props.key;
-
-    if (this.pc.nodeMap.has(props.key))
-      throw new Error(`Node with key "${props.key}" already exists. Each Node must have a unique key.`);
-
-    this.pc.nodeMap.set(props.key, this);
   }
 
   public get hasUpdated() {
@@ -139,15 +112,11 @@ export interface SubjectNodeProps extends NodeProps {}
 export class SubjectNode extends Node implements SubjectNodeProps {
 
   public models: ModelNode[];
-  public relationships: RelationshipNode[];
-  public relatedElements: RelatedElementNode[];
 
   constructor(pc: PConnector, props: SubjectNodeProps) {
     super(pc, props);
     this.models = [];
-    this.relationships = [];
-    this.relatedElements = [];
-    pc.tree.subjects.push(this);
+    this.pc.tree.insert<SubjectNode>(this);
   }
 
   protected async _update() {
@@ -221,7 +190,7 @@ export class ModelNode extends Node implements ModelNodeProps {
 
   public modelClass: typeof bk.Model;
   public partitionClass: typeof bk.InformationPartitionElement;
-  public elements: ElementNode[];
+  public elements: Array<ElementNode | LoaderNode>;
   public subject: SubjectNode;
 
   constructor(pc: PConnector, props: ModelNodeProps) {
@@ -231,6 +200,7 @@ export class ModelNode extends Node implements ModelNodeProps {
     this.partitionClass = props.partitionClass;
     this.subject = props.subject;
     this.subject.models.push(this);
+    this.pc.tree.insert<ModelNode>(this);
   }
 
   protected async _update() {
@@ -301,7 +271,8 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       throw new Error(`LoaderNode.model.modelClass must be "LinkModel"`);
     this.model = props.model;
     this.loader = props.loader;
-    pc.tree.loaders.push(this);
+    this.model.elements.push(this);
+    this.pc.tree.insert<LoaderNode>(this);
   }
 
   protected async _update() {
@@ -340,7 +311,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
   }
 
   public toJSON() {
-    return { loader: this.loader.toJSON(), model: this.model.toJSON() };
+    return { loader: this.loader.toJSON() };
   }
 }
 
@@ -376,12 +347,7 @@ export class ElementNode extends Node implements ElementNodeProps {
     this.category = props.category;
     this.model = props.model;
     this.model.elements.push(this);
-
-    if (typeof this.dmo.ecElement !== "string") {
-      this.pc.tree.dynamicEntityMap.elements.push({ 
-        props: this.dmo.ecElement,
-      });
-    }
+    this.pc.tree.insert<ElementNode>(this);
   }
 
   protected async _update() {
@@ -463,13 +429,7 @@ export class RelationshipNode extends Node {
     this.dmo = props.dmo;
     this.source = props.source;
     this.target = props.target;
-    pc.tree.relationships.push(this);
-
-    if (typeof this.dmo.ecRelationship !== "string") {
-      this.pc.tree.dynamicEntityMap.relationships.push({ 
-        props: this.dmo.ecRelationship,
-      });
-    }
+    this.pc.tree.insert<RelationshipNode>(this);
   }
 
   protected async _update() {
@@ -539,13 +499,7 @@ export class RelatedElementNode extends Node {
     this.dmo = props.dmo;
     this.source = props.source;
     this.target = props.target;
-    pc.tree.relatedElements.push(this);
-
-    if (typeof this.dmo.ecRelationship !== "string") {
-      this.pc.tree.dynamicEntityMap.relationships.push({ 
-        props: this.dmo.ecRelationship,
-      });
-    }
+    this.pc.tree.insert<RelatedElementNode>(this);
   }
 
   protected async _update() {
