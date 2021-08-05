@@ -40,12 +40,11 @@ These constructs are the building blocks of your connector and you should be fam
 
 # PCF vs. Compiler
 
-| Programming Language | PCF                                 |
-| -------------------- | ----------------------------------- |
-| Lexical Tokens       | User-defined instances of **Nodes** |
-| Compiler             | PCF Core                            |
-| Compiled Executable  | Synchronized iModel                 |
+PCF Core = Compiler Program
 
+Nodes = Lexical Tokens
+
+Synchronized iModel = Compiled Executable
 
 # Getting Started
 
