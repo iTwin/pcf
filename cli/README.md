@@ -1,6 +1,6 @@
-# iTwin pcf cli
+# iTwin PCF cli
 
-pcf command-line interface that can be used to work with pcf-powered iTwin.js Connector Apps. 
+PCF command-line interface that can be used to work with PCF-powered iTwin.js Connector Apps. 
 
 # Getting Started 
 
