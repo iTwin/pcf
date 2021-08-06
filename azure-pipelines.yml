@@ -5,7 +5,8 @@ trigger:
       - releases/*
   paths:
     exclude:
-      - README.md
+      - docs/*
+      - *.md
       - LICENSE
 
 pr:
@@ -16,7 +17,8 @@ pr:
       - release/*
   paths:
     exclude:
-      - README.md
+      - docs/*
+      - *.md
       - LICENSE
 
 resources:
