@@ -6,6 +6,7 @@ Table of Contents
 * [About](#about)
 * [Constructs](#constructs)
 * [A High-Level Compiler for Digital Twins](#a-high-level-compiler-for-digital-twins)
+* [Architecture](#architecture)
 * [Getting Started](#getting-started)
 * [Developing](#developing)
 * [How to write a Loader?](#how-to-write-a-loader)
@@ -41,7 +42,9 @@ You will be using a set of constructs to build your connector.
 | PCF Core | [Compiler Program](https://en.wikipedia.org/wiki/Compiler) | 
 | Synchronized iModel | [Executable](https://en.wikipedia.org/wiki/Executable) | 
 
-External Data => Loader (could be defined by users) => IR Model => Nodes & DMOs (must be defined by users) => PCF Core => iModel
+# Architecture
+
+![Architecture Diagram](https://github.com/iTwin/pcf/blob/main/docs/architecture.png)
 
 # Getting Started
 
