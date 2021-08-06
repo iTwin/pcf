@@ -5,7 +5,7 @@ Table of Contents
 
 * [About](#about)
 * [Constructs](#constructs)
-* [Think of PCF as a Compiler](#think-of-pcf-as-a-compiler)
+* [A High-Level Compiler for Digital Twins](#a-high-level-compiler-for-digital-twins)
 * [Getting Started](#getting-started)
 * [Developing](#developing)
 * [How to write a Loader?](#how-to-write-a-loader)
@@ -31,13 +31,17 @@ You will be using a set of constructs to build your connector.
 |**DMO**           | A DMO (Dynamic Mapping Object) defines the mappings between IR Model and iModel. |
 |**Node**          | A Node corresponds to an EC Entity and some Nodes use DMO to populate multiple EC Instances. An iModel is synchronized based on user-defined Nodes. |
 
-# Think of PCF as a Compiler
+# A High-Level Compiler for Digital Twins
 
 | PCF | Programming Language | 
 | --- | -------------------- | 
-| PCF Core | Compiler Program | 
-| Nodes | Lexical Tokens | 
-| Synchronized iModel | Compiled Executable | 
+| PCF-based Connector | Source File | 
+| Nodes | [Lexical Tokens](https://en.wikipedia.org/wiki/Lexical_analysis#Tokenization) | 
+| [RepoTree](https://github.com/iTwin/pcf/blob/16a1656f0a4beea009682b68cb66f4265e997924/core/src/Node.ts#L19) | [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree) | 
+| PCF Core | [Compiler Program](https://en.wikipedia.org/wiki/Compiler) | 
+| Synchronized iModel | [Executable](https://en.wikipedia.org/wiki/Executable) | 
+
+External Data => Loader (could be defined by users) => IR Model => Nodes & DMOs (must be defined by users) => PCF Core => iModel
 
 # Getting Started
 
