@@ -25,7 +25,7 @@ resources:
   repositories:
     - repository: build-pipeline-scripts
       type: git
-      ref: create-unique-name # temp
+      ref: master
       name: iModelTechnologies/imodeljs-build-pipeline-scripts
 
 stages:
