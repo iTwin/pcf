@@ -24,12 +24,16 @@ Parametric Connector Framework (PCF) is the most advanced and intelligent tool f
 # 1. install global pcf command line utility
 npm install -g @itwin/pcf-cli
 
-# 2. initialize a connector template with a name
-pcf init <name of your connector>
+# 2. initialize a connector template with a name. This command will create a project directory named "output"
+pcf init <name of your connector> 
+cd output
 
-# 3. add app specific info in YourConnector/App.ts
+# 3. install the latest version of pcf core in your project
+npm install @itwin/pcf
 
-# 4. execute your connector (compilation is included in this command)
+# 4. add application specific info in ./src/App.ts
+
+# 5. execute your connector (compilation is included in this command)
 npm run start
 
 ```
