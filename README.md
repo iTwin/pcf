@@ -14,7 +14,7 @@ Table of Contents
 
 # About
 
-Parametric Connector Framework (PCF) is the most advanced and intelligent tool for synchronizing external data with digital twins. PCF allows you to **define** your iModel as code then it takes care of the steps to synchronize it with external data to your desired state. With PCF, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
+Parametric Connector Framework (PCF) is the most advanced and intelligent tool for synchronizing external data with digital twins. PCF allows you to **define** your iModel as code then it takes care of the steps to synchronize it with external data to your desired state. It essentially empowers you to build a [Connector](https://www.itwinjs.org/learning/imodel-connectors/). With PCF, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
 
 # Getting Started
 
