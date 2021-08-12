@@ -16,10 +16,18 @@ Table of Contents
 
 Parametric Connector Framework (PCF) is the most advanced and intelligent tool for synchronizing external data with digital twins. PCF allows you to **define** your iModel as code then it takes care of the steps to synchronize it with external data to your desired state. With PCF, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
 
-
 # Getting Started
 
-```console
+
+```bash
+# make sure your npm version is < 7.0.0
+npm --version 
+# run this command if you npm version is > 7.0.0
+npm install -g npm@6.x
+
+```
+
+```bash
 
 # 1. install global pcf command line utility
 npm install -g @itwin/pcf-cli
