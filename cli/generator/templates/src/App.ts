@@ -22,7 +22,7 @@ export async function main() {
   const hubArgs = new pcf.HubArgs({
     projectId: "<Your Project ID Guid>",
     iModelId: "<Your iModel ID Guid>",
-    // You must register your own client app and use its client ID (see https://developer.bentley.com)
+    // You must register your own SPA client app and use its client ID (see https://developer.bentley.com)
     clientConfig: {
       clientId: "<%= clientId %>",
       redirectUri: "<%= clientRedirectUri %>",

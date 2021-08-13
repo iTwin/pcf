@@ -8,15 +8,12 @@
 const yargs = require('yargs');
 const path = require('path');
 const yeoman = require('yeoman-environment');
-const child_process = require("child_process");
 
 async function parseArgs() {
   return yargs
-    .scriptName('pct')
-    .usage('Usage: pct COMMAND [args]')
-    .command(['init [CONNECTOR_NAME] [CLIENT_ID]'], 'Initialize an empty project', yargs => yargs)
-    // .command(['save [APP_PATH]'], 'Save your entire connector in the form of json', yargs => yargs)
-    // .command(['run [APP_PATH]'], 'Run your connector app', yargs => yargs)
+    .scriptName('pcf')
+    .usage('Usage: pcf COMMAND [args]')
+    .command(['init <PROJECT_NAME> [CONNECTOR_NAME] [CLIENT_ID]'], 'Initialize a connector template', yargs => yargs)
     .demandCommand()
     .help()
     .alias('h', 'help')
@@ -24,51 +21,34 @@ async function parseArgs() {
 }
 
 async function main() {
+
   const argv = await parseArgs();
   const cmd = argv._[0];
 
   switch(cmd) {
     case 'init':
-      init(argv.PROJECT_DIR, argv.CONNECTOR_NAME, argv.CLIENT_ID);
-      break;
-    case 'run':
-      await run(argv.APP_PATH);
-      break;
-    case 'save':
-      await save(argv.APP_PATH);
+      init(argv.PROJECT_NAME, argv.CONNECTOR_NAME, argv.CLIENT_ID);
       break;
     default:
       console.error(`Unknown command: ${cmd}`);
   }
 }
 
-function init(dir, name, clientId) {
+function init(projectName, connectorName, clientId) {
   const env = yeoman.createEnv();
   const generatorPath = path.join(__dirname, '../generator/index.js');
-  env.register(generatorPath, 'imodeljs:connector');
+  env.register(generatorPath, 'pcf:connector');
 
-  name = name ? name : '';
+  projectName = projectName ? projectName : 'GeneratedProject';
+  connectorName = connectorName ? connectorName : '';
   clientId = clientId ? clientId : '';
-  args = `imodeljs:connector output ${name} ${clientId}`;
+  args = `pcf:connector ${projectName} ${connectorName} ${clientId}`;
   env.run(args, () => {});
 }
 
-function getAppInstance(p) {
-  p = p ? p : "lib/App.js";
-  const appModule = require(path.join(process.cwd(), p));
-  const app = appModule.getAppInstance();
-  return app;
+try {
+  main();
+} catch (err) {
+  console.log(err.message);
 }
-
-async function run(p) {
-  const app = getAppInstance(p);
-  await app.run();
-}
-
-async function save(p) {
-  const app = getAppInstance(p);
-  await app.saveConnector();
-}
-
-main();
 
