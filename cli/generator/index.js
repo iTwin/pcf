@@ -30,8 +30,8 @@ ${chalk.blue("               \"╜▒║╖╖║▒╝╙          ")}
 ${chalk.blue("                   ``              ")}`;
 
 const getNameUsage = (answers) => `${chalk.grey("  OK! We'll use this for the following values in your project:")}
-    ${chalk.grey("⁃ Module Name:")} ${chalk.green(pascalCase(answers.name) + ".ts")}
-    ${chalk.grey("⁃ Package Name:")} ${chalk.green(answers.name)}
+    ${chalk.grey("⁃ Module Name:")} ${chalk.green(pascalCase(answers.connectorName) + ".ts")}
+    ${chalk.grey("⁃ Package Name:")} ${chalk.green(answers.connectorName)}
 `;
 
 module.exports = class extends Generator {
@@ -45,8 +45,11 @@ module.exports = class extends Generator {
 
   async initializing() {
     this.destinationRoot(path.resolve(this.contextRoot, this.options.projectName));
-    if (semver.gte(process.versions.node, "12.17.0") && semver.lt(process.versions.node, "15.0.0"))
-      throw "Your Node.js version must be >=12.17.0 <15.0.0"
+    if (semver.lt(process.versions.node, "12.17.0") || semver.gte(process.versions.node, "15.0.0")) {
+      const msg = "Your Node.js version must be >=12.17.0 <15.0.0";
+      this.log(msg);
+      throw msg;
+    }
   }
 
   async prompting() {
@@ -103,12 +106,13 @@ module.exports = class extends Generator {
     let files = glob.sync("**/*", { cwd: this.sourceRoot(), nodir: true, dot: true });
 
     this.log(files);
-    const answerName = this.answers.name || this.options.name;
+    const connectorName = this.answers.connectorName || this.options.connectorName;
 
     const templateData = {
-      name: answerName,
-      capsName: answerName.replace(/-/g, " ").toUpperCase(),
-      className: pascalCase(answerName),
+      name: connectorName,
+      capsName: connectorName.replace(/-/g, " ").toUpperCase(),
+      packageName: connectorName,
+      className: pascalCase(connectorName),
       clientId: this.answers.clientId || this.options.clientId || "",
       clientRedirectUri: this.answers.clientRedirectUri || this.options.clientRedirectUri || "",
       clientScope: this.answers.clientScope || this.options.clientScope || "",

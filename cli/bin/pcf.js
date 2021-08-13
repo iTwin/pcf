@@ -49,6 +49,6 @@ function init(projectName, connectorName, clientId) {
 try {
   main();
 } catch (err) {
-  console.log(err.message);
+  console.log(err);
 }
 
