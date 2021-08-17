@@ -13,7 +13,7 @@ async function parseArgs() {
   return yargs
     .scriptName('pcf')
     .usage('Usage: pcf COMMAND [args]')
-    .command(['init <PROJECT_NAME> [CONNECTOR_NAME] [CLIENT_ID]'], 'Initialize a connector template', yargs => yargs)
+    .command(['init <PROJECT_NAME> [CONNECTOR_NAME] [CLIENT_ID] [CLIENT_REDIRECT_URI] [CLIENT_SCOPE] [PROJECT_ID] [IMODEL_ID]'], 'Initialize a connector template', yargs => yargs)
     .demandCommand()
     .help()
     .alias('h', 'help')
@@ -27,14 +27,14 @@ async function main() {
 
   switch(cmd) {
     case 'init':
-      init(argv.PROJECT_NAME, argv.CONNECTOR_NAME, argv.CLIENT_ID);
+      init(argv.PROJECT_NAME, argv.CONNECTOR_NAME, argv.CLIENT_ID, argv.CLIENT_REDIRECT_URI, argv.CLIENT_SCOPE, argv.PROJECT_ID, argv.IMODEL_ID);
       break;
     default:
       console.error(`Unknown command: ${cmd}`);
   }
 }
 
-function init(projectName, connectorName, clientId) {
+function init(projectName, connectorName, clientId, clientRedirectUri, clientScope, projectId, iModelId) {
   const env = yeoman.createEnv();
   const generatorPath = path.join(__dirname, '../generator/index.js');
   env.register(generatorPath, 'pcf:connector');
@@ -42,7 +42,7 @@ function init(projectName, connectorName, clientId) {
   projectName = projectName ? projectName : 'GeneratedProject';
   connectorName = connectorName ? connectorName : '';
   clientId = clientId ? clientId : '';
-  args = `pcf:connector ${projectName} ${connectorName} ${clientId}`;
+  args = `pcf:connector ${projectName} ${connectorName} ${clientId} ${clientRedirectUri} ${clientScope} ${projectId} ${iModelId}`;
   env.run(args, () => {});
 }
 

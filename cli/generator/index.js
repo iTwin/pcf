@@ -41,6 +41,10 @@ module.exports = class extends Generator {
     this.argument("projectName", { type: String, required: true });
     this.argument("connectorName", { type: String, required: false });
     this.argument("clientId", { type: String, required: false });
+    this.argument("clientRedirectUri", { type: String, required: false });
+    this.argument("clientScope", { type: String, required: false });
+    this.argument("projectId", { type: String, required: false });
+    this.argument("iModelId", { type: String, required: false });
   }
 
   async initializing() {
