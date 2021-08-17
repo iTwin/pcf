@@ -2,15 +2,15 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+import { BentleyStatus } from "@bentley/bentleyjs-core";
 import * as bk from "@bentley/imodeljs-backend";
-import * as chai from "chai";
-import * as path from "path";
-import * as fs from "fs";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import * as pcf from "../../pcf";
-import { BentleyStatus } from "@bentley/bentleyjs-core";
-import { JobArgs, JobArgsProps } from "../../pcf";
+import { IntegrationTestApp } from "./IntegrationTestApp";
+import * as chai from "chai";
+import * as path from "path";
+import * as fs from "fs";
 
 describe("Integration Tests", () => {
 
@@ -59,7 +59,7 @@ describe("Integration Tests", () => {
 
   const testConnection = testCases[0].jobs[0].connection;
   const testConnectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCases[0].jobs[0].connectorFile);
-  const app = new pcf.IntegrationTestApp({ connectorPath: testConnectorPath, connection: testConnection } as JobArgs);
+  const app = new IntegrationTestApp({ connectorPath: testConnectorPath, connection: testConnection } as pcf.JobArgs);
 
   before(async () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
@@ -84,7 +84,7 @@ describe("Integration Tests", () => {
           const newData = fs.readFileSync(sourcePath);
           fs.writeFileSync(app.jobArgs.connection.filepath, newData);
 
-          app.jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as JobArgsProps);
+          app.jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
 
           let status: BentleyStatus;
           if (method === RunMethods.WithoutFwk)
