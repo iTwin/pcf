@@ -1,5 +1,5 @@
 {
-  "name": "<%= className %>",
+  "name": "<%= packageName %>",
   "version": "1.0.0",
   "description": "Give your connector a description here.",
   "main": "lib/App.js",

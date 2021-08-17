@@ -30,51 +30,35 @@ ${chalk.blue("               \"╜▒║╖╖║▒╝╙          ")}
 ${chalk.blue("                   ``              ")}`;
 
 const getNameUsage = (answers) => `${chalk.grey("  OK! We'll use this for the following values in your project:")}
-    ${chalk.grey("⁃ Module Name:")} ${chalk.green(pascalCase(answers.name) + ".ts")}
-    ${chalk.grey("⁃ Package Name:")} ${chalk.green(answers.name)}
+    ${chalk.grey("⁃ Module Name:")} ${chalk.green(pascalCase(answers.connectorName) + ".ts")}
+    ${chalk.grey("⁃ Package Name:")} ${chalk.green(answers.connectorName)}
 `;
 
 module.exports = class extends Generator {
   constructor(args, opts) {
     super(args, opts);
 
-    try {
-      this.argument("dir", { type: String, required: true });
-      this.argument("name", { type: String, required: false });
-      this.argument("clientId", { type: String, required: false });
-    } catch (error) {
-      console.error("Please specify a directory for your connector:");
-      console.error(`  ${chalk.cyan("npm init imodeljs-connector")} ${chalk.green("<directory>")}`);
-      console.error("\nFor example:");
-      console.error(`  ${chalk.cyan("npx yo imodeljs-connector")} ${chalk.green("my-connector")}`);
-      process.exit(1);
-    }
+    this.argument("projectName", { type: String, required: true });
+    this.argument("connectorName", { type: String, required: false });
+    this.argument("clientId", { type: String, required: false });
+    this.argument("clientRedirectUri", { type: String, required: false });
+    this.argument("clientScope", { type: String, required: false });
+    this.argument("projectId", { type: String, required: false });
+    this.argument("iModelId", { type: String, required: false });
   }
 
   async initializing() {
-    this.destinationRoot(path.resolve(this.contextRoot, this.options.dir));
-
-    this._defaultNodeVersion = semver.satisfies(process.versions.node, "12.17.0") ? process.versions.node : "12.17.0";
-    this._latestIMJSVersion = await latestVersion("@bentley/imodeljs-common");
-
-    if (this.options.imjsversion !== undefined &&
-      !semver.satisfies(this.options.imjsversion, '2.x', { includePrerelease: true }) &&
-      this.options.imjsversion !== "latest") {
-      throw "imjsversion semver is not valid. Connector generator supports only 2.x. version of imjs packages";
-    }
-
-    if (this.options.nodeversion === "default") {
-      this.options.nodeversion = this._defaultNodeVersion;
-    }
-
-    if (this.options.imjsversion === "latest") {
-      this.options.imjsversion = this._latestIMJSVersion;
+    this.destinationRoot(path.resolve(this.contextRoot, this.options.projectName));
+    if (semver.lt(process.versions.node, "12.17.0") || semver.gte(process.versions.node, "15.0.0")) {
+      const msg = "Your Node.js version must be >=12.17.0 <15.0.0";
+      this.log(msg);
+      throw msg;
     }
   }
 
   async prompting() {
     this.log(logo);
-    this.log(chalk.bold(`Welcome to the ${chalk.cyan("iModel.js Connecter")} generator!\n`));
+    this.log(chalk.bold(`Welcome to the ${chalk.cyan("iTwin Connecter")} generator!\n`));
 
     const logDuringPrompts = (messageOrCallback) => {
       return {
@@ -88,61 +72,79 @@ module.exports = class extends Generator {
 
     this.answers = await this.prompt([
       {
-        name: "dir",
-        message: "What\'s the name of your connector project folder?",
-        default: "MyProject",
-        when: () => !this.options.dir,
-        required: true,
-      },
-      {
-        name: "name",
-        message: "What\'s the name of your connector? (Use a unique, descriptive name.",
+        name: "connectorName",
+        message: "What\'s the name of your connector?",
         default: "MyConnector",
-        when: () => !this.options.name,
+        when: () => !this.options.connectorName,
         filter: (v) => paramCase(v),
         transformer: (v) => chalk.cyan(paramCase(v)),
         required: true,
       },
-      this.options.name ? { when: () => false } : logDuringPrompts(getNameUsage),
+      this.options.connectorName ? { when: () => false } : logDuringPrompts(getNameUsage),
       {
         name: "clientId",
-        message: "What\'s your Client ID?",
+        message: "What\'s your Client ID? Go to developer.bentley.com and create a SPA app if you don't have one.",
         default: "",
         when: () => !this.options.clientId,
         required: true,
+      },
+      {
+        name: "clientRedirectUri",
+        message: "What\'s your Client Redirect URI? You may find this value under 'My App' section on developer.bentley.com",
+        default: "http://localhost:3000/signin-callback",
+        when: () => !this.options.clientRedirectUri,
+        required: true,
+      },
+      {
+        name: "clientScope",
+        message: "What\'s your Client Scope? You may find this value under 'My App' section on developer.bentley.com",
+        default: "",
+        when: () => !this.options.clientScope,
+        required: true,
+      },
+      {
+        name: "projectId",
+        message: "What\'s your project ID?",
+        default: "",
+        when: () => !this.options.projectId,
+        required: false,
+      },
+      {
+        name: "iModelId",
+        message: "What\'s your iModel ID?",
+        default: "",
+        when: () => !this.options.iModelId,
+        required: false,
       },
     ]);
   }
 
   async writing() {
-    this.log("\nGenerating pcf connector template...");
+    this.log("\nGenerating PCF connector template...");
     let files = glob.sync("**/*", { cwd: this.sourceRoot(), nodir: true, dot: true });
 
     this.log(files);
-    const answerName = this.answers.name || this.options.name;
+    const connectorName = this.answers.connectorName || this.options.connectorName;
 
     const templateData = {
-      name: answerName,
-      capsName: answerName.replace(/-/g, " ").toUpperCase(),
-      className: pascalCase(answerName),
-
+      name: connectorName,
+      capsName: connectorName.replace(/-/g, " ").toUpperCase(),
+      packageName: connectorName,
+      className: pascalCase(connectorName),
       clientId: this.answers.clientId || this.options.clientId || "",
-      clientRedirectUri: "http://localhost:3000/signin-callback",
-      clientScope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
-
-      imjsversion: "2.15.6",
-      pcfversion: "0.0.1",
+      clientRedirectUri: this.answers.clientRedirectUri || this.options.clientRedirectUri || "",
+      clientScope: this.answers.clientScope || this.options.clientScope || "",
+      projectId: this.answers.projectId || this.options.projectId || "",
+      iModelId: this.answers.iModelId || this.options.iModelId || "",
     };
 
     files.forEach((file) => {
       let destPath = this.destinationPath(file);
       const srcPath = this.templatePath(file);
-
       if (destPath.match(/.*ClassName(\.test)?\.ts$/))
         destPath = replaceFileName(destPath, "ClassName", templateData.className);
       else if (destPath.match(/.*gitignore$/))
         destPath = replaceFileName(destPath, "gitignore", ".gitignore");
-
       this.fs.copyTpl(srcPath, destPath, templateData);
       return;
     }, this);
