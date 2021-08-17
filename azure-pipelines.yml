@@ -57,6 +57,12 @@ stages:
           versionSpec: '12.17.0'
         displayName: 'Install Node.js'
 
+      - bash: |
+        cp README.md ./core/
+        cp LICENSE ./cli/
+        cp LICENSE ./core/
+      displayName: 'copy misc files'
+
       # @itwin/pcf build
 
       - script: |
@@ -85,7 +91,7 @@ stages:
           imjs_test_regular_user_name: $(test_user_name)
           imjs_test_regular_user_password: $(test_user_password)
 
-      - script: |
+      - bash: |
           npm pack
         displayName: 'npm pack'
         workingDirectory: core
@@ -127,10 +133,6 @@ stages:
           pcf init TestProject TestConnector TestClientId TestClientRedirectUri TestClientScope TestProjectId TestIModelId
         displayName: 'pcf init'
         workingDirectory: cli
-
-      - bash: |
-          ls ../../core
-        workingDirectory: cli/TestProject
 
       - bash: |
           npm install ../../core/*.tgz
