@@ -85,7 +85,9 @@ stages:
           imjs_test_regular_user_name: $(test_user_name)
           imjs_test_regular_user_password: $(test_user_password)
 
-      - script: |
+      - bash: |
+          cp ../README.md .
+          cp ../LICENSE .
           npm pack
         displayName: 'npm pack'
         workingDirectory: core
@@ -109,7 +111,8 @@ stages:
         displayName: 'npm link'
         workingDirectory: cli
 
-      - script: |
+      - bash: |
+          cp ../LICENSE .
           npm pack
         displayName: 'npm pack'
         workingDirectory: cli
@@ -127,10 +130,6 @@ stages:
           pcf init TestProject TestConnector TestClientId TestClientRedirectUri TestClientScope TestProjectId TestIModelId
         displayName: 'pcf init'
         workingDirectory: cli
-
-      - bash: |
-          ls ../../core
-        workingDirectory: cli/TestProject
 
       - bash: |
           npm install ../../core/*.tgz
@@ -194,6 +193,9 @@ stages:
           echo "coreName: $(info.coreName)"
           echo "cliVer: $(info.cliVer)"
           echo "cliName: $(info.cliName)"
+          ls
+          ls cli
+          ls core
         displayName: 'Show Build Info'
         condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
 

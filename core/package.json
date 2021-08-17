@@ -5,8 +5,19 @@
   "main": "lib/pcf.js",
   "typings": "lib/pcf",
   "license": "MIT",
+  "keywords": [
+    "Bentley",
+    "BIM",
+    "iModel"
+  ],
   "engines": {
-    "node": ">=12.17.0 <15.0"
+    "node": ">=12.17.0 <15.0",
+    "npm": ">=6.0.0 <7.0.0"
+  },
+  "homepage": "https://github.com/itwin/pcf",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/itwin/pcf"
   },
   "scripts": {
     "build": "tsc && npm run copyFiles",
@@ -19,11 +30,6 @@
     "deploy": "git push && npm run clean && npm run build && npm publish",
     "docs": "betools docs"
   },
-  "keywords": [
-    "Bentley",
-    "BIM",
-    "iModel"
-  ],
   "dependencies": {
     "@bentley/backend-itwin-client": "2.16.10",
     "@bentley/bentleyjs-core": "2.16.10",

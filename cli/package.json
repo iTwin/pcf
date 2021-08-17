@@ -8,15 +8,20 @@
     "BIM",
     "iModel"
   ],
+  "engines": {
+    "node": ">=12.17.0 <15.0",
+    "npm": ">=6.0.0 <7.0.0"
+  },
+  "homepage": "https://github.com/itwin/pcf",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iTwin/pcf/tree/main/cli"
+  },
   "main": "./bin/pcf.js",
   "bin": {
     "pcf": "bin/pcf"
   },
   "preferGlobal": true,
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/iTwin/pcf/tree/main/cli"
-  },
   "scripts": {},
   "dependencies": {
     "chalk": "2.4.2",
