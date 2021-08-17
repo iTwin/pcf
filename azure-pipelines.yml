@@ -57,12 +57,6 @@ stages:
           versionSpec: '12.17.0'
         displayName: 'Install Node.js'
 
-      - bash: |
-        cp README.md ./core/
-        cp LICENSE ./cli/
-        cp LICENSE ./core/
-      displayName: 'copy misc files'
-
       # @itwin/pcf build
 
       - script: |
@@ -92,6 +86,8 @@ stages:
           imjs_test_regular_user_password: $(test_user_password)
 
       - bash: |
+          cp ../README.md .
+          cp ../LICENSE .
           npm pack
         displayName: 'npm pack'
         workingDirectory: core
@@ -115,7 +111,8 @@ stages:
         displayName: 'npm link'
         workingDirectory: cli
 
-      - script: |
+      - bash: |
+          cp ../LICENSE .
           npm pack
         displayName: 'npm pack'
         workingDirectory: cli
@@ -196,6 +193,9 @@ stages:
           echo "coreName: $(info.coreName)"
           echo "cliVer: $(info.cliVer)"
           echo "cliName: $(info.cliName)"
+          ls
+          ls cli
+          ls core
         displayName: 'Show Build Info'
         condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
 
