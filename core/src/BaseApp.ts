@@ -188,13 +188,8 @@ export class BaseApp {
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
-      if ((err as any).status === 403)
-        Logger.logError(LogCategory.PCF, "Out of call volumn quota. Try in the next hour.");
-      await util.retryLoop(async () => {
-        if (db && db.isBriefcaseDb()) {
-          await db.concurrencyControl.abandonResources(this.authReqContext);
-        }
-      });
+      if (db && db.isBriefcaseDb())
+        await db.concurrencyControl.abandonResources(this.authReqContext);
       runStatus = BentleyStatus.ERROR;
     } finally {
       if (db) {
