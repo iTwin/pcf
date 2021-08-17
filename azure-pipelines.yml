@@ -86,9 +86,16 @@ stages:
           imjs_test_regular_user_password: $(test_user_password)
 
       - script: |
-          npm link
-        displayName: 'npm link'
+          npm pack
+        displayName: 'npm pack'
         workingDirectory: core
+
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: core
+          contents: '*.tgz'
+          targetFolder: $(Build.ArtifactStagingDirectory)/core
+        displayName: 'Copy @itwin/pcf'
 
       # @itwin/pcf-cli build
 
@@ -98,9 +105,23 @@ stages:
         workingDirectory: cli
 
       - script: |
-          npm install -g .
-        displayName: 'npm install -g .'
+          npm link
+        displayName: 'npm link'
         workingDirectory: cli
+
+      - script: |
+          npm pack
+        displayName: 'npm pack'
+        workingDirectory: cli
+
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: cli
+          contents: '*.tgz'
+          targetFolder: $(Build.ArtifactStagingDirectory)/cli
+        displayName: 'Copy @itwin/pcf-cli'
+
+      # TestConnector build
 
       - script: |
           pcf init TestProject TestConnector TestClientId TestClientRedirectUri TestClientScope TestProjectId TestIModelId
@@ -108,14 +129,14 @@ stages:
         workingDirectory: cli
 
       - script: |
-          npm link @itwin/pcf
-        displayName: 'npm link @itwin/pcf'
-        workingDirectory: cli/output
+          npm install $(Build.ArtifactStagingDirectory)/core/*.tgz
+        displayName: 'npm install ./core/*.tgz'
+        workingDirectory: cli/TestProject
 
       - script: |
           npm run build
         displayName: 'Build Generated Connector'
-        workingDirectory: cli/output
+        workingDirectory: cli/TestProject
 
       # publish artifact
 
@@ -170,34 +191,6 @@ stages:
           echo "cliVer: $(info.cliVer)"
           echo "cliName: $(info.cliName)"
         displayName: 'Show Build Info'
-        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
-
-      - script: |
-          npm pack
-        displayName: 'npm pack @itwin/pcf'
-        workingDirectory: core
-        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
-
-      - script: |
-          npm pack
-        displayName: 'npm pack @itwin/pcf-cli'
-        workingDirectory: cli
-        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
-
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: core
-          contents: '*.tgz'
-          targetFolder: $(Build.ArtifactStagingDirectory)/core
-        displayName: 'Copy @itwin/pcf'
-        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
-
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: cli
-          contents: '*.tgz'
-          targetFolder: $(Build.ArtifactStagingDirectory)/cli
-        displayName: 'Copy @itwin/pcf-cli'
         condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
 
       - task: PublishBuildArtifacts@1

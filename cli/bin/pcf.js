@@ -42,6 +42,11 @@ function init(projectName, connectorName, clientId, clientRedirectUri, clientSco
   projectName = projectName ? projectName : 'GeneratedProject';
   connectorName = connectorName ? connectorName : '';
   clientId = clientId ? clientId : '';
+  clientRedirectUri = clientRedirectUri ? clientRedirectUri : '';
+  clientScope = clientScope ? clientScope : '';
+  projectId = projectId ? projectId : '';
+  iModelId = iModelId ? iModelId : '';
+
   args = `pcf:connector ${projectName} ${connectorName} ${clientId} ${clientRedirectUri} ${clientScope} ${projectId} ${iModelId}`;
   env.run(args, () => {});
 }
