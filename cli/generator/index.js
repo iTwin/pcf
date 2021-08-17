@@ -98,6 +98,20 @@ module.exports = class extends Generator {
         when: () => !this.options.clientScope,
         required: true,
       },
+      {
+        name: "projectId",
+        message: "What\'s your project ID?",
+        default: "",
+        when: () => !this.options.projectId,
+        required: false,
+      },
+      {
+        name: "iModelId",
+        message: "What\'s your iModel ID?",
+        default: "",
+        when: () => !this.options.iModelId,
+        required: false,
+      },
     ]);
   }
 
@@ -116,6 +130,8 @@ module.exports = class extends Generator {
       clientId: this.answers.clientId || this.options.clientId || "",
       clientRedirectUri: this.answers.clientRedirectUri || this.options.clientRedirectUri || "",
       clientScope: this.answers.clientScope || this.options.clientScope || "",
+      projectId: this.answers.projectId || this.options.projectId || "",
+      iModelId: this.answers.iModelId || this.options.iModelId || "",
     };
 
     files.forEach((file) => {

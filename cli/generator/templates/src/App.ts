@@ -20,8 +20,8 @@ export async function main() {
   });
   // define iModel Hub information
   const hubArgs = new pcf.HubArgs({
-    projectId: "<Your Project ID Guid>",
-    iModelId: "<Your iModel ID Guid>",
+    projectId: "<%= projectId %>",
+    iModelId: "<%= iModelId %>",
     // You must register your own SPA client app and use its client ID (see https://developer.bentley.com)
     clientConfig: {
       clientId: "<%= clientId %>",
