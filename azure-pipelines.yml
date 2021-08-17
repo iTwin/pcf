@@ -128,8 +128,8 @@ stages:
         displayName: 'pcf init'
         workingDirectory: cli
 
-      - bash: |
-          npm install $(Build.ArtifactStagingDirectory)/core/*.tgz
+      - script: |
+          npm install ../../core/*.tgz
         displayName: 'npm install core/*tgz'
         workingDirectory: cli/TestProject
 
