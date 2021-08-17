@@ -339,12 +339,8 @@ export abstract class PConnector extends IModelBridge {
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const comment = `${header} - ${changeDesc}`;
     if (this.db.isBriefcaseDb()) {
-      await util.retryLoop(async () => {
-        await (this.db as bk.BriefcaseDb).concurrencyControl.request(this.authReqContext);
-      });
-      await util.retryLoop(async () => {
-        await (this.db as bk.BriefcaseDb).pullAndMergeChanges(this.authReqContext);
-      });
+      await (this.db as bk.BriefcaseDb).concurrencyControl.request(this.authReqContext);
+      await (this.db as bk.BriefcaseDb).pullAndMergeChanges(this.authReqContext);
       this.db.saveChanges(comment);
       await (this.db as bk.BriefcaseDb).pushChanges(this.authReqContext, comment, ctype); // not atomic
     } else {
@@ -355,20 +351,18 @@ export abstract class PConnector extends IModelBridge {
   public async enterChannel(rootId: Id64String) {
     if (!this.db.isBriefcaseDb())
       return;
-    await util.retryLoop(async () => {
-      if (!(this.db as bk.BriefcaseDb).concurrencyControl.isBulkMode)
-        (this.db as bk.BriefcaseDb).concurrencyControl.startBulkMode();
-      if ((this.db as bk.BriefcaseDb).concurrencyControl.hasPendingRequests)
-        throw new Error("has pending requests");
-      if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
-        throw new Error("has schema lock");
-      if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
-        throw new Error("has code spec lock");
-      if ((this.db as bk.BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
-        throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
-      (this.db as bk.BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
-      await (this.db as bk.BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
-    });
+    if (!(this.db as bk.BriefcaseDb).concurrencyControl.isBulkMode)
+      (this.db as bk.BriefcaseDb).concurrencyControl.startBulkMode();
+    if ((this.db as bk.BriefcaseDb).concurrencyControl.hasPendingRequests)
+      throw new Error("has pending requests");
+    if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
+      throw new Error("has schema lock");
+    if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
+      throw new Error("has code spec lock");
+    if ((this.db as bk.BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
+      throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
+    (this.db as bk.BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
+    await (this.db as bk.BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
   }
 
   // For Nodes
