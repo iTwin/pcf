@@ -1,4 +1,5 @@
 [![Build Status](https://dev.azure.com/bentleycs/iModelTechnologies/_apis/build/status/iTwin.pcf?branchName=main)](https://dev.azure.com/bentleycs/iModelTechnologies/_build/latest?definitionId=5431&branchName=main)
+[![@itwin/pcf on npm](https://img.shields.io/npm/v/@itwin/pcf)](https://www.npmjs.com/package/@itwin/pcf)
 
 Table of Contents
 =======================
