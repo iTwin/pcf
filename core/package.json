@@ -1,6 +1,6 @@
 {
   "name": "@itwin/pcf",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Define your digital twin as code with iTwin PCF (Parametric Connector Framework).",
   "main": "lib/pcf.js",
   "typings": "lib/pcf",
