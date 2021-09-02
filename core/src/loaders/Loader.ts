@@ -15,13 +15,18 @@ export interface BaseConnection {
   loaderKey: string;
 
   /*
-   * source data will be loaded into the IR Model on demand if true.
+   * Source data will be loaded into the IR Model on demand if true.
    * default = false
    */
   lazyMode?: boolean;
+
+  /*
+   * Arbitrary data
+   */
+  data?: any;
 }
 
-export interface FileConnection {
+export interface FileConnection extends BaseConnection {
 
   /*
    * Marks that this is a connection to a file.
@@ -34,7 +39,20 @@ export interface FileConnection {
   filepath: string;
 }
 
-export type DataConnection = BaseConnection & (FileConnection);
+export interface APIConnection extends BaseConnection {
+
+  /*
+   * Marks that this is a connection to an remote API.
+   */
+  kind: "pcf_api_connection";
+
+  /* 
+   * Base URL to fetch data from the API
+   */ 
+  baseUrl: string;
+}
+
+export type DataConnection = FileConnection | APIConnection;
 
 /*
  * Defined by users. A Loader fetches data according to this object.
@@ -83,6 +101,11 @@ export abstract class Loader {
   private _primaryKeyMap: {[entityKey: string]: string}; 
   private _defaultPrimaryKey: string;
 
+  /*
+   * Fetches version to determine whether data update is skipped
+   */
+  public getVersion?(): Promise<string>;
+
   constructor(props: LoaderProps) {
     this._isOpen = false;
     this._format = props.format;
@@ -116,6 +139,7 @@ export abstract class Loader {
    * Returns all non-relationship instances (e.g. the rows of non-link tables)
    */
   protected abstract _getInstances(entityKey: string): Promise<IRInstance[]>;
+
 
   public async open(con: DataConnection): Promise<void> {
     if (this.isOpen) {

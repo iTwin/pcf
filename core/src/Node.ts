@@ -26,8 +26,23 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  public get nodes() {
-    return this.nodeMap.values();
+  public getNodes(subjectKey: string): Array<SubjectNode | ModelNode | LoaderNode | ElementNode | RelationshipNode | RelatedElementNode> {
+    const nodes: any[] = [];
+    for (const node of this.nodeMap.values()) {
+      if (node instanceof SubjectNode && node.key === subjectKey)
+        nodes.push(node);
+      else if (node instanceof ModelNode && node.subject.key === subjectKey)
+        nodes.push(node);
+      else if (node instanceof LoaderNode && node.model.subject.key === subjectKey)
+        nodes.push(node);
+      else if (node instanceof ElementNode && node.model.subject.key === subjectKey)
+        nodes.push(node);
+      else if (node instanceof RelationshipNode && node.subject.key === subjectKey)
+        nodes.push(node);
+      else if (node instanceof RelatedElementNode && node.subject.key === subjectKey)
+        nodes.push(node);
+    }
+    return nodes;
   }
 
   public insert<T extends Node>(node: T) {
@@ -276,37 +291,45 @@ export class LoaderNode extends Node implements LoaderNodeProps {
   }
 
   protected async _update() {
-    let res: UpdateResult;
+    let instance: IRInstance | undefined = undefined;
     const con = this.pc.jobArgs.connection;
     switch(con.kind) {
       case "pcf_file_connection":
         const stats = fs.statSync(con.filepath);
         if (!stats)
-          throw new Error(`DataConnection.filepath not found - ${con}`);
-        const instance = new IRInstance({
+          throw new Error(`FileConnection.filepath not found - ${con}`);
+        instance = new IRInstance({
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: stats.mtimeMs.toString(),
           data: { nodeKey: this.key, ...this.toJSON() },
         });
-        const modelId = this.pc.modelCache[this.model.key];
-        const code = bk.RepositoryLink.createCode(this.pc.db, modelId, this.key);
-        const loaderProps = this.loader.toJSON();
-        const repoLinkProps = {
-          classFullName: bk.RepositoryLink.classFullName,
-          model: modelId,
-          code,
-          format: loaderProps.format,
-          userLabel: instance.userLabel,
-          jsonProperties: instance.data,
-        } as common.RepositoryLinkProps;
-        res = this.pc.updateElement(repoLinkProps, instance);
-        this.pc.elementCache[instance.key] = res.entityId;
-        this.pc.seenIdSet.add(res.entityId);
         break;
-      default:
-        throw new Error(`${con.kind} is not supported yet.`);
+      case "pcf_api_connection":
+        const version = typeof this.loader.getVersion === "function" ? await this.loader.getVersion() : "";
+        instance = new IRInstance({
+          pkey: "nodeKey",
+          entityKey: "DocumentWithBeGuid",
+          version,
+          data: { nodeKey: this.key, ...this.toJSON() },
+        });
+        break;
     }
+
+    const modelId = this.pc.modelCache[this.model.key];
+    const code = bk.RepositoryLink.createCode(this.pc.db, modelId, this.key);
+    const loaderProps = this.loader.toJSON();
+    const repoLinkProps = {
+      classFullName: bk.RepositoryLink.classFullName,
+      model: modelId,
+      code,
+      format: loaderProps.format,
+      userLabel: instance.userLabel,
+      jsonProperties: instance.data,
+    } as common.RepositoryLinkProps;
+    const res = this.pc.updateElement(repoLinkProps, instance);
+    this.pc.elementCache[instance.key] = res.entityId;
+    this.pc.seenIdSet.add(res.entityId);
     return res;
   }
 
@@ -401,6 +424,11 @@ export class ElementNode extends Node implements ElementNodeProps {
 export interface RelationshipNodeProps extends NodeProps {
 
   /*
+   * References a Subject Node defined by user
+   */
+  subject: SubjectNode;
+
+  /*
    * Allows multiple EC Relationships to be populated by a single ElementNode
    * Each EC Relationship represents a link table relationship
    */
@@ -420,12 +448,14 @@ export interface RelationshipNodeProps extends NodeProps {
 
 export class RelationshipNode extends Node {
 
+  public subject: SubjectNode;
   public dmo: RelationshipDMO;
   public source: ElementNode;
   public target?: ElementNode | undefined;
 
   constructor(pc: PConnector, props: RelationshipNodeProps) {
     super(pc, props);
+    this.subject = props.subject;
     this.dmo = props.dmo;
     this.source = props.source;
     this.target = props.target;
@@ -464,11 +494,16 @@ export class RelationshipNode extends Node {
   }
 
   public toJSON(): any {
-    return { key: this.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
+    return { key: this.key, subjectNode: this.subject.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
   }
 }
 
 export interface RelatedElementNodeProps extends NodeProps {
+
+  /*
+   * References a Subject Node defined by user
+   */
+  subject: SubjectNode;
 
   /*
    * Allows multiple EC Related Element to be populated by a single ElementNode
@@ -490,12 +525,14 @@ export interface RelatedElementNodeProps extends NodeProps {
 
 export class RelatedElementNode extends Node {
 
+  public subject: SubjectNode;
   public dmo: RelatedElementDMO;
   public source: ElementNode;
   public target?: ElementNode | undefined;
 
   constructor(pc: PConnector, props: RelatedElementNodeProps) {
     super(pc, props);
+    this.subject = props.subject;
     this.dmo = props.dmo;
     this.source = props.source;
     this.target = props.target;
@@ -535,6 +572,6 @@ export class RelatedElementNode extends Node {
   }
 
   public toJSON(): any {
-    return { key: this.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
+    return { key: this.key, subjectNode: this.subject.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
   }
 }

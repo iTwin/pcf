@@ -21,6 +21,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BisCore:DefinitionModel": 3,
     "select * from BisCore:PhysicalModel": 2,
     "select * from BisCore:GroupInformationModel": 1,
+    "select * from BisCore:LinkModel": 2,
     // Element
     "select * from BisCore:SpatialCategory": 2,
     "select * from TestSchema:ExtPhysicalType": 2,
@@ -52,6 +53,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BisCore:DefinitionModel": 3,
     "select * from BisCore:PhysicalModel": 2,
     "select * from BisCore:GroupInformationModel": 1,
+    "select * from BisCore:LinkModel": 2,
     // Element
     "select * from BisCore:SpatialCategory": 1,                       // -1 (from v1)
     "select * from TestSchema:ExtPhysicalType": 3,                    // +1 (from v1)
@@ -69,6 +71,12 @@ const TestResults: {[fileName: string]: QueryToCount} = {
   "v3.json": { // add a new element with the same code as a previously deleted element.
     "select * from TestSchema:ExtGroupInformationElement": 2, // +1 (from v2)
   },
+  "v4.json": {
+    "select * from BisCore:Subject": 3,
+    "select * from BisCore:Subject where codeValue=\'Subject2\'": 1,
+    "select * from BisCore:RepositoryLink": 2,
+    "select * from BisCore:RepositoryLink where codeValue=\'api-loader-1\'": 1,
+  }
 };
 
 export default TestResults;
