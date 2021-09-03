@@ -59,7 +59,7 @@ describe("Unit Tests", () => {
     await bk.IModelHost.startup();
     Logger.initializeToConsole();
     Logger.configureLevels({
-      defaultLevel: LogLevel[LogLevel.None],
+      defaultLevel: LogLevel[LogLevel.Warning],
       categoryLevels: [
         {
           category: pcf.LogCategory.PCF,
