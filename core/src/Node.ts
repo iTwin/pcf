@@ -301,17 +301,16 @@ export class LoaderNode extends Node implements LoaderNodeProps {
         instance = new IRInstance({
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
-          version: stats.mtimeMs.toString(),
-          data: { nodeKey: this.key, ...this.toJSON() },
+          version: this.loader.version,
+          data: { nodeKey: this.key, mtimeMs: stats.mtimeMs.toString(), ...this.loader.toJSON() },
         });
         break;
       case "pcf_api_connection":
-        const version = typeof this.loader.getVersion === "function" ? await this.loader.getVersion() : "";
         instance = new IRInstance({
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
-          version,
-          data: { nodeKey: this.key, ...this.toJSON() },
+          version: this.loader.version,
+          data: { nodeKey: this.key, ...this.loader.toJSON() },
         });
         break;
     }

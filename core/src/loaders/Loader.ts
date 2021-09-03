@@ -84,6 +84,11 @@ export interface LoaderProps {
    * IR Entity Key => Primary Key
    */
   primaryKeyMap?: {[entityKey: string]: string}; 
+
+  /*
+   * Defines the version of current loader.
+   */
+  version?: string;
 }
 
 export type LoaderClass = new (pc: PConnector, props: LoaderProps) => Loader;
@@ -101,10 +106,7 @@ export abstract class Loader {
   private _primaryKeyMap: {[entityKey: string]: string}; 
   private _defaultPrimaryKey: string;
 
-  /*
-   * Fetches version to determine whether data update is skipped
-   */
-  public getVersion?(): Promise<string>;
+  public version: string;
 
   constructor(props: LoaderProps) {
     this._isOpen = false;
@@ -113,6 +115,7 @@ export abstract class Loader {
     this._relationships = props.relationships;
     this._defaultPrimaryKey = props.defaultPrimaryKey;
     this._primaryKeyMap = props.primaryKeyMap ?? {};
+    this.version = props.version ?? "0.0";
   }
 
   /*
