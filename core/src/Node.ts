@@ -297,7 +297,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       case "pcf_file_connection":
         const stats = fs.statSync(con.filepath);
         if (!stats)
-          throw new Error(`FileConnection.filepath not found - ${con}`);
+          throw new Error(`FileConnection.filepath not found - ${con.filepath}`);
         instance = new IRInstance({
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
