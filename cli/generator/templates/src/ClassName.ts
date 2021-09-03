@@ -42,6 +42,7 @@ export class <%= className %> extends pcf.PConnector {
 
     new pcf.RelationshipNode(this, {
       key: "ComponentConnectsComponent",
+      subject: subject1,
       dmo: relationships.ComponentConnectsComponent,
       source: component,
       target: component,
@@ -49,6 +50,7 @@ export class <%= className %> extends pcf.PConnector {
 
     new pcf.RelatedElementNode(this, {
       key: "ComponentAssemblesComponents",
+      subject: subject1,
       dmo: relatedElements.ComponentAssemblesComponents,
       source: component,
       target: component,
