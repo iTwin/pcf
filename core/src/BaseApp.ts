@@ -205,6 +205,7 @@ export class BaseApp {
   /*
    * Executes connector-framework in BaseApp
    */
+  /*
   public async runFwk(): Promise<BentleyStatus> {
     await IModelHost.startup();
     const authReqContext = await this.signin();
@@ -238,6 +239,7 @@ export class BaseApp {
     await IModelHost.shutdown();
     return status;
   }
+  */
 
   /*
    * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.

@@ -210,6 +210,7 @@ export abstract class PConnector extends IModelBridge {
     Logger.logInfo(LogCategory.PCF, "Started Data Update...");
     await this.enterChannel(this.jobSubjectId);
     await this._updateLoader();
+
     if (this.srcState !== pcf.ItemState.Unchanged) {
       this._updateCodeSpecs();
 
@@ -229,17 +230,21 @@ export abstract class PConnector extends IModelBridge {
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
 
-  protected async _updateLoader() {
+  protected async _updateLoader(): Promise<pcf.UpdateResult> {
     const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
     await loaderNode.model.update();
     const res = await loaderNode.update() as pcf.UpdateResult;
+    Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[res.state]}`);
     this._srcState = res.state;
+    return res;
   }
 
-  protected async _updateSubject() {
+  protected async _updateSubject(): Promise<pcf.UpdateResult> {
     const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectKey, pcf.SubjectNode);
     const res = await subjectNode.update() as pcf.UpdateResult;
+    Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[res.state]}`);
     this._jobSubjectId = res.entityId;
+    return res;
   }
 
   protected async _updateDomainSchema(): Promise<any> {
@@ -271,10 +276,18 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateData() {
-    for (const node of this.tree.nodes) {
-      if (!node.hasUpdated)
-        await node.update();
+    let n = 0;
+    const nodes = this.tree.getNodes(this.jobArgs.subjectKey);
+    for (const node of nodes) {
+      if (!node.hasUpdated) {
+        const res = await node.update();
+        if (Array.isArray(res))
+          n += res.filter((r: pcf.UpdateResult) => r.state !== pcf.ItemState.Unchanged).length;
+        else
+          n += 1;
+      }
     }
+    Logger.logInfo(LogCategory.PCF, `Number of updated EC Entity Instances: ${n}`);
   }
 
   protected async _updateDeletedElements() {

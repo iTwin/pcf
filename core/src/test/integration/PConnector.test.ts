@@ -82,15 +82,16 @@ describe("Integration Tests", () => {
 
           const sourcePath = path.join(KnownTestLocations.testAssetsDir, sourceFile);
           const newData = fs.readFileSync(sourcePath);
-          fs.writeFileSync(app.jobArgs.connection.filepath, newData);
+          if (app.jobArgs.connection.kind === "pcf_file_connection")
+            fs.writeFileSync(app.jobArgs.connection.filepath, newData);
 
           app.jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
 
           let status: BentleyStatus;
           if (method === RunMethods.WithoutFwk)
             status = await app.run();
-          else if (method === RunMethods.WithFwk)
-            status = await app.runFwk();
+          // else if (method === RunMethods.WithFwk)
+          //  status = await app.runFwk();
           else
             throw new Error("Unknown RunMethod");
 

@@ -39,6 +39,26 @@ describe("Unit Tests", () => {
             filepath: tempSrcPath,
           }
         },
+        {
+          sourceFile: "v4.json",
+          connectorFile: "JSONConnector.js",
+          subjectKey: "Subject2",
+          connection: {
+            loaderKey: "api-loader-1",
+            kind: "pcf_api_connection",
+            baseUrl: "test.com",
+          }
+        },
+        {
+          sourceFile: "v4.json",
+          connectorFile: "JSONConnector.js",
+          subjectKey: "Subject2",
+          connection: {
+            loaderKey: "api-loader-1",
+            kind: "pcf_api_connection",
+            baseUrl: "test.com",
+          }
+        },
       ]
     },
   ]
@@ -49,7 +69,7 @@ describe("Unit Tests", () => {
     await bk.IModelHost.startup();
     Logger.initializeToConsole();
     Logger.configureLevels({
-      defaultLevel: LogLevel[LogLevel.None],
+      defaultLevel: LogLevel[LogLevel.Warning],
       categoryLevels: [
         {
           category: pcf.LogCategory.PCF,
