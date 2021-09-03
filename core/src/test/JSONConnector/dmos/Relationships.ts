@@ -38,7 +38,7 @@ export const ExtElementRefersToExistingElements: RelationshipDMO = {
     irEntity: "ExtElementRefersToExistingElements",
     fromAttr: "ExtPhysicalElementKey",
     fromType: "IREntity",
-    toAttr: "ExistingElementSearchKey",
+    toAttr: "ExistingElementLocator",
     toType: "ECEntity",
     ecRelationship: {
         name: "ExtElementRefersToExistingElements",
@@ -55,9 +55,37 @@ export const ExtElementRefersToExistingElements: RelationshipDMO = {
         target: {
             polymorphic: true,
             multiplicity: "(0..*)",
-            roleLabel: "To ExistingElementSearchKey",
+            roleLabel: "To ExistingElementLocator",
             abstractConstraint: PhysicalElement.classFullName,
             constraintClasses: [PhysicalElement.classFullName],
+        },
+    },
+};
+
+export const ExtExistingElementRefersToElements: RelationshipDMO = {
+    irEntity: "ExtExistingElementRefersToElements",
+    fromAttr: "ExistingElementLocator",
+    fromType: "ECEntity",
+    toAttr: "ExtPhysicalElementKey",
+    toType: "IREntity",
+    ecRelationship: {
+        name: "ExtExistingElementRefersToElements",
+        baseClass: ElementRefersToElements.classFullName,
+        strength: strengthToString(StrengthType.Referencing),
+        strengthDirection: strengthDirectionToString(StrengthDirection.Forward),
+        source: {
+            polymorphic: true,
+            multiplicity: "(0..*)",
+            roleLabel: "To ExistingElementLocator",
+            abstractConstraint: PhysicalElement.classFullName,
+            constraintClasses: [PhysicalElement.classFullName],
+        },
+        target: {
+            polymorphic: true,
+            multiplicity: "(0..*)",
+            roleLabel: "From ExtPhysicalElementKey",
+            abstractConstraint: PhysicalElement.classFullName,
+            constraintClasses: ["TestSchema:ExtPhysicalElement"],
         },
     },
 };

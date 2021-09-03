@@ -424,17 +424,24 @@ export abstract class PConnector extends IModelBridge {
       return;
 
     let sourceId: Id64String | undefined;
-    if (node.dmo.fromType === "IREntity") {
+    if (node.source && node.dmo.fromType === "IREntity") {
       const sourceModelId = this.modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
       if (!sourceValue)
         return;
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
+    } else if (node.dmo.fromType === "ECEntity") {
+      const res = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
+      if (res.error) {
+        Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${res.error}`);
+        return;
+      }
+      sourceId = res.elementId;
     }
 
     let targetId: Id64String | undefined;
-    if (node.dmo.toType === "IREntity") {
+    if (node.target && node.dmo.toType === "IREntity") {
       const targetModelId = this.modelCache[node.target!.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
       if (!targetValue)
@@ -442,12 +449,12 @@ export abstract class PConnector extends IModelBridge {
       const targetCode = this.getCode(node.target!.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {
-      const result = await pcf.searchElement(this.db, instance.data[node.dmo.toAttr]) as pcf.SearchResult;
-      if (result.error) {
-        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${result.error}`);
+      const res = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
+      if (res.error) {
+        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${res.error}`);
         return;
       }
-      targetId = result.elementId;
+      targetId = res.elementId;
     }
 
     if (!sourceId) {

@@ -47,13 +47,13 @@ export async function verifyIModel(db: IModelDb, qtc: QueryToCount): Promise<Mis
   return mismatches;
 }
 
-export interface SearchResult {
+export interface LocateResult {
   error?: string;
   elementId?: string;
   ecsql?: string;
 }
 
-export async function searchElement(db: IModelDb, searchKey: string): Promise<SearchResult> {
+export async function locateElement(db: IModelDb, locator: string): Promise<LocateResult> {
 
   function isHex(hexstr: string): boolean {
     const hexnum = parseInt(hexstr, 16);
@@ -62,12 +62,12 @@ export async function searchElement(db: IModelDb, searchKey: string): Promise<Se
 
   let searchObj: {[ecProperty: string]: string | number} = {};
   try {
-    const obj = JSON.parse(searchKey);
+    const obj = JSON.parse(locator);
     for (const k of Object.keys(obj)) {
       searchObj[k.toLowerCase()] = obj[k];
     }
   } catch(err) {
-    return { error: `Failed to parse SearchKey. Invalid syntax.` };
+    return { error: `Failed to parse Locator. Invalid syntax.` };
   }
 
   const table = "ecclassid" in searchObj ? searchObj.ecclassid : "bis.element";
@@ -90,13 +90,13 @@ export async function searchElement(db: IModelDb, searchKey: string): Promise<Se
   try {
     rows = await getRows(db, ecsql);
   } catch (err) {
-    return { error: `At least one of the properties defined in SearchKey is unrecognized.`, ecsql };
+    return { error: `At least one of the properties defined in Locator is unrecognized.`, ecsql };
   }
 
   if (rows.length === 0)
     return { error: "No target EC entity found.", ecsql };
   if (rows.length > 1)
-    return { error: "More than one entity found. You should define a stricter rule in SearchKey to uniquely identify an EC target entity.", ecsql };
+    return { error: "More than one entity found. You should define a stricter rule in Locator to uniquely identify an EC target entity.", ecsql };
 
   return { elementId: rows[0].id, ecsql };
 }

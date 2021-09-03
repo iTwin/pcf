@@ -10,7 +10,7 @@ import { IRInstance } from "./IRModel";
  * The combination of this set of properties and values should uniquely identify a target element that already exists in the iModel.
  * e.g. {"ECClassId": "Bis.PhysicalElement", "CodeValue": "Wall"}
  */
-export type SearchKey = string;
+export type Locator = string;
 
 /*
  * In one of the following formats:
@@ -89,25 +89,25 @@ export interface RelationshipDMO extends DMO {
   /*
    * References a primary/foreign key (attribute) that uniquely identifies a source entity.
    */
-  readonly fromAttr: string;
+  readonly fromAttr: Locator | string;
 
   /*
    * The type of the source entity.
    * Currently it must be IR Entity.
    */
-  readonly fromType: "IREntity";
+  readonly fromType: "IREntity" | "ECEntity";
 
   /*
    * References a primary/foreign key (attribute) that uniquely identifies a source IR/EC Entity.
-   * toAttr must contain SearchKey if toType = "ECEntity" 
+   * toAttr must contain Locator if toType = "ECEntity" 
    */
-  readonly toAttr: SearchKey | string;
+  readonly toAttr: Locator | string;
 
   /*
    * The type of the target entity.
-   * toAttr must contain a SearchKey if toType = "ECEntity"
+   * toAttr must contain a Locator if toType = "ECEntity"
    */
-  readonly toType: "ECEntity" | "IREntity";
+  readonly toType: "IREntity" | "ECEntity";
 
   /*
    * Definition of registered relationship class that extends an existing BIS Relationship class
