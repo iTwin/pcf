@@ -70,7 +70,7 @@ export class JobArgs implements JobArgsProps {
   public outputDir: string = path.join(__dirname, "output");
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
-  public revisionHeader: string = "itwin-pcf";
+  public revisionHeader: string = "iTwin.PCF";
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;

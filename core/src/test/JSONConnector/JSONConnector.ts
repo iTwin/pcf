@@ -46,7 +46,7 @@ export class JSONConnector extends pcf.PConnector {
       loader: new pcf.JSONLoader({
         format: "json",
         entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
-        relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers"],
+        relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtExistingElementRefersToElements", "ExtElementGroupsMembers"],
         defaultPrimaryKey: "id",
       }), 
     });
@@ -81,6 +81,13 @@ export class JSONConnector extends pcf.PConnector {
       subject: subject1,
       dmo: relationships.ExtElementRefersToExistingElements,
       source: extPhysicalElement,
+    });
+
+    new pcf.RelationshipNode(this, {
+      key: "ExtExistingElementRefersToElements",
+      subject: subject1,
+      dmo: relationships.ExtExistingElementRefersToElements,
+      target: extPhysicalElement,
     });
 
     new pcf.RelationshipNode(this, {

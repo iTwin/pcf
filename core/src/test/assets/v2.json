@@ -62,7 +62,14 @@
     {
       "id": "1",
       "ExtPhysicalElementKey": "2",
-      "ExistingElementSearchKey": "{\"ECClassId\": \"BisCore.PhysicalElement\", \"CodeValue\": \"ExtPhysicalElement-2\"}"
+      "ExistingElementLocator": "{\"ECClassId\": \"BisCore.PhysicalElement\", \"CodeValue\": \"ExtPhysicalElement-2\"}"
+    }
+  ],
+  "ExtExistingElementRefersToElements": [
+    {
+      "id": "1",
+      "ExtPhysicalElementKey": "2",
+      "ExistingElementLocator": "{\"ECClassId\": \"BisCore.PhysicalElement\", \"CodeValue\": \"ExtPhysicalElement-2\"}"
     }
   ],
   "ExtElementGroupsMembers": [

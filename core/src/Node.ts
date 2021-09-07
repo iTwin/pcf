@@ -26,7 +26,7 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  public getNodes(subjectKey: string): Array<SubjectNode | ModelNode | LoaderNode | ElementNode | RelationshipNode | RelatedElementNode> {
+  public getNodes<T extends Node>(subjectKey: string): Array<T> {
     const nodes: any[] = [];
     for (const node of this.nodeMap.values()) {
       if (node instanceof SubjectNode && node.key === subjectKey)
@@ -435,12 +435,13 @@ export interface RelationshipNodeProps extends NodeProps {
 
   /*
    * References the source element
+   * This is not defined if dmo points to an EC Entity with Locator
    */
-  source: ElementNode;
+  source?: ElementNode;
 
   /*
    * References the target element
-   * This is not defined if dmo points to an EC Entity with SearchKey
+   * This is not defined if dmo points to an EC Entity with Locator
    */
   target?: ElementNode;
 }
@@ -449,15 +450,18 @@ export class RelationshipNode extends Node {
 
   public subject: SubjectNode;
   public dmo: RelationshipDMO;
-  public source: ElementNode;
-  public target?: ElementNode | undefined;
+  public source?: ElementNode;
+  public target?: ElementNode;
 
   constructor(pc: PConnector, props: RelationshipNodeProps) {
     super(pc, props);
     this.subject = props.subject;
     this.dmo = props.dmo;
-    this.source = props.source;
-    this.target = props.target;
+    if (props.source)
+      this.source = props.source;
+    if (props.target)
+      this.target = props.target;
+
     this.pc.tree.insert<RelationshipNode>(this);
   }
 
@@ -475,7 +479,7 @@ export class RelationshipNode extends Node {
       const { ecRelationship } = this.dmo;
       const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${this.pc.dynamicSchemaName}:${ecRelationship.name}`;
 
-      const [sourceId, targetId] = pair;
+      const { sourceId, targetId } = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing) {
         resList.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
@@ -493,7 +497,7 @@ export class RelationshipNode extends Node {
   }
 
   public toJSON(): any {
-    return { key: this.key, subjectNode: this.subject.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
+    return { key: this.key, subjectNode: this.subject.key, dmo: this.dmo, sourceNode: this.source ? this.source.key : "", targetNode: this.target ? this.target.key : "" };
   }
 }
 
@@ -517,7 +521,7 @@ export interface RelatedElementNodeProps extends NodeProps {
   
   /*
    * References the target element in the relationship
-   * This is not defined if dmo points to an EC Entity with SearchKey
+   * This is not defined if dmo points to an EC Entity with Locator
    */
   target?: ElementNode;
 }
@@ -527,14 +531,15 @@ export class RelatedElementNode extends Node {
   public subject: SubjectNode;
   public dmo: RelatedElementDMO;
   public source: ElementNode;
-  public target?: ElementNode | undefined;
+  public target?: ElementNode;
 
   constructor(pc: PConnector, props: RelatedElementNodeProps) {
     super(pc, props);
     this.subject = props.subject;
     this.dmo = props.dmo;
     this.source = props.source;
-    this.target = props.target;
+    if (props.target)
+      this.target = props.target;
     this.pc.tree.insert<RelatedElementNode>(this);
   }
 
@@ -549,7 +554,7 @@ export class RelatedElementNode extends Node {
       if (!pair)
         continue;
 
-      const [sourceId, targetId] = pair;
+      const { sourceId, targetId } = pair;
       const targetElement = this.pc.db.elements.getElement(targetId);
 
       const { ecRelationship } = this.dmo;

@@ -65,6 +65,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)
     "select * from TestSchema:ExtElementRefersToExistingElements": 1, // +1 (from v1)
+    "select * from TestSchema:ExtExistingElementRefersToElements": 1,
     // Domain Class
     "select * from BuildingSpatial:Space": 1,
   },
