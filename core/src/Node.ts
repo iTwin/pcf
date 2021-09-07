@@ -26,7 +26,7 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  public getNodes(subjectKey: string): Array<Node> {
+  public getNodes<T extends Node>(subjectKey: string): Array<T> {
     const nodes: any[] = [];
     for (const node of this.nodeMap.values()) {
       if (node instanceof SubjectNode && node.key === subjectKey)
