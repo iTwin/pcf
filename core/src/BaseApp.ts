@@ -57,6 +57,11 @@ export interface JobArgsProps {
    */
   enableDelete?: boolean;
 
+  /* 
+   * verify the consistency of existing locators and fix them if needed.
+   */
+  refreshLocators?: boolean;
+
   /*
    * header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
@@ -69,8 +74,9 @@ export class JobArgs implements JobArgsProps {
   public subjectKey: string;
   public outputDir: string = path.join(__dirname, "output");
   public logLevel: LogLevel = LogLevel.None;
+  public refreshLocators: boolean = false;
   public enableDelete: boolean = true;
-  public revisionHeader: string = "itwin-pcf";
+  public revisionHeader: string = "iTwin.PCF";
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
@@ -84,6 +90,8 @@ export class JobArgs implements JobArgsProps {
       this.logLevel = props.logLevel;
     if (props.enableDelete !== undefined)
       this.enableDelete = props.enableDelete;
+    if (props.refreshLocators !== undefined)
+      this.refreshLocators = props.refreshLocators;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
     this.validate();

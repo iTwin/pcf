@@ -26,7 +26,7 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  public getNodes(subjectKey: string): Array<SubjectNode | ModelNode | LoaderNode | ElementNode | RelationshipNode | RelatedElementNode> {
+  public getNodes(subjectKey: string): Array<Node> {
     const nodes: any[] = [];
     for (const node of this.nodeMap.values()) {
       if (node instanceof SubjectNode && node.key === subjectKey)
@@ -479,7 +479,7 @@ export class RelationshipNode extends Node {
       const { ecRelationship } = this.dmo;
       const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${this.pc.dynamicSchemaName}:${ecRelationship.name}`;
 
-      const [sourceId, targetId] = pair;
+      const { sourceId, targetId } = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing) {
         resList.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
@@ -554,7 +554,7 @@ export class RelatedElementNode extends Node {
       if (!pair)
         continue;
 
-      const [sourceId, targetId] = pair;
+      const { sourceId, targetId } = pair;
       const targetElement = this.pc.db.elements.getElement(targetId);
 
       const { ecRelationship } = this.dmo;

@@ -419,7 +419,7 @@ export abstract class PConnector extends IModelBridge {
   }
 
 
-  public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<string[] | void> {
+  public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {
     if (!node.dmo.fromAttr || !node.dmo.toAttr)
       return;
 
@@ -428,45 +428,45 @@ export abstract class PConnector extends IModelBridge {
       const sourceModelId = this.modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
       if (!sourceValue)
-        return;
+        return undefined;
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     } else if (node.dmo.fromType === "ECEntity") {
       const res = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
       if (res.error) {
         Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${res.error}`);
-        return;
+        return undefined;
       }
       sourceId = res.elementId;
     }
 
     let targetId: Id64String | undefined;
     if (node.target && node.dmo.toType === "IREntity") {
-      const targetModelId = this.modelCache[node.target!.model.key];
+      const targetModelId = this.modelCache[node.target.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
       if (!targetValue)
-        return;
-      const targetCode = this.getCode(node.target!.dmo.irEntity, targetModelId, targetValue);
+        return undefined;
+      const targetCode = this.getCode(node.target.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {
       const res = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
       if (res.error) {
         Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${res.error}`);
-        return;
+        return undefined;
       }
       targetId = res.elementId;
     }
 
     if (!sourceId) {
       Logger.logWarning(LogCategory.PCF, `Could not find the source IR entity for relationship instance = ${instance.key}`);
-      return;
+      return undefined;
     }
     if (!targetId) {
       Logger.logWarning(LogCategory.PCF, `Could not find target IR entity for relationship instance = ${instance.key}`);
-      return;
+      return undefined;
     }
 
-    return [sourceId, targetId];
+    return { sourceId, targetId };
   }
 
   public getCode(entityKey: string, modelId: Id64String, value: string): Code {
