@@ -130,6 +130,7 @@ export class HubArgs implements HubArgsProps {
     this.projectId = props.projectId;
     this.iModelId = props.iModelId;
     this.clientConfig = props.clientConfig;
+    this.clientConfig.issuerUrl = "https://ims.bentley.com";
     if (props.env !== undefined)
       this.env = props.env;
     this.validate();
