@@ -229,4 +229,3 @@ stages:
         path: '*.tgz'
         artifactName: cli
         name: cli
-
