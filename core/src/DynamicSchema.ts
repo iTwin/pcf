@@ -2,13 +2,13 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, Schema as MetaSchema, SchemaChanges, SchemaComparer, SchemaContext, SchemaContextEditor } from "@bentley/ecschema-metadata";
-import { IModelSchemaLoader } from "@bentley/imodeljs-backend/lib/IModelSchemaLoader";
-import { MutableSchema } from "@bentley/ecschema-metadata/lib/Metadata/Schema";
+import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
+import { SchemaComparer } from "@itwin/ecschema-editing";
+import { IModelSchemaLoader } from "@itwin/core-backend";
+import { MutableSchema } from "@itwin/ecschema-metadata/lib/Metadata/Schema";
 import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { ClientRequestContext } from "@bentley/bentleyjs-core";
-import { DOMParser, XMLSerializer } from "xmldom";
-import * as bk from "@bentley/imodeljs-backend";
+import { ClientRequestContext } from "@itwin/core-electron";
+import * as bk from "@itwin/core-backend";
 import * as pcf from "./pcf";
 
 export interface DynamicEntityMap {
