@@ -247,11 +247,9 @@ export class BaseApp {
   }
 
   public async getToken(): Promise<AccessToken> {
-    // const client = new ElectronAuthorizationBackend();
-    // await client.initialize(this.hubArgs.clientConfig);
-    return await IModelHost.getAccessToken();
-    // client.signIn();
-    // return new Promise<AccessToken>((resolve, reject) => {});
+    const client = new ElectronAuthorizationBackend();
+    await client.initialize(this.hubArgs.clientConfig);
+    return client.signInComplete();
   }
 
   /*

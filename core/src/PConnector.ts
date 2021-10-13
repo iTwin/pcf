@@ -323,21 +323,19 @@ export abstract class PConnector {
     const { revisionHeader } = this.jobArgs;
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const description = `${header} - ${changeDesc}`;
-    if (this.db.isBriefcaseDb()) {
-      this._db = this.db as bk.BriefcaseDb;
+    if (this.db instanceof bk.StandaloneDb || this.db instanceof bk.SnapshotDb) {
+      this.db.saveChanges();
+    } else if (this.db instanceof bk.BriefcaseDb) {
       await this.db.pullChanges();
       this.db.saveChanges();
       await this.db.pushChanges({ description } as bk.PushChangesArgs);
-    } else {
-      this.db.saveChanges();
     }
   }
 
   public async enterChannel(rootId: Id64String) {
-    if (!this.db.isBriefcaseDb())
+    if (this.db instanceof bk.StandaloneDb || this.db instanceof bk.SnapshotDb)
       return;
-    this._db = this.db as bk.BriefcaseDb;
-    await this._db.locks.acquireExclusiveLock(rootId);
+    await this.db.locks.acquireExclusiveLock(rootId);
   }
 
   // For Nodes
