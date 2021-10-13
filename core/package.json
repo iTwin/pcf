@@ -31,15 +31,18 @@
     "docs": "betools docs"
   },
   "dependencies": {
+    "@bentley/imodelhub-client": "^2.19.16",
     "@bentley/itwin-client": "^2.19.15",
     "@itwin/browser-authorization": "^0.2.0",
     "@itwin/core-backend": "3.0.0-dev.76",
     "@itwin/core-bentley": "3.0.0-dev.76",
+    "@itwin/core-common": "^3.0.0-dev.72",
     "@itwin/core-electron": "3.0.0-dev.76",
     "@itwin/core-geometry": "3.0.0-dev.76",
     "@itwin/ecschema-editing": "3.0.0-dev.76",
     "@itwin/ecschema-locaters": "3.0.0-dev.76",
     "@itwin/ecschema-metadata": "3.0.0-dev.76",
+    "@itwin/electron-manager": "^3.0.0-dev.72",
     "@itwin/service-authorization": "^0.2.0",
     "@types/object-hash": "^1.3.3",
     "@types/sqlite3": "^3.1.6",

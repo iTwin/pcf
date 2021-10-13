@@ -3,11 +3,9 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
-import { SchemaComparer } from "@itwin/ecschema-editing";
+import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
 import { IModelSchemaLoader } from "@itwin/core-backend";
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/Metadata/Schema";
-import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { ClientRequestContext } from "@itwin/core-electron";
 import * as bk from "@itwin/core-backend";
 import * as pcf from "./pcf";
 
@@ -42,7 +40,6 @@ export async function tryGetSchema(db: bk.IModelDb, schemaName: string): Promise
 
 export async function syncDynamicSchema(
   db: bk.IModelDb, 
-  requestContext: AuthorizedClientRequestContext | ClientRequestContext, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
   ): Promise<pcf.ItemState> {
@@ -74,7 +71,7 @@ export async function syncDynamicSchema(
 
   if (schemaState !== pcf.ItemState.Unchanged) {
     const schemaString = await schemaToXmlString(dynamicSchema);
-    await db.importSchemaStrings(requestContext, [schemaString]);
+    await db.importSchemaStrings([schemaString]);
     registerDynamicSchema(props);
   }
 
@@ -98,7 +95,7 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
   }
 
   const dynamicSchemaClass = class BackendDynamicSchema extends bk.Schema {
-    public static get schemaName(): string {
+    public static override get schemaName(): string {
       return props.schemaName;
     }
     public static registerSchema() {
@@ -179,7 +176,7 @@ function getSchemaVersion(db: bk.IModelDb, schemaName: string): SchemaVersion {
 }
 
 async function schemaToXmlString(schema: MetaSchema): Promise<string> {
-  let xmlDoc = new DOMParser().parseFromString(`<?xml version="1.0" encoding="UTF-8"?>`);
+  let xmlDoc = new DOMParser().parseFromString(`<?xml version="1.0" encoding="UTF-8"?>`, "application/xml");
   xmlDoc = await schema.toXml(xmlDoc);
   const xmlString = new XMLSerializer().serializeToString(xmlDoc);
   return xmlString;

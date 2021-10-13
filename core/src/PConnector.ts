@@ -3,12 +3,10 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@bentley/bentleyjs-core";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
 import { ChangesType } from "@bentley/imodelhub-client";
-import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { BridgeJobDefArgs, IModelBridge } from "@bentley/imodel-bridge";
 import { LogCategory } from "./LogCategory";
-import * as bk from "@bentley/imodeljs-backend";
+import * as bk from "@itwin/core-backend";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as fs from "fs";
@@ -77,7 +75,7 @@ export class PConnectorConfig implements PConnectorConfigProps {
   }
 }
 
-export abstract class PConnector extends IModelBridge {
+export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
 
@@ -92,7 +90,6 @@ export abstract class PConnector extends IModelBridge {
   protected _config?: PConnectorConfig;
   protected _db?: bk.IModelDb;
   protected _jobArgs?: pcf.JobArgs;
-  protected _authReqContext?: bk.AuthorizedBackendRequestContext;
   protected _irModel?: pcf.IRModel;
   protected _jobSubjectId?: Id64String;
   protected _srcState?: pcf.ItemState;
@@ -103,7 +100,6 @@ export abstract class PConnector extends IModelBridge {
   public abstract form(): Promise<void>;
 
   constructor() {
-    super();
     this.subjectCache = {};
     this.modelCache = {};
     this.elementCache = {};
@@ -134,21 +130,6 @@ export abstract class PConnector extends IModelBridge {
     return this._jobArgs;
   }
 
-  public get authReqContext() {
-    if (!this._authReqContext) 
-      throw new Error("Authorized Request Context is not assigned");
-    return this._authReqContext;
-  }
-
-  public get reqContext() {
-    if (this.db.isBriefcaseDb()) {
-      if (!this._authReqContext) 
-        throw new Error("Authorized Request Context is not passed in by BaseApp.");
-      return this._authReqContext;
-    }
-    return new bk.BackendRequestContext();
-  }
-
   public get jobSubjectId() {
     if (!this._jobSubjectId) 
       throw new Error("job subject ID is undefined. call updateSubject to populate its value.");
@@ -173,7 +154,7 @@ export abstract class PConnector extends IModelBridge {
     return this.config.dynamicSchema.schemaName;
   }
 
-  public async runJob(props: { db: bk.IModelDb, jobArgs: pcf.JobArgs, authReqContext?: bk.AuthorizedBackendRequestContext }): Promise<void> {
+  public async runJob(props: { db: bk.IModelDb, jobArgs: pcf.JobArgs }): Promise<void> {
 
     this.modelCache = {};
     this.elementCache = {};
@@ -184,8 +165,6 @@ export abstract class PConnector extends IModelBridge {
 
     this.tree.validate(props.jobArgs);
     this._jobArgs = props.jobArgs;
-
-    this._authReqContext = props.authReqContext;
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
@@ -250,7 +229,7 @@ export abstract class PConnector extends IModelBridge {
   protected async _updateDomainSchema(): Promise<any> {
     const { domainSchemaPaths } = this.config;
     if (domainSchemaPaths.length > 0)
-      await this.db.importSchemas(this.reqContext, domainSchemaPaths);
+      await this.db.importSchemas(domainSchemaPaths);
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
@@ -261,7 +240,7 @@ export abstract class PConnector extends IModelBridge {
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
       const { schemaName, schemaAlias } = this.config.dynamicSchema;
       const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
+      const schemaState = await pcf.syncDynamicSchema(this.db, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
       Logger.logInfo(LogCategory.PCF, `Dynamic Schema State: ${pcf.ItemState[schemaState]}`);
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
@@ -483,6 +462,7 @@ export abstract class PConnector extends IModelBridge {
 
   // For itwin-connector-framework
 
+  /*
   public initialize(jobDefArgs: BridgeJobDefArgs) {
     if (!jobDefArgs.argsJson || !jobDefArgs.argsJson.jobArgs)
       throw new Error("BridgeJobDefArgs.argsJson.jobArgs must be defined to use pcf");
@@ -542,5 +522,5 @@ export abstract class PConnector extends IModelBridge {
   public getBridgeName() {
     return this.config.connectorName;
   }
+  */
 }
-

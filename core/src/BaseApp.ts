@@ -2,14 +2,11 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { BentleyStatus, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
-import { AuthorizedBackendRequestContext, StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
-import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
-import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
-import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { CodeState, HubCode, HubIModel, IModelQuery } from "@bentley/imodelhub-client";
-import { BridgeRunner, BridgeJobDefArgs } from "@bentley/imodel-bridge";
-import { ServerArgs } from "@bentley/imodel-bridge/lib/IModelHubUtils"
+import { BentleyStatus, Id64String, Logger, LogLevel } from "@itwin/core-bentley";
+import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@itwin/core-backend";
+import { ElectronAuthorizationBackend } from "@itwin/electron-manager/lib/ElectronBackend";
+import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
+import { AccessToken } from "@itwin/core-bentley";
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
 import * as fs from "fs";
@@ -146,12 +143,12 @@ export class BaseApp {
 
   public jobArgs: JobArgs;
   public hubArgs: HubArgs;
-  protected _authReqContext?: AuthorizedClientRequestContext;
+  protected _token?: AccessToken;
 
-  public get authReqContext() {
-    if (!this._authReqContext)
+  public get token() {
+    if (!this._token)
       throw new Error("not signed in");
-    return this._authReqContext;
+    return this._token;
   }
 
   constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
@@ -159,7 +156,7 @@ export class BaseApp {
     this.jobArgs = jobArgs;
 
     const envStr = String(this.hubArgs.env);
-    Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
+    process.env["imjs_buddi_resolve_url_using_region"] = envStr;
 
     const defaultLevel = this.jobArgs.logLevel;
     Logger.initializeToConsole();
@@ -185,15 +182,15 @@ export class BaseApp {
       await this.signin();
       db = await this.openBriefcaseDb();
       const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
-      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
+      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.token });
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
       if (db && db.isBriefcaseDb())
-        await db.concurrencyControl.abandonResources(this.authReqContext);
+        await db.concurrencyControl.abandonResources(this.token);
       runStatus = BentleyStatus.ERROR;
+      db?.locks.
     } finally {
       if (db) {
-        await BaseApp.clearRetiredCodes(this.authReqContext, this.hubArgs.iModelId, db.briefcaseId);
         db.abandonChanges();
         db.close();
       }
@@ -244,12 +241,12 @@ export class BaseApp {
   /*
    * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
    */
-  public async signin(): Promise<AuthorizedBackendRequestContext> {
-    if (this._authReqContext)
-      return this._authReqContext;
+  public async signin(): Promise<AccessToken> {
+    if (this._token)
+      return this._token;
     const token = await this.getToken();
-    this._authReqContext = new AuthorizedBackendRequestContext(token);
-    return this._authReqContext;
+    this._token = token;
+    return token;
   }
 
   public async getToken(): Promise<AccessToken> {
@@ -275,7 +272,7 @@ export class BaseApp {
     if (!cachedDb)
       return undefined;
 
-    const db = await BriefcaseDb.open(this.authReqContext, {
+    const db = await BriefcaseDb.open({
       fileName: cachedDb.fileName,
       readonly: readonlyMode,
     });
@@ -288,34 +285,20 @@ export class BaseApp {
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
     const cachedDb = await this.openCachedBriefcaseDb(false);
     if (cachedDb) {
-      await cachedDb.pullAndMergeChanges(this.authReqContext);
+      await cachedDb.pullAndMergeChanges(this.token);
       cachedDb.saveChanges();
       return cachedDb;
     }
 
     const req = { contextId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
-    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext, req);
+    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.token, req);
 
     if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
-      await BriefcaseDb.upgradeSchemas(this.authReqContext, bcProps);
+      await BriefcaseDb.upgradeSchemas(bcProps);
 
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
-    const db = await BriefcaseDb.open(this.authReqContext, openArgs);
+    const db = await BriefcaseDb.open(openArgs);
     return db;
-  }
-
-  /*
-   * Change Codes of state "Retired" to "Available" so that they can be reused.
-   */
-  public static async clearRetiredCodes(authReqContext: AuthorizedBackendRequestContext, iModelId: Id64String, briefcaseId: number) {
-    const codes = await IModelHost.iModelClient.codes.get(authReqContext, iModelId);
-    const retiredCodes = codes.filter((code: HubCode) => code.state === CodeState.Retired);
-    for (const code of retiredCodes) {
-      code.briefcaseId = briefcaseId;
-      code.state = CodeState.Available;
-    }
-    if (retiredCodes.length > 0)
-      await IModelHost.iModelClient.codes.update(authReqContext, iModelId, retiredCodes);
   }
 
   public static repl(dbpath: string) {
