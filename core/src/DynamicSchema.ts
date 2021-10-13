@@ -5,7 +5,7 @@
 import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
 import { IModelSchemaLoader } from "@itwin/core-backend";
-import { MutableSchema } from "@itwin/ecschema-metadata/lib/Metadata/Schema";
+import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import * as bk from "@itwin/core-backend";
 import * as pcf from "./pcf";
 

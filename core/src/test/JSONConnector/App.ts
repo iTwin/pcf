@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import * as path from "path";
 import * as pcf from "../../pcf";
-import { LogLevel } from "@bentley/bentleyjs-core";
+import { LogLevel } from "@itwin/core-bentley";
 
 export async function main() {
   const jobArgs = new pcf.JobArgs({ 
