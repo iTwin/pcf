@@ -31,8 +31,10 @@
     "docs": "betools docs"
   },
   "dependencies": {
+    "@bentley/backend-itwin-client": "^2.19.16",
     "@bentley/imodelhub-client": "^2.19.16",
     "@bentley/itwin-client": "^2.19.15",
+    "@bentley/telemetry-client": "^2.19.16",
     "@itwin/browser-authorization": "^0.2.0",
     "@itwin/core-backend": "3.0.0-dev.76",
     "@itwin/core-bentley": "3.0.0-dev.76",
@@ -58,8 +60,8 @@
     "@bentley/build-tools": "2.19.15",
     "@bentley/building-spatial-schema": "1.0.0",
     "@bentley/functional-schema": "1.0.3",
-    "@bentley/oidc-signin-tool": "2.19.15",
     "@bentley/spatial-composition-schema": "1.0.0",
+    "@itwin/oidc-signin-tool": "^3.0.0-dev.72",
     "@types/chai": "^4.1.4",
     "@types/mocha": "^8.2.2",
     "@types/node": "10.14.1",

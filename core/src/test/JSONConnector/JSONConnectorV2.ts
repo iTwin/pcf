@@ -2,7 +2,7 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { PrimitiveType } from "@bentley/ecschema-metadata";
+import { PrimitiveType } from "@itwin/ecschema-metadata";
 import { JSONConnector } from "./JSONConnector";
 import * as pcf from "../../pcf";
 

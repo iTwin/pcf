@@ -18,7 +18,7 @@ export class TestAPILoader extends pcf.Loader {
     return [];
   };
 
-  public toJSON(): any {
+  public override toJSON(): any {
     return { mtime: String(new Date().getTime()), ...super.toJSON() };
   }
 }

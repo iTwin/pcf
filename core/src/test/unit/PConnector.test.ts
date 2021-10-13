@@ -2,8 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Logger, LogLevel } from "@bentley/bentleyjs-core";
-import * as bk from "@bentley/imodeljs-backend";
+import { Logger, LogLevel } from "@itwin/core-bentley";
+import * as bk from "@itwin/core-backend";
 import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";

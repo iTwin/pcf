@@ -2,8 +2,7 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { BentleyStatus } from "@bentley/bentleyjs-core";
-import * as bk from "@bentley/imodeljs-backend";
+import { BentleyStatus } from "@itwin/core-bentley";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import * as pcf from "../../pcf";

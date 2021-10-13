@@ -3,9 +3,9 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { BentleyStatus, Id64String, Logger, LogLevel } from "@itwin/core-bentley";
-import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@itwin/core-backend";
+import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
 import { ElectronAuthorizationBackend } from "@itwin/electron-manager/lib/ElectronBackend";
-import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
+import { IModel, LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
 import { AccessToken } from "@itwin/core-bentley";
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
@@ -185,10 +185,7 @@ export class BaseApp {
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.token });
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
-      if (db && db.isBriefcaseDb())
-        await db.concurrencyControl.abandonResources(this.token);
       runStatus = BentleyStatus.ERROR;
-      db?.locks.
     } finally {
       if (db) {
         db.abandonChanges();
@@ -250,17 +247,11 @@ export class BaseApp {
   }
 
   public async getToken(): Promise<AccessToken> {
-    const client = new ElectronAuthorizationBackend();
-    await client.initialize(this.hubArgs.clientConfig);
-    return new Promise<AccessToken>((resolve, reject) => {
-      NativeHost.onUserStateChanged.addListener((token) => {
-        if (token !== undefined)
-          resolve(token);
-        else
-          reject(new Error("Failed to sign in"));
-      });
-      client.signIn();
-    });
+    // const client = new ElectronAuthorizationBackend();
+    // await client.initialize(this.hubArgs.clientConfig);
+    return await IModelHost.getAccessToken();
+    // client.signIn();
+    // return new Promise<AccessToken>((resolve, reject) => {});
   }
 
   /*
@@ -285,13 +276,13 @@ export class BaseApp {
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
     const cachedDb = await this.openCachedBriefcaseDb(false);
     if (cachedDb) {
-      await cachedDb.pullAndMergeChanges(this.token);
+      await cachedDb.pullChanges({ accessToken: this.token });
       cachedDb.saveChanges();
       return cachedDb;
     }
 
-    const req = { contextId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
-    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.token, req);
+    const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
+    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
 
     if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
       await BriefcaseDb.upgradeSchemas(bcProps);

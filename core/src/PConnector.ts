@@ -2,14 +2,13 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String, Logger } from "@bentley/bentleyjs-core";
+import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
 import { ChangesType } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import * as bk from "@itwin/core-backend";
 import * as util from "./Util";
 import * as pcf from "./pcf";
-import * as fs from "fs";
 import * as path from "path";
 
 export interface PConnectorConfigProps {
@@ -285,12 +284,6 @@ export abstract class PConnector {
       const elementId = row.elementId;
       if (this.seenIdSet.has(elementId))
         continue;
-      if (this.db.isBriefcaseDb()) {
-        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
-        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
-        if (elementNotInChannelRoot)
-          continue;
-      }
       const element = this.db.elements.getElement(elementId);
       if (element instanceof bk.DefinitionElement)
         defElementIds.push(elementId);
@@ -329,32 +322,22 @@ export abstract class PConnector {
   public async persistChanges(changeDesc: string, ctype: ChangesType) {
     const { revisionHeader } = this.jobArgs;
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
-    const comment = `${header} - ${changeDesc}`;
+    const description = `${header} - ${changeDesc}`;
     if (this.db.isBriefcaseDb()) {
-      await (this.db as bk.BriefcaseDb).concurrencyControl.request(this.authReqContext);
-      await (this.db as bk.BriefcaseDb).pullAndMergeChanges(this.authReqContext);
-      this.db.saveChanges(comment);
-      await (this.db as bk.BriefcaseDb).pushChanges(this.authReqContext, comment, ctype); // not atomic
+      this._db = this.db as bk.BriefcaseDb;
+      await this.db.pullChanges();
+      this.db.saveChanges();
+      await this.db.pushChanges({ description } as bk.PushChangesArgs);
     } else {
-      this.db.saveChanges(comment);
+      this.db.saveChanges();
     }
   }
 
   public async enterChannel(rootId: Id64String) {
     if (!this.db.isBriefcaseDb())
       return;
-    if (!(this.db as bk.BriefcaseDb).concurrencyControl.isBulkMode)
-      (this.db as bk.BriefcaseDb).concurrencyControl.startBulkMode();
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.hasPendingRequests)
-      throw new Error("has pending requests");
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
-      throw new Error("has schema lock");
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
-      throw new Error("has code spec lock");
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
-      throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
-    (this.db as bk.BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
-    await (this.db as bk.BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
+    this._db = this.db as bk.BriefcaseDb;
+    await this._db.locks.acquireExclusiveLock(rootId);
   }
 
   // For Nodes
