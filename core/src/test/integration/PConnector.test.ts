@@ -7,6 +7,7 @@ import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import * as pcf from "../../pcf";
 import { IntegrationTestApp } from "./IntegrationTestApp";
+import { HubMock } from "../HubMock/HubMock";
 import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";
@@ -63,12 +64,14 @@ describe("Integration Tests", () => {
   before(async () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
-    await app.silentSignin();
+    // await app.silentSignin();
+    HubMock.startup("PCFIntegrationTest", KnownTestLocations.testOutputDir);
   });
 
   after(async () => {
-    if (app.hubArgs.iModelId !== "")
-      await app.purgeTestBriefcaseDb();
+    // if (app.hubArgs.iModelId !== "")
+      // await app.purgeTestBriefcaseDb();
+    HubMock.shutdown();
   });
 
   for (const testCase of testCases) {

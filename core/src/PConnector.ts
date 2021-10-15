@@ -326,7 +326,7 @@ export abstract class PConnector {
     if (this.db instanceof bk.StandaloneDb || this.db instanceof bk.SnapshotDb) {
       this.db.saveChanges();
     } else if (this.db instanceof bk.BriefcaseDb) {
-      await this.db.pullChanges();
+      // await this.db.pullChanges();
       this.db.saveChanges();
       await this.db.pushChanges({ description } as bk.PushChangesArgs);
     }

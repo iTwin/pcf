@@ -3,6 +3,7 @@ import { AccessToken } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
 import { BaseApp, JobArgs, HubArgs, Environment } from "../../pcf";
+import { HubMock } from "../HubMock/HubMock";
 
 /*
  * extend/utilize this class to create your own integration tests
@@ -24,9 +25,9 @@ export class IntegrationTestApp extends BaseApp {
       clientConfig: {
         clientId,
         redirectUri: "http://localhost:3000/signin-callback",
-        scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
+        scope: "openid profile organization email itwinjs",
       },
-      env: Environment.QA,
+      // env: Environment.QA,
     });
     testJobArgs.logLevel = LogLevel.Error;
     super(testJobArgs, testHubArgs);
@@ -38,6 +39,7 @@ export class IntegrationTestApp extends BaseApp {
    * Sign in through your iModelHub test user account. This call would grab your test user credentials from environment variables.
    */
   public async silentSignin(): Promise<AccessToken> {
+    /*
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (!email)
@@ -45,10 +47,12 @@ export class IntegrationTestApp extends BaseApp {
     if (!password)
       throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
     const cred: TestUserCredentials = { email, password };
-    const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
+    console.log(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
+    const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred);
     if (!token)
       throw new Error("Failed to get test access token");
     this._token = token;
+    */
     return this._token; 
   }
 
@@ -73,6 +77,7 @@ export class IntegrationTestApp extends BaseApp {
       await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
     }
     const testIModelId = await IModelHost.hubAccess.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
+    console.log(testIModelId);
     this.hubArgs.iModelId = testIModelId;
     return testIModelId;
   }
