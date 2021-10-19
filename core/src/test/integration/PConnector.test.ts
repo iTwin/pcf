@@ -7,7 +7,6 @@ import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 import * as pcf from "../../pcf";
 import { IntegrationTestApp } from "./IntegrationTestApp";
-import { HubMock } from "../HubMock/HubMock";
 import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";
