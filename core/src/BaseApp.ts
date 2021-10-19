@@ -13,10 +13,10 @@ import * as fs from "fs";
 import * as path from "path";
 import * as util from "./Util";
 
-export enum Environment {
-  Prod = 0,    // Anyone
-  QA   = 102,  // Bentley Developer only
-  Dev  = 103,  // Bentley Developer only
+export enum URLPrefix {
+  Prod = "",     // Anyone
+  QA   = "qa-",  // Bentley Developer only
+  Dev  = "dev-", // Bentley Developer only
 }
 
 export interface JobArgsProps {
@@ -112,14 +112,14 @@ export interface HubArgsProps {
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
    */
-  env?: Environment;
+  urlPrefix?: URLPrefix;
 }
 
 export class HubArgs implements HubArgsProps {
   public projectId: Id64String;
   public iModelId: Id64String;
   public clientConfig: NativeAppAuthorizationConfiguration;
-  public env: Environment = Environment.Prod;
+  public urlPrefix: URLPrefix = URLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
 
@@ -127,8 +127,8 @@ export class HubArgs implements HubArgsProps {
     this.projectId = props.projectId;
     this.iModelId = props.iModelId;
     this.clientConfig = props.clientConfig;
-    if (props.env !== undefined)
-      this.env = props.env;
+    if (props.urlPrefix !== undefined)
+      this.urlPrefix = props.urlPrefix;
     this.validate();
   }
 
@@ -155,8 +155,8 @@ export class BaseApp {
     this.hubArgs = hubArgs;
     this.jobArgs = jobArgs;
 
-    const envStr = String(this.hubArgs.env);
-    process.env["imjs_buddi_resolve_url_using_region"] = envStr;
+    const envStr = String(this.hubArgs.urlPrefix);
+    process.env["IMJS_URL_PREFIX"] = envStr;
 
     const defaultLevel = this.jobArgs.logLevel;
     Logger.initializeToConsole();

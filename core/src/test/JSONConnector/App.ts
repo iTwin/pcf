@@ -25,7 +25,7 @@ export async function main() {
       redirectUri: "http://localhost:3000/signin-callback",
       scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
     },
-    env: pcf.Environment.QA,
+    urlPrefix: pcf.URLPrefix.QA,
   });
   const app = new pcf.BaseApp(jobArgs, hubArgs);
   await app.run();

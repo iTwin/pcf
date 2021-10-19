@@ -2,8 +2,7 @@ import { LogLevel, GuidString } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
-import { BaseApp, JobArgs, HubArgs, Environment } from "../../pcf";
-import { HubMock } from "../HubMock/HubMock";
+import { BaseApp, JobArgs, HubArgs, URLPrefix } from "../../pcf";
 
 /*
  * extend/utilize this class to create your own integration tests
@@ -27,7 +26,7 @@ export class IntegrationTestApp extends BaseApp {
         redirectUri: "http://localhost:3000/signin-callback",
         scope: "openid profile organization email itwinjs",
       },
-      // env: Environment.QA,
+      urlPrefix: URLPrefix.QA,
     });
     testJobArgs.logLevel = LogLevel.Error;
     super(testJobArgs, testHubArgs);
@@ -39,7 +38,6 @@ export class IntegrationTestApp extends BaseApp {
    * Sign in through your iModelHub test user account. This call would grab your test user credentials from environment variables.
    */
   public async silentSignin(): Promise<AccessToken> {
-    /*
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (!email)
@@ -47,12 +45,11 @@ export class IntegrationTestApp extends BaseApp {
     if (!password)
       throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
     const cred: TestUserCredentials = { email, password };
-    console.log(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.env);
+    console.log(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.urlPrefix);
     const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred);
     if (!token)
       throw new Error("Failed to get test access token");
     this._token = token;
-    */
     return this._token; 
   }
 

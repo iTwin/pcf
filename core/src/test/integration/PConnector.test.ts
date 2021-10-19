@@ -64,14 +64,14 @@ describe("Integration Tests", () => {
   before(async () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
-    // await app.silentSignin();
-    HubMock.startup("PCFIntegrationTest", KnownTestLocations.testOutputDir);
+    await app.silentSignin();
+    // HubMock.startup("PCFIntegrationTest", KnownTestLocations.testOutputDir);
   });
 
   after(async () => {
-    // if (app.hubArgs.iModelId !== "")
-      // await app.purgeTestBriefcaseDb();
-    HubMock.shutdown();
+    if (app.hubArgs.iModelId !== "")
+      await app.purgeTestBriefcaseDb();
+    // HubMock.shutdown();
   });
 
   for (const testCase of testCases) {
