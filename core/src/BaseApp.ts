@@ -3,15 +3,16 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { BentleyStatus, Id64String, Logger, LogLevel } from "@itwin/core-bentley";
-import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
+import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, DownloadRequest } from "@itwin/core-backend";
 import { ElectronAuthorizationBackend } from "@itwin/electron-manager/lib/ElectronBackend";
-import { IModel, LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
+import { ChangesetProps, LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
 import { AccessToken } from "@itwin/core-bentley";
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
 import * as fs from "fs";
 import * as path from "path";
 import * as util from "./Util";
+import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 
 export enum URLPrefix {
   Prod = "",     // Anyone
@@ -184,6 +185,7 @@ export class BaseApp {
       const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.token });
     } catch(err) {
+      console.error(err);
       Logger.logError(LogCategory.PCF, (err as any).message);
       runStatus = BentleyStatus.ERROR;
     } finally {
@@ -279,13 +281,25 @@ export class BaseApp {
       return cachedDb;
     }
 
-    const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
-    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
+    // const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
+    // const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
+    const fileName = path.join(this.jobArgs.outputDir, "briefcase.bim");
+    const bc = await IModelHubBackend.downloadV2Checkpoint({ 
+      localFile: fileName,
+      checkpoint: { 
+        accessToken: this.token, 
+        iTwinId: this.hubArgs.projectId, 
+        iModelId: this.hubArgs.iModelId,
+      }
+    } as DownloadRequest);
 
+    /*
     if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
       await BriefcaseDb.upgradeSchemas(bcProps);
-
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
+    */
+
+    const openArgs: OpenBriefcaseProps = { fileName };
     const db = await BriefcaseDb.open(openArgs);
     return db;
   }

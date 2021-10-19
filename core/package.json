@@ -31,11 +31,9 @@
     "docs": "betools docs"
   },
   "dependencies": {
-    "@bentley/backend-itwin-client": "^2.19.16",
-    "@bentley/bentleyjs-core": "^2.19.16",
-    "@bentley/imodelhub-client": "^2.19.16",
-    "@bentley/itwin-client": "^2.19.15",
-    "@bentley/telemetry-client": "^2.19.16",
+    "@bentley/imodelhub-client": "^3.0.0-dev.91",
+    "@bentley/itwin-client": "^3.0.0-dev.91",
+    "@bentley/telemetry-client": "^3.0.0-dev.91",
     "@itwin/browser-authorization": "^0.2.0",
     "@itwin/core-backend": "^3.0.0-dev.91",
     "@itwin/core-bentley": "^3.0.0-dev.91",

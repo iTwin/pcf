@@ -10,6 +10,8 @@ import { IntegrationTestApp } from "./IntegrationTestApp";
 import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";
+import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/imodelhub-node";
+import { BackendHubAccess, IModelHost } from "@itwin/core-backend";
 
 describe("Integration Tests", () => {
 
@@ -63,14 +65,14 @@ describe("Integration Tests", () => {
   before(async () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
+    await IModelHost.startup();
     await app.silentSignin();
-    // HubMock.startup("PCFIntegrationTest", KnownTestLocations.testOutputDir);
   });
 
   after(async () => {
     if (app.hubArgs.iModelId !== "")
       await app.purgeTestBriefcaseDb();
-    // HubMock.shutdown();
+    await IModelHost.shutdown();
   });
 
   for (const testCase of testCases) {

@@ -1,8 +1,9 @@
 import { LogLevel, GuidString } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
-import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
+import { BriefcaseDb, BriefcaseManager } from "@itwin/core-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
 import { BaseApp, JobArgs, HubArgs, URLPrefix } from "../../pcf";
+import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 
 /*
  * extend/utilize this class to create your own integration tests
@@ -45,7 +46,6 @@ export class IntegrationTestApp extends BaseApp {
     if (!password)
       throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
     const cred: TestUserCredentials = { email, password };
-    console.log(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred, this.hubArgs.urlPrefix);
     const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred);
     if (!token)
       throw new Error("Failed to get test access token");
@@ -69,18 +69,21 @@ export class IntegrationTestApp extends BaseApp {
 
   public async createTestBriefcaseDb(name: string): Promise<GuidString> {
     const testIModelName = `${name} - ${process.platform}`;
-    const existingIModelId = await IModelHost.hubAccess.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
+    // const existingIModelId = await IModelHost.hubAccess.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
+    const existingIModelId = await IModelHubBackend.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
     if (existingIModelId) {
-      await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
+      // await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
+      await IModelHubBackend.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
     }
-    const testIModelId = await IModelHost.hubAccess.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
-    console.log(testIModelId);
+    // const testIModelId = await IModelHost.hubAccess.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
+    const testIModelId = await IModelHubBackend.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
     this.hubArgs.iModelId = testIModelId;
     return testIModelId;
   }
 
   public async purgeTestBriefcaseDb(): Promise<void> {
-    await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
+    // await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
+    await IModelHubBackend.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.token);
   }
