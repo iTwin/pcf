@@ -168,25 +168,25 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
     Logger.logInfo(LogCategory.PCF, "Started Domain Schema Update...");
-    await this.enterChannel(IModel.repositoryModelId);
+    await this.acquireLock(IModel.repositoryModelId);
     await this._updateDomainSchema();
-    await this.persistChanges(`Domain Schema Update`, ChangesType.Schema);
+    await this.persistChanges(`Domain Schema Update`);
     Logger.logInfo(LogCategory.PCF, "Completed Domain Schema Update...");
 
     Logger.logInfo(LogCategory.PCF, "Started Dynamic Schema Update...");
-    await this.enterChannel(IModel.repositoryModelId);
+    await this.acquireLock(IModel.repositoryModelId);
     await this._updateDynamicSchema();
-    await this.persistChanges("Dynamic Schema Update", ChangesType.Schema);
+    await this.persistChanges("Dynamic Schema Update");
     Logger.logInfo(LogCategory.PCF, "Completed Dynamic Schema Update.");
 
     Logger.logInfo(LogCategory.PCF, "Started Subject Update...");
-    await this.enterChannel(IModel.repositoryModelId);
+    await this.acquireLock(IModel.repositoryModelId);
     await this._updateSubject();
-    await this.persistChanges("Subject Update", ChangesType.Schema);
+    await this.persistChanges("Subject Update");
     Logger.logInfo(LogCategory.PCF, "Completed Subject Update.");
 
     Logger.logInfo(LogCategory.PCF, "Started Data Update...");
-    await this.enterChannel(this.jobSubjectId);
+    await this.acquireLock(this.jobSubjectId);
     await this._updateLoader();
 
     if (this.srcState !== pcf.ItemState.Unchanged) {
@@ -202,7 +202,7 @@ export abstract class PConnector {
     } else {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
-    await this.persistChanges("Data Update", ChangesType.Regular);
+    await this.persistChanges("Data Update");
     Logger.logInfo(LogCategory.PCF, "Completed Data Update.");
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
@@ -319,7 +319,7 @@ export abstract class PConnector {
     this.db.codeSpecs.insert(newCodeSpec);
   }
 
-  public async persistChanges(changeDesc: string, ctype: ChangesType) {
+  public async persistChanges(changeDesc: string) {
     const { revisionHeader } = this.jobArgs;
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const description = `${header} - ${changeDesc}`;
@@ -331,7 +331,7 @@ export abstract class PConnector {
     }
   }
 
-  public async enterChannel(rootId: Id64String) {
+  public async acquireLock(rootId: Id64String) {
     if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
       return;
     await this.db.locks.acquireExclusiveLock(rootId);
