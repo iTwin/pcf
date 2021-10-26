@@ -19,13 +19,14 @@ export async function main() {
   });
   const hubArgs = new pcf.HubArgs({
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
-    iModelId: "b4e9902b-0839-43d3-a409-cc1f37db9a49",
+    iModelId: "46e97028-a81f-4082-b2fa-2e5ed1f38e32",
     clientConfig: { 
-      clientId: "",
+      clientId: "spa-oGVHJyqrqU61ooywdsHiyIBBJ",
       redirectUri: "http://localhost:3000/signin-callback",
-      scope: "connections:read connections:modify realitydata:read imodels:read imodels:modify library:read storage:read storage:modify openid email profile organization imodelhub context-registry-service:read-only product-settings-service general-purpose-imodeljs-backend imodeljs-router urlps-third-party projectwise-share rbac-user:external-client projects:read projects:modify validation:read validation:modify issues:read issues:modify forms:read forms:modify",
+      scope: "openid projects:modify users:read itwinjs email organization profile projects:read",
+      issuerUrl: "https://qa-ims.bentley.com",
     },
-    urlPrefix: pcf.URLPrefix.QA,
+    urlPrefix: pcf.ReqURLPrefix.QA,
   });
   const app = new pcf.BaseApp(jobArgs, hubArgs);
   await app.run();

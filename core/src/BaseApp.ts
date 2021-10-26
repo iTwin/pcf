@@ -9,15 +9,15 @@ import { ChangesetProps, LocalBriefcaseProps, NativeAppAuthorizationConfiguratio
 import { AccessToken } from "@itwin/core-bentley";
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
+import { IModelHubBackend } from "./IModelHubBackend";
 import * as fs from "fs";
 import * as path from "path";
 import * as util from "./Util";
-import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 
-export enum URLPrefix {
-  Prod = "",     // Anyone
-  QA   = "qa-",  // Bentley Developer only
-  Dev  = "dev-", // Bentley Developer only
+export enum ReqURLPrefix {
+  Prod = "",
+  QA   = "qa-",
+  Dev  = "dev-",
 }
 
 export interface JobArgsProps {
@@ -62,6 +62,7 @@ export interface JobArgsProps {
 }
 
 export class JobArgs implements JobArgsProps {
+
   public connectorPath: string;
   public connection: DataConnection;
   public subjectKey: string;
@@ -113,14 +114,15 @@ export interface HubArgsProps {
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
    */
-  urlPrefix?: URLPrefix;
+  urlPrefix?: ReqURLPrefix;
 }
 
 export class HubArgs implements HubArgsProps {
+
   public projectId: Id64String;
   public iModelId: Id64String;
   public clientConfig: NativeAppAuthorizationConfiguration;
-  public urlPrefix: URLPrefix = URLPrefix.Prod;
+  public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
 
@@ -170,6 +172,9 @@ export class BaseApp {
         },
       ]
     });
+
+    const hubAccess = new IModelHubBackend();
+    IModelHost.setHubAccess(hubAccess);
   }
 
   /*
@@ -185,6 +190,7 @@ export class BaseApp {
       const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.token });
     } catch(err) {
+      // TODO remove this later
       console.error(err);
       Logger.logError(LogCategory.PCF, (err as any).message);
       runStatus = BentleyStatus.ERROR;
@@ -196,6 +202,74 @@ export class BaseApp {
       await IModelHost.shutdown();
     }
     return runStatus;
+  }
+
+  /*
+   * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
+   */
+  public async signin(): Promise<AccessToken> {
+    if (this._token)
+      return this._token;
+    const client = new ElectronAuthorizationBackend(this.hubArgs.clientConfig);
+    await client.initialize(this.hubArgs.clientConfig);
+    IModelHost.authorizationClient = client;
+    const token = await client.signInComplete();
+    this._token = token;
+    return token;
+  }
+
+  /*
+   * Open a previously downloaded BriefcaseDb on disk if present.
+   */
+  public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
+    const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
+    const cachedDb = cachedDbs[0];
+    if (!cachedDb)
+      return undefined;
+
+    const db = await BriefcaseDb.open({
+      fileName: cachedDb.fileName,
+      readonly: readonlyMode,
+    });
+    return db;
+  }
+
+  /*
+   * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
+   */
+  public async openBriefcaseDb(): Promise<BriefcaseDb> {
+    const cachedDb = await this.openCachedBriefcaseDb(false);
+    if (cachedDb) {
+      await cachedDb.pullChanges({ accessToken: this.token });
+      cachedDb.saveChanges();
+      return cachedDb;
+    }
+
+    const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
+    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
+    /*
+    const fileName = path.join(this.jobArgs.outputDir, "briefcase.bim");
+    const bc = await this.backend.downloadV2Checkpoint({ 
+      localFile: fileName,
+      checkpoint: { 
+        accessToken: this.token, 
+        iTwinId: this.hubArgs.projectId, 
+        iModelId: this.hubArgs.iModelId,
+      }
+    } as DownloadRequest);
+    */
+
+    /*
+    if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
+      await BriefcaseDb.upgradeSchemas(bcProps);
+    const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
+    */
+
+    // const openArgs: OpenBriefcaseProps = { fileName };
+    // const db = await BriefcaseDb.open(openArgs);
+
+    const db = await BriefcaseDb.open({ fileName: bcProps.fileName });
+    return db;
   }
 
   /*
@@ -236,88 +310,5 @@ export class BaseApp {
     return status;
   }
   */
-
-  /*
-   * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
-   */
-  public async signin(): Promise<AccessToken> {
-    if (this._token)
-      return this._token;
-    const token = await this.getToken();
-    this._token = token;
-    return token;
-  }
-
-  public async getToken(): Promise<AccessToken> {
-    const client = new ElectronAuthorizationBackend();
-    await client.initialize(this.hubArgs.clientConfig);
-    return client.signInComplete();
-  }
-
-  /*
-   * Open a previously downloaded BriefcaseDb on disk if present.
-   */
-  public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
-    const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
-    const cachedDb = cachedDbs[0];
-    if (!cachedDb)
-      return undefined;
-
-    const db = await BriefcaseDb.open({
-      fileName: cachedDb.fileName,
-      readonly: readonlyMode,
-    });
-    return db;
-  }
-
-  /*
-   * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
-   */
-  public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    const cachedDb = await this.openCachedBriefcaseDb(false);
-    if (cachedDb) {
-      await cachedDb.pullChanges({ accessToken: this.token });
-      cachedDb.saveChanges();
-      return cachedDb;
-    }
-
-    // const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
-    // const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
-    const fileName = path.join(this.jobArgs.outputDir, "briefcase.bim");
-    const bc = await IModelHubBackend.downloadV2Checkpoint({ 
-      localFile: fileName,
-      checkpoint: { 
-        accessToken: this.token, 
-        iTwinId: this.hubArgs.projectId, 
-        iModelId: this.hubArgs.iModelId,
-      }
-    } as DownloadRequest);
-
-    /*
-    if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
-      await BriefcaseDb.upgradeSchemas(bcProps);
-    const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
-    */
-
-    const openArgs: OpenBriefcaseProps = { fileName };
-    const db = await BriefcaseDb.open(openArgs);
-    return db;
-  }
-
-  public static repl(dbpath: string) {
-    const readline = require("readline");
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    const db = StandaloneDb.openFile(dbpath);
-    while (true) {
-      rl.question("$: ", function(input: string) {
-        if (input === "exit")
-          return;
-        util.getRows(db, input);
-      });
-    }
-  }
 }
 
