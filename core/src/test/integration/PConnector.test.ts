@@ -3,15 +3,14 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { BentleyStatus } from "@itwin/core-bentley";
+import { IModelHost } from "@itwin/core-backend";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import * as pcf from "../../pcf";
 import { IntegrationTestApp } from "./IntegrationTestApp";
+import * as pcf from "../../pcf";
 import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";
-import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/imodelhub-node";
-import { BackendHubAccess, IModelHost } from "@itwin/core-backend";
 
 describe("Integration Tests", () => {
 

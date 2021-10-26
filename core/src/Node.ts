@@ -3,8 +3,8 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String } from "@itwin/core-bentley";
-import * as bk from "@itwin/core-backend";
-import * as common from "@itwin/core-common";
+import { InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
+import { Code, CodeSpec, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
 import { JobArgs } from "./BaseApp";
 import { ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
@@ -136,10 +136,10 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 
   protected async _update() {
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
-    const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, this.key);
+    const code = Subject.createCode(this.pc.db, IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
-      const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
+      const existingSub = this.pc.db.elements.getElement<Subject>(existingSubId);
       res.entityId = existingSub.id;
       res.state = ItemState.Unchanged;
       res.comment = `Use an existing subject - ${this.key}`;
@@ -158,12 +158,12 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       };
 
       const root = this.pc.db.elements.getRootSubject();
-      const subProps: common.SubjectProps = {
-        classFullName: bk.Subject.classFullName,
+      const subProps: SubjectProps = {
+        classFullName: Subject.classFullName,
         model: root.model,
         code,
         jsonProperties,
-        parent: new bk.SubjectOwnsSubjects(root.id),
+        parent: new SubjectOwnsSubjects(root.id),
       };
 
       const newSubId = this.pc.db.elements.insertElement(subProps);
@@ -187,13 +187,13 @@ export interface ModelNodeProps extends NodeProps {
    * References an EC Model class
    * it must have the same type as partitionClass
    */
-  modelClass: typeof bk.Model;
+  modelClass: typeof Model;
   
   /*
    * References an EC Partition class 
    * it must have the same type as modelClass
    */
-  partitionClass: typeof bk.InformationPartitionElement;
+  partitionClass: typeof InformationPartitionElement;
 
   /*
    * References a Subject Node defined by user
@@ -203,8 +203,8 @@ export interface ModelNodeProps extends NodeProps {
 
 export class ModelNode extends Node implements ModelNodeProps {
 
-  public modelClass: typeof bk.Model;
-  public partitionClass: typeof bk.InformationPartitionElement;
+  public modelClass: typeof Model;
+  public partitionClass: typeof InformationPartitionElement;
   public elements: Array<ElementNode | LoaderNode>;
   public subject: SubjectNode;
 
@@ -224,12 +224,12 @@ export class ModelNode extends Node implements ModelNodeProps {
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
 
-    const partitionProps: common.InformationPartitionElementProps = {
+    const partitionProps: InformationPartitionElementProps = {
       classFullName: this.partitionClass.classFullName,
       federationGuid: this.key,
       userLabel: this.key,
-      model: common.IModel.repositoryModelId,
-      parent: new bk.SubjectOwnsPartitionElements(subjectId),
+      model: IModel.repositoryModelId,
+      parent: new SubjectOwnsPartitionElements(subjectId),
       code,
     };
 
@@ -241,7 +241,7 @@ export class ModelNode extends Node implements ModelNodeProps {
       res.comment = `Use an existing Model - ${this.key}`;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
-      const modelProps: common.ModelProps = {
+      const modelProps: ModelProps = {
         classFullName: this.modelClass.classFullName,
         modeledElement: { id: partitionId },
         name: this.key,
@@ -316,16 +316,16 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     }
 
     const modelId = this.pc.modelCache[this.model.key];
-    const code = bk.RepositoryLink.createCode(this.pc.db, modelId, this.key);
+    const code = RepositoryLink.createCode(this.pc.db, modelId, this.key);
     const loaderProps = this.loader.toJSON();
     const repoLinkProps = {
-      classFullName: bk.RepositoryLink.classFullName,
+      classFullName: RepositoryLink.classFullName,
       model: modelId,
       code,
       format: loaderProps.format,
       userLabel: instance.userLabel,
       jsonProperties: instance.data,
-    } as common.RepositoryLinkProps;
+    } as RepositoryLinkProps;
     const res = this.pc.updateElement(repoLinkProps, instance);
     this.pc.elementCache[instance.key] = res.entityId;
     this.pc.seenIdSet.add(res.entityId);
@@ -380,13 +380,13 @@ export class ElementNode extends Node implements ElementNodeProps {
 
     for (const instance of instances) {
       const modelId = this.pc.modelCache[this.model.key];
-      const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
-      const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
+      const codeSpec: CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
+      const code = new Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
       const { ecElement } = this.dmo;
       const classFullName = typeof ecElement === "string" ? ecElement : `${this.pc.dynamicSchemaName}:${ecElement.name}`;
 
-      const props: common.ElementProps = {
+      const props: ElementProps = {
         code,
         federationGuid: instance.key,
         userLabel: instance.userLabel,
@@ -486,7 +486,7 @@ export class RelationshipNode extends Node {
         continue;
       }
 
-      const props: common.RelationshipProps = { sourceId, targetId, classFullName };
+      const props: RelationshipProps = { sourceId, targetId, classFullName };
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
@@ -559,12 +559,12 @@ export class RelatedElementNode extends Node {
 
       const { ecRelationship } = this.dmo;
       const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${this.pc.dynamicSchemaName}:${ecRelationship.name}`;
-      const props: common.RelatedElementProps = { id: sourceId, relClassName: classFullName };
+      const props: RelatedElementProps = { id: sourceId, relClassName: classFullName };
 
       if (typeof this.dmo.modifyProps === "function")
         this.dmo.modifyProps(props, instance);
 
-      const relatedElement = common.RelatedElement.fromJSON(props);
+      const relatedElement = RelatedElement.fromJSON(props);
       if (!relatedElement)
         throw new Error("Failed to create RelatedElement");
 

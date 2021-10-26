@@ -3,9 +3,9 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { BentleyStatus, Id64String, Logger, LogLevel } from "@itwin/core-bentley";
-import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, DownloadRequest } from "@itwin/core-backend";
+import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
 import { ElectronAuthorizationBackend } from "@itwin/electron-manager/lib/ElectronBackend";
-import { ChangesetProps, LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
+import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 import { AccessToken } from "@itwin/core-bentley";
@@ -13,7 +13,6 @@ import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
 import * as fs from "fs";
 import * as path from "path";
-import * as util from "./Util";
 
 export enum ReqURLPrefix {
   Prod = "",

@@ -1,8 +1,7 @@
 import { LogLevel, GuidString } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
-import { TestUserCredentials, getTestAccessToken, TestUtility, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
-import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
+import { TestUserCredentials, TestUtility, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
 import { BaseApp, JobArgs, HubArgs, ReqURLPrefix } from "../../pcf";
 
 /*

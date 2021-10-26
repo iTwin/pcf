@@ -5,8 +5,8 @@
 import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
 import { ChangesType } from "@bentley/imodelhub-client";
+import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
-import * as bk from "@itwin/core-backend";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as path from "path";
@@ -87,7 +87,7 @@ export abstract class PConnector {
   public readonly tree: pcf.RepoTree;
 
   protected _config?: PConnectorConfig;
-  protected _db?: bk.IModelDb;
+  protected _db?: IModelDb;
   protected _jobArgs?: pcf.JobArgs;
   protected _irModel?: pcf.IRModel;
   protected _jobSubjectId?: Id64String;
@@ -153,7 +153,7 @@ export abstract class PConnector {
     return this.config.dynamicSchema.schemaName;
   }
 
-  public async runJob(props: { db: bk.IModelDb, jobArgs: pcf.JobArgs }): Promise<void> {
+  public async runJob(props: { db: IModelDb, jobArgs: pcf.JobArgs }): Promise<void> {
 
     this.modelCache = {};
     this.elementCache = {};
@@ -274,7 +274,7 @@ export abstract class PConnector {
       return;
     }
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${bk.ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
     const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
@@ -285,7 +285,7 @@ export abstract class PConnector {
       if (this.seenIdSet.has(elementId))
         continue;
       const element = this.db.elements.getElement(elementId);
-      if (element instanceof bk.DefinitionElement)
+      if (element instanceof DefinitionElement)
         defElementIds.push(elementId);
       else
         elementIds.push(elementId);
@@ -303,7 +303,7 @@ export abstract class PConnector {
   }
 
   protected async _updateProjectExtents() {
-    const options: bk.ComputeProjectExtentsOptions = {
+    const options: ComputeProjectExtentsOptions = {
       reportExtentsWithOutliers: false,
       reportOutliers: false,
     };
@@ -323,17 +323,16 @@ export abstract class PConnector {
     const { revisionHeader } = this.jobArgs;
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
     const description = `${header} - ${changeDesc}`;
-    if (this.db instanceof bk.StandaloneDb || this.db instanceof bk.SnapshotDb) {
+    if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb) {
       this.db.saveChanges();
-    } else if (this.db instanceof bk.BriefcaseDb) {
-      // await this.db.pullChanges();
+    } else if (this.db instanceof BriefcaseDb) {
       this.db.saveChanges();
-      await this.db.pushChanges({ description } as bk.PushChangesArgs);
+      await this.db.pushChanges({ description } as PushChangesArgs);
     }
   }
 
   public async enterChannel(rootId: Id64String) {
-    if (this.db instanceof bk.StandaloneDb || this.db instanceof bk.SnapshotDb)
+    if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
       return;
     await this.db.locks.acquireExclusiveLock(rootId);
   }
@@ -349,11 +348,11 @@ export abstract class PConnector {
     if (existingElement)
       element.id = existingElement.id;
 
-    const { aspectId } = bk.ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
     if (!aspectId) {
       element.insert();
       this.db.elements.insertAspect({
-        classFullName: bk.ExternalSourceAspect.classFullName,
+        classFullName: ExternalSourceAspect.classFullName,
         element: { id: element.id },
         scope: { id: element.model },
         identifier,
@@ -364,7 +363,7 @@ export abstract class PConnector {
       return { entityId: element.id, state: pcf.ItemState.New, comment: "" };
     }
 
-    const xsa: bk.ExternalSourceAspect = this.db.elements.getAspect(aspectId) as bk.ExternalSourceAspect;
+    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
@@ -374,7 +373,7 @@ export abstract class PConnector {
     xsa.checksum = checksum;
 
     element.update();
-    this.db.elements.updateAspect(xsa as bk.ElementAspect);
+    this.db.elements.updateAspect(xsa as ElementAspect);
     return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
   }
 

@@ -5,19 +5,19 @@
 import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
 import { DOMParser, XMLSerializer } from "xmldom";
-import { IModelSchemaLoader } from "@itwin/core-backend";
+import { ClassRegistry, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
-import * as bk from "@itwin/core-backend";
+import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
 
 export interface DynamicEntityMap {
   elements: {
     props: pcf.ECDynamicElementClassProps,
-    registeredClass?: typeof bk.Element,
+    registeredClass?: typeof Element,
   }[],
   relationships: {
     props: pcf.ECDynamicRelationshipClassProps,
-    registeredClass?: typeof bk.Relationship,
+    registeredClass?: typeof Relationship,
   }[],
 }
 
@@ -33,14 +33,14 @@ export interface SchemaVersion {
   minorVersion: number;
 }
 
-export async function tryGetSchema(db: bk.IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
+export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
   const loader = new IModelSchemaLoader(db);
   const schema = loader.tryGetSchema(schemaName);
   return schema;
 }
 
 export async function syncDynamicSchema(
-  db: bk.IModelDb, 
+  db: IModelDb, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
   ): Promise<pcf.ItemState> {
@@ -95,16 +95,16 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
     }
   }
 
-  const dynamicSchemaClass = class BackendDynamicSchema extends bk.Schema {
+  const dynamicSchemaClass = class BackendDynamicSchema extends Schema {
     public static override get schemaName(): string {
       return props.schemaName;
     }
     public static registerSchema() {
-      if (this !== bk.Schemas.getRegisteredSchema(this.schemaName)) {
-        bk.Schemas.unregisterSchema(this.schemaName);
-        bk.Schemas.registerSchema(this);
-        bk.ClassRegistry.registerModule(elementsModule, this);
-        bk.ClassRegistry.registerModule(relationshipsModule, this);
+      if (this !== Schemas.getRegisteredSchema(this.schemaName)) {
+        Schemas.unregisterSchema(this.schemaName);
+        Schemas.registerSchema(this);
+        ClassRegistry.registerModule(elementsModule, this);
+        ClassRegistry.registerModule(relationshipsModule, this);
       }
     }
   }
@@ -113,7 +113,7 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
 
 // Generates an in-memory [Dynamic EC Schema](https://www.itwinjs.org/bis/intro/schema-customization/) from user-defined DMO.
 async function createDynamicSchema(
-  db: bk.IModelDb, 
+  db: IModelDb, 
   version: SchemaVersion, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
@@ -168,7 +168,7 @@ async function createDynamicSchema(
   return newSchema;
 }
 
-function getSchemaVersion(db: bk.IModelDb, schemaName: string): SchemaVersion {
+function getSchemaVersion(db: IModelDb, schemaName: string): SchemaVersion {
   const versionStr = db.querySchemaVersion(schemaName);
   if (!versionStr)
     return { readVersion: 1, writeVersion: 0, minorVersion: 0 };

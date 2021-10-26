@@ -2,9 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { DbResult, Logger } from "@itwin/core-bentley";
+import { DbResult } from "@itwin/core-bentley";
 import { ECSqlStatement, IModelDb } from "@itwin/core-backend";
-import { LogCategory } from "./LogCategory";
 
 export interface QueryToCount {
   [ecsql: string]: number;

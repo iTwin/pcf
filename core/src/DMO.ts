@@ -36,13 +36,13 @@ export interface DMO {
    * Defines a condition to determine if an ECInstance should be created from an IRInstance.
    * The instance will not be synchronized if "false" is returned,
    */ 
-  doSyncInstance?(instance: IRInstance): boolean;
+  doSyncInstance?(instance: IRInstance): Promise<boolean> | boolean;
 
   /*
    * Modifies the default properties assigned to the current ECInstance. 
    * An IRInstance contains the external data corresponding to current EC Entity.
    */
-  modifyProps?(props: any, instance: IRInstance): void;
+  modifyProps?(props: any, instance: IRInstance): Promise<void> | void;
 }
 
 /*
