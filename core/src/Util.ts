@@ -75,13 +75,12 @@ export async function locateElement(db: IModelDb, locator: string): Promise<Loca
   const conds: string[] = [];
   for (const k of Object.keys(searchObj)) {
     const v = searchObj[k];
-    if (typeof v === "number") {
+    if (typeof v === "number")
       conds.push(`${k}=${v}`);
-    } else if (typeof v === "string" && isHex(v)) {
+    else if (typeof v === "string" && isHex(v))
       conds.push(`${k}=${v}`);
-    } else if (typeof v === "string") {
+    else if (typeof v === "string")
       conds.push(`${k}='${v}'`);
-    }
   }
 
   const ecsql = `select ECInstanceId[id] from ${table} where ${conds.join(" and ")}`;

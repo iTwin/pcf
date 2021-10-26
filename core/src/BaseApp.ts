@@ -190,8 +190,6 @@ export class BaseApp {
       const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
       await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.token });
     } catch(err) {
-      // TODO remove this later
-      console.error(err);
       Logger.logError(LogCategory.PCF, (err as any).message);
       runStatus = BentleyStatus.ERROR;
     } finally {
