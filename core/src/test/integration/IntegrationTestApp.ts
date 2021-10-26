@@ -1,7 +1,8 @@
 import { LogLevel, GuidString } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
-import { BriefcaseDb, BriefcaseManager } from "@itwin/core-backend";
+import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
 import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
+import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import { BaseApp, JobArgs, HubArgs, ReqURLPrefix } from "../../pcf";
 import { IModelHubBackend } from "../../IModelHubBackend";
 
@@ -46,8 +47,11 @@ export class IntegrationTestApp extends BaseApp {
       throw new Error("environment variable 'imjs_test_regular_user_name' is not defined for silent signin");
     if (!password)
       throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
+
     const cred: TestUserCredentials = { email, password };
     const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred);
+    console.log("token: ", await IModelHost.getAccessToken());
+
     if (!token)
       throw new Error("Failed to get test access token");
     this._token = token;

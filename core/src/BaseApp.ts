@@ -6,6 +6,7 @@ import { BentleyStatus, Id64String, Logger, LogLevel } from "@itwin/core-bentley
 import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, DownloadRequest } from "@itwin/core-backend";
 import { ElectronAuthorizationBackend } from "@itwin/electron-manager/lib/ElectronBackend";
 import { ChangesetProps, LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
+import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import { AccessToken } from "@itwin/core-bentley";
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
@@ -121,7 +122,7 @@ export class HubArgs implements HubArgsProps {
 
   public projectId: Id64String;
   public iModelId: Id64String;
-  public clientConfig: NativeAppAuthorizationConfiguration;
+  public clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
   public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -214,6 +215,16 @@ export class BaseApp {
     await client.initialize(this.hubArgs.clientConfig);
     IModelHost.authorizationClient = client;
     const token = await client.signInComplete();
+    this._token = token;
+    return token;
+  }
+
+  public async signinSilent(): Promise<AccessToken> {
+    if (this._token)
+      return this._token;
+    const client = new ServiceAuthorizationClient(this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration);
+    const token = await client.getAccessToken();
+    IModelHost.authorizationClient = client;
     this._token = token;
     return token;
   }
