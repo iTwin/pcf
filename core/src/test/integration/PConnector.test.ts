@@ -66,7 +66,7 @@ describe("Integration Tests", () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
     await IModelHost.startup();
-    await app.silentSignin();
+    await app.signin();
   });
 
   after(async () => {

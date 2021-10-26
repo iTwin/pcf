@@ -21,7 +21,7 @@ export async function main() {
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
     iModelId: "46e97028-a81f-4082-b2fa-2e5ed1f38e32",
     clientConfig: { 
-      clientId: "spa-oGVHJyqrqU61ooywdsHiyIBBJ",
+      clientId: process.env.imjs_test_client_id,
       redirectUri: "http://localhost:3000/signin-callback",
       scope: "openid projects:modify users:read itwinjs email organization profile projects:read",
       issuerUrl: "https://qa-ims.bentley.com",

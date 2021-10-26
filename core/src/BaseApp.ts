@@ -266,28 +266,12 @@ export class BaseApp {
 
     const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
     const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
-    /*
-    const fileName = path.join(this.jobArgs.outputDir, "briefcase.bim");
-    const bc = await this.backend.downloadV2Checkpoint({ 
-      localFile: fileName,
-      checkpoint: { 
-        accessToken: this.token, 
-        iTwinId: this.hubArgs.projectId, 
-        iModelId: this.hubArgs.iModelId,
-      }
-    } as DownloadRequest);
-    */
 
-    /*
     if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
       await BriefcaseDb.upgradeSchemas(bcProps);
+
     const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
-    */
-
-    // const openArgs: OpenBriefcaseProps = { fileName };
-    // const db = await BriefcaseDb.open(openArgs);
-
-    const db = await BriefcaseDb.open({ fileName: bcProps.fileName });
+    const db = await BriefcaseDb.open(openArgs);
     return db;
   }
 
