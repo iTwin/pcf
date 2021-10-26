@@ -1,10 +1,9 @@
 import { LogLevel, GuidString } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
-import { TestUserCredentials, getTestAccessToken, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
+import { TestUserCredentials, getTestAccessToken, TestUtility, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import { BaseApp, JobArgs, HubArgs, ReqURLPrefix } from "../../pcf";
-import { IModelHubBackend } from "../../IModelHubBackend";
 
 /*
  * extend/utilize this class to create your own integration tests
@@ -27,7 +26,6 @@ export class IntegrationTestApp extends BaseApp {
         clientId,
         redirectUri: "http://localhost:3000/signin-callback",
         scope: "openid profile organization email itwinjs",
-        issuerUrl: "https://qa-ims.bentley.com",
       },
       urlPrefix: ReqURLPrefix.QA,
     });
@@ -49,8 +47,9 @@ export class IntegrationTestApp extends BaseApp {
       throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
 
     const cred: TestUserCredentials = { email, password };
-    const token = await getTestAccessToken(this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration, cred);
-    console.log("token: ", await IModelHost.getAccessToken());
+    const client = await TestUtility.getAuthorizationClient(cred, this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration);
+    const token = await client.getAccessToken();
+    IModelHost.authorizationClient = client;
 
     if (!token)
       throw new Error("Failed to get test access token");
@@ -74,23 +73,17 @@ export class IntegrationTestApp extends BaseApp {
 
   public async createTestBriefcaseDb(name: string): Promise<GuidString> {
     const testIModelName = `${name} - ${process.platform}`;
-    // const existingIModelId = await IModelHost.hubAccess.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
-    const backend = new IModelHubBackend();
-    const existingIModelId = await backend.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
+    const existingIModelId = await IModelHost.hubAccess.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
     if (existingIModelId) {
-      // await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
-      await backend.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
+      await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
     }
-    // const testIModelId = await IModelHost.hubAccess.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
-    const testIModelId = await backend.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
+    const testIModelId = await IModelHost.hubAccess.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
     this.hubArgs.iModelId = testIModelId;
     return testIModelId;
   }
 
   public async purgeTestBriefcaseDb(): Promise<void> {
-    // await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
-    const backend = new IModelHubBackend();
-    await backend.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
+    await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
     if (this._testBriefcaseDbPath)
       await BriefcaseManager.deleteBriefcaseFiles(this._testBriefcaseDbPath, this.token);
   }

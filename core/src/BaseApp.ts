@@ -7,10 +7,10 @@ import { StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBrie
 import { ElectronAuthorizationBackend } from "@itwin/electron-manager/lib/ElectronBackend";
 import { ChangesetProps, LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
+import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 import { AccessToken } from "@itwin/core-bentley";
 import { LogCategory } from "./LogCategory";
 import { DataConnection } from "./loaders";
-import { IModelHubBackend } from "./IModelHubBackend";
 import * as fs from "fs";
 import * as path from "path";
 import * as util from "./Util";
@@ -211,8 +211,12 @@ export class BaseApp {
   public async signin(): Promise<AccessToken> {
     if (this._token)
       return this._token;
-    const client = new ElectronAuthorizationBackend(this.hubArgs.clientConfig);
-    await client.initialize(this.hubArgs.clientConfig);
+    const config = {
+      ...this.hubArgs.clientConfig,
+      issuerUrl: `https://${this.hubArgs.urlPrefix}ims.bentley.com`,
+    } as NativeAppAuthorizationConfiguration;
+    const client = new ElectronAuthorizationBackend(config);
+    await client.initialize(config);
     IModelHost.authorizationClient = client;
     const token = await client.signInComplete();
     this._token = token;
@@ -222,7 +226,11 @@ export class BaseApp {
   public async signinSilent(): Promise<AccessToken> {
     if (this._token)
       return this._token;
-    const client = new ServiceAuthorizationClient(this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration);
+    const config = {
+      ...this.hubArgs.clientConfig,
+      authority: `https://${this.hubArgs.urlPrefix}ims.bentley.com`, 
+    } as ServiceAuthorizationClientConfiguration;
+    const client = new ServiceAuthorizationClient(config);
     const token = await client.getAccessToken();
     IModelHost.authorizationClient = client;
     this._token = token;
