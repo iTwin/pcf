@@ -208,10 +208,11 @@ export class BaseApp {
   public async signin(): Promise<AccessToken> {
     if (this._token)
       return this._token;
-    const config = {
-      ...this.hubArgs.clientConfig,
-      issuerUrl: `https://${this.hubArgs.urlPrefix}ims.bentley.com`,
-    } as NativeAppAuthorizationConfiguration;
+
+    const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
+    if (!config.issuerUrl)
+      config.issuerUrl = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+
     const client = new ElectronAuthorizationBackend(config);
     await client.initialize(config);
     IModelHost.authorizationClient = client;
@@ -223,10 +224,11 @@ export class BaseApp {
   public async signinSilent(): Promise<AccessToken> {
     if (this._token)
       return this._token;
-    const config = {
-      ...this.hubArgs.clientConfig,
-      authority: `https://${this.hubArgs.urlPrefix}ims.bentley.com`, 
-    } as ServiceAuthorizationClientConfiguration;
+
+    const config = this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration;
+    if (!config.authority)
+      (config as any).authority = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+
     const client = new ServiceAuthorizationClient(config);
     const token = await client.getAccessToken();
     IModelHost.authorizationClient = client;
@@ -238,16 +240,19 @@ export class BaseApp {
    * Open a previously downloaded BriefcaseDb on disk if present.
    */
   public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
-    const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
-    const cachedDb = cachedDbs[0];
-    if (!cachedDb)
+    const bcPropsList: LocalBriefcaseProps[] = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
+    if (bcPropsList.length == 0)
       return undefined;
 
-    const db = await BriefcaseDb.open({
-      fileName: cachedDb.fileName,
+    const fileName = bcPropsList[0].fileName;
+    const cachedDb = await BriefcaseDb.open({
+      fileName: fileName,
       readonly: readonlyMode,
     });
-    return db;
+
+    await cachedDb.pullChanges();
+    cachedDb.saveChanges();
+    return cachedDb;
   }
 
   /*
@@ -255,11 +260,8 @@ export class BaseApp {
    */
   public async openBriefcaseDb(): Promise<BriefcaseDb> {
     const cachedDb = await this.openCachedBriefcaseDb(false);
-    if (cachedDb) {
-      await cachedDb.pullChanges({ accessToken: this.token });
-      cachedDb.saveChanges();
+    if (cachedDb)
       return cachedDb;
-    }
 
     const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
     const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
