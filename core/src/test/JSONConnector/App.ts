@@ -27,8 +27,8 @@ export async function main() {
     },
     urlPrefix: pcf.ReqURLPrefix.QA,
   });
-  const app = new pcf.BaseApp(jobArgs, hubArgs);
-  await app.run();
+  const app = new pcf.BaseApp(hubArgs);
+  await app.runConnectorJob(jobArgs);
 }
 
 main();

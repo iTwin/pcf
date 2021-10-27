@@ -144,53 +144,57 @@ export class HubArgs implements HubArgsProps {
  */
 export class BaseApp {
 
-  public jobArgs: JobArgs;
   public hubArgs: HubArgs;
   protected _token?: AccessToken;
 
   public get token() {
     if (!this._token)
-      throw new Error("not signed in");
+      throw new Error("Not signed in. Invoke either BaseApp.signin() or BaseApp.signinSilent().");
     return this._token;
   }
 
-  constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
+  constructor(hubArgs: HubArgs) {
     this.hubArgs = hubArgs;
-    this.jobArgs = jobArgs;
 
     const envStr = String(this.hubArgs.urlPrefix);
     process.env["IMJS_URL_PREFIX"] = envStr;
 
-    const defaultLevel = this.jobArgs.logLevel;
+    const hubAccess = new IModelHubBackend();
+    IModelHost.setHubAccess(hubAccess);
+
+    this.initLogging();
+  }
+
+  public initLogging(defaultLevel?: LogLevel) {
+    const level = defaultLevel ?? LogLevel.Info;
     Logger.initializeToConsole();
     Logger.configureLevels({
-      defaultLevel: LogLevel[defaultLevel],
       categoryLevels: [
         {
           category: LogCategory.PCF,
-          logLevel: LogLevel[LogLevel.Info],
+          logLevel: LogLevel[level],
         },
       ]
     });
-
-    const hubAccess = new IModelHubBackend();
-    IModelHost.setHubAccess(hubAccess);
   }
 
   /*
    * Safely executes a connector job to synchronize a BriefcaseDb.
    */
-  public async run(): Promise<BentleyStatus> {
+  public async runConnectorJob(jobArgs: JobArgs): Promise<BentleyStatus> {
     let db: BriefcaseDb | undefined = undefined;
     let runStatus = BentleyStatus.SUCCESS;
+    this.initLogging(jobArgs.logLevel);
+
     try {
       await IModelHost.startup();
       await this.signin();
       db = await this.openBriefcaseDb();
-      const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
-      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.token });
+      const connector = await require(jobArgs.connectorPath).getBridgeInstance();
+      await connector.runJob({ db, jobArgs, authReqContext: this.token });
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
+      Logger.logTrace(LogCategory.PCF, err);
       runStatus = BentleyStatus.ERROR;
     } finally {
       if (db) {
@@ -199,6 +203,7 @@ export class BaseApp {
       }
       await IModelHost.shutdown();
     }
+
     return runStatus;
   }
 

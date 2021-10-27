@@ -59,7 +59,7 @@ describe("Integration Tests", () => {
 
   const testConnection = testCases[0].jobs[0].connection;
   const testConnectorPath = path.join(KnownTestLocations.JSONConnectorDir, testCases[0].jobs[0].connectorFile);
-  const app = new IntegrationTestApp({ connectorPath: testConnectorPath, connection: testConnection } as pcf.JobArgs);
+  const app = new IntegrationTestApp();
 
   before(async () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
@@ -84,14 +84,14 @@ describe("Integration Tests", () => {
 
           const sourcePath = path.join(KnownTestLocations.testAssetsDir, sourceFile);
           const newData = fs.readFileSync(sourcePath);
-          if (app.jobArgs.connection.kind === "pcf_file_connection")
-            fs.writeFileSync(app.jobArgs.connection.filepath, newData);
 
-          app.jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
+          const testJobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
+          if (testJobArgs.connection.kind === "pcf_file_connection")
+            fs.writeFileSync(testJobArgs.connection.filepath, newData);
 
           let status: BentleyStatus;
           if (method === RunMethods.WithoutFwk)
-            status = await app.run();
+            status = await app.runConnectorJob(testJobArgs);
           // else if (method === RunMethods.WithFwk)
           //  status = await app.runFwk();
           else

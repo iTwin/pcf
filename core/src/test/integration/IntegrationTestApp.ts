@@ -11,7 +11,7 @@ export class IntegrationTestApp extends BaseApp {
 
   protected _testBriefcaseDbPath?: string;
 
-  constructor(testJobArgs: JobArgs) {
+  constructor() {
     const projectId = process.env.imjs_test_project_id;
     const clientId = process.env.imjs_test_client_id;
     if (!projectId)
@@ -28,9 +28,7 @@ export class IntegrationTestApp extends BaseApp {
       },
       urlPrefix: ReqURLPrefix.QA,
     });
-    testJobArgs.logLevel = LogLevel.Error;
-    super(testJobArgs, testHubArgs);
-    this.jobArgs = testJobArgs;
+    super(testHubArgs);
     this.hubArgs = testHubArgs;
   }
 
