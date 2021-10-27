@@ -36,8 +36,11 @@ export const ExtPhysicalElement: ElementDMO = {
 export const ExtSpace: ElementDMO = {
   irEntity: "ExtSpace",
   ecElement: "BuildingSpatial:Space",
-  modifyProps(props: any, instance: IRInstance) {
+  async modifyProps(props: any, instance: IRInstance) {
     props.footprintArea = 10;
+
+    // Test if async is properly awaited
+    await new Promise(resolve => setTimeout(resolve, 1000));
   },
   categoryAttr: "category",
 };

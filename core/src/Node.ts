@@ -402,7 +402,7 @@ export class ElementNode extends Node implements ElementNodeProps {
       }
 
       if (typeof this.dmo.modifyProps === "function")
-        this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(props, instance);
 
       const res = this.pc.updateElement(props, instance);
       resList.push(res);
@@ -488,7 +488,7 @@ export class RelationshipNode extends Node {
 
       const props: RelationshipProps = { sourceId, targetId, classFullName };
       if (typeof this.dmo.modifyProps === "function")
-        this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
       resList.push({ entityId: relId, state: ItemState.New, comment: "" })
@@ -562,7 +562,7 @@ export class RelatedElementNode extends Node {
       const props: RelatedElementProps = { id: sourceId, relClassName: classFullName };
 
       if (typeof this.dmo.modifyProps === "function")
-        this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(props, instance);
 
       const relatedElement = RelatedElement.fromJSON(props);
       if (!relatedElement)

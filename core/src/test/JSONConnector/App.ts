@@ -24,7 +24,6 @@ export async function main() {
       clientId: process.env.imjs_test_client_id as string,
       redirectUri: "http://localhost:3000/signin-callback",
       scope: "openid projects:modify users:read itwinjs email organization profile projects:read",
-      issuerUrl: "https://qa-ims.bentley.com",
     },
     urlPrefix: pcf.ReqURLPrefix.QA,
   });
