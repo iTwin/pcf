@@ -132,7 +132,7 @@ stages:
         workingDirectory: cli
 
       - bash: |
-          npm install ../../core/*.tgz
+          npm install
         displayName: 'npm install core/*tgz'
         workingDirectory: cli/TestProject
 
@@ -223,8 +223,10 @@ stages:
       parameters:
         path: '*.tgz'
         artifactName: core
+        name: core
     - template: templates/npmjs-publish-deployment.yaml@build-pipeline-scripts
       parameters:
         path: '*.tgz'
         artifactName: cli
+        name: cli
 
