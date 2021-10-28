@@ -8,10 +8,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@bentley/functional-schema": "1.0.3",
-    "@itwin/pcf": "file:../../core",
-    "@itwin/core-backend": "file:../../core/node_modules/@itwin/core-backend",
-    "@itwin/ecschema-metadata": "file:../../core/node_modules/@itwin/ecschema-metadata"
+    "@bentley/functional-schema": "1.0.3"
   },
   "devDependencies": {
     "typescript": "~4.3.0"

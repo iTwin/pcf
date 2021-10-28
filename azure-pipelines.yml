@@ -132,8 +132,10 @@ stages:
         workingDirectory: cli
 
       - bash: |
-          npm install
-        displayName: 'npm install core/*tgz'
+          npm install ../../core
+          npm install ../../core/node_modules/@itwin/core-backend
+          npm install ../../core/node_modules/@itwin/ecschema-metadata
+        displayName: 'Link local dependencies'
         workingDirectory: cli/TestProject
 
       - script: |
