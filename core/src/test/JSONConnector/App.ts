@@ -9,9 +9,9 @@ import { LogLevel } from "@itwin/core-bentley";
 export async function main() {
   const jobArgs = new pcf.JobArgs({ 
     connectorPath: path.join(__dirname, "JSONConnector"),
-    subjectKey: "Subject1",
+    subjectNodeKey: "Subject1",
     connection: {
-      loaderKey: "json-loader-1",
+      loaderNodeKey: "json-loader-1",
       kind: "pcf_file_connection",
       filepath: path.join(__dirname, "../assets/v1.json"),
     },

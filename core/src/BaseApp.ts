@@ -9,8 +9,7 @@ import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcase
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 import { AccessToken } from "@itwin/core-bentley";
-import { LogCategory } from "./LogCategory";
-import { DataConnection } from "./loaders";
+import { PConnector, DataConnection, LogCategory } from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -37,7 +36,7 @@ export interface JobArgsProps {
    * a subject element in an iModel. pcf will synchronize all the data stored under this subject 
    * with source file.
    */
-  subjectKey: string;
+  subjectNodeKey: string;
 
   /*
    * absolute path to the directory for storing output files like cached Briefcase.
@@ -65,7 +64,7 @@ export class JobArgs implements JobArgsProps {
 
   public connectorPath: string;
   public connection: DataConnection;
-  public subjectKey: string;
+  public subjectNodeKey: string;
   public outputDir: string = path.join(__dirname, "output");
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
@@ -74,7 +73,7 @@ export class JobArgs implements JobArgsProps {
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
     this.connection = props.connection;
-    this.subjectKey = props.subjectKey;
+    this.subjectNodeKey = props.subjectNodeKey;
     if (props.outputDir)
       this.outputDir = props.outputDir;
     if (props.logLevel !== undefined)
@@ -109,7 +108,7 @@ export interface HubArgsProps {
   /*
    * you may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
-  clientConfig: NativeAppAuthorizationConfiguration;
+  clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
 
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
@@ -153,7 +152,7 @@ export class BaseApp {
     return this._token;
   }
 
-  constructor(hubArgs: HubArgs) {
+  constructor(hubArgs: HubArgs, logLevel: LogLevel = LogLevel.Info) {
     this.hubArgs = hubArgs;
 
     const envStr = String(this.hubArgs.urlPrefix);
@@ -162,17 +161,16 @@ export class BaseApp {
     const hubAccess = new IModelHubBackend();
     IModelHost.setHubAccess(hubAccess);
 
-    this.initLogging();
+    this.initLogging(logLevel);
   }
 
-  public initLogging(defaultLevel?: LogLevel) {
-    const level = defaultLevel ?? LogLevel.Info;
+  public initLogging(defaultLevel: LogLevel) {
     Logger.initializeToConsole();
     Logger.configureLevels({
       categoryLevels: [
         {
           category: LogCategory.PCF,
-          logLevel: LogLevel[level],
+          logLevel: LogLevel[defaultLevel],
         },
       ]
     });
@@ -181,21 +179,21 @@ export class BaseApp {
   /*
    * Safely executes a connector job to synchronize a BriefcaseDb.
    */
-  public async runConnectorJob(jobArgs: JobArgs): Promise<BentleyStatus> {
+  public async runConnectorJob(jobArgs: JobArgs): Promise<boolean> {
     let db: BriefcaseDb | undefined = undefined;
-    let runStatus = BentleyStatus.SUCCESS;
-    this.initLogging(jobArgs.logLevel);
+    let success = false;
 
     try {
       await IModelHost.startup();
       await this.signin();
       db = await this.openBriefcaseDb();
-      const connector = await require(jobArgs.connectorPath).getBridgeInstance();
-      await connector.runJob({ db, jobArgs, authReqContext: this.token });
+      const connector: PConnector = await require(jobArgs.connectorPath).getConnectorInstance();
+      await connector.runJobUnsafe(db, jobArgs);
+      success = true;
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
-      Logger.logTrace(LogCategory.PCF, err);
-      runStatus = BentleyStatus.ERROR;
+      Logger.logTrace(LogCategory.PCF, err as any);
+      success = false
     } finally {
       if (db) {
         db.abandonChanges();
@@ -204,11 +202,11 @@ export class BaseApp {
       await IModelHost.shutdown();
     }
 
-    return runStatus;
+    return success;
   }
 
   /*
-   * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
+   * Interactively sign in through your Bentley account. This call opens up a page in your browser and prompts you to sign in.
    */
   public async signin(): Promise<AccessToken> {
     if (this._token)
@@ -226,6 +224,9 @@ export class BaseApp {
     return token;
   }
 
+  /*
+   * Non-interactively sign in
+   */
   public async signinSilent(): Promise<AccessToken> {
     if (this._token)
       return this._token;
@@ -283,7 +284,7 @@ export class BaseApp {
    * Executes connector-framework in BaseApp
    */
   /*
-  public async runFwk(): Promise<BentleyStatus> {
+  public async runConnectorJob(): Promise<BentleyStatus> {
     await IModelHost.startup();
     const authReqContext = await this.signin();
 

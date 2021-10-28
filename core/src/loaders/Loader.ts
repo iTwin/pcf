@@ -9,10 +9,10 @@ import { LogCategory } from "../LogCategory";
 
 export interface BaseConnection {
   /*
-   * loaderKey is a unique identifier of a Repository Link element in an iModel.
+   * loaderNodeKey references a LoaderNode and is a unique identifier of a Repository Link element in an iModel.
    * pcf will synchronize all the data stored under this subject with source file.
    */
-  loaderKey: string;
+  loaderNodeKey: string;
 
   /*
    * Source data will be loaded into the IR Model on demand if true.

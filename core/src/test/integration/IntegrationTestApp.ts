@@ -1,8 +1,8 @@
-import { LogLevel, GuidString } from "@itwin/core-bentley";
+import { GuidString, LogLevel } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
 import { TestUserCredentials, TestUtility, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
-import { BaseApp, JobArgs, HubArgs, ReqURLPrefix } from "../../pcf";
+import { BaseApp, HubArgs, ReqURLPrefix } from "../../pcf";
 
 /*
  * extend/utilize this class to create your own integration tests
@@ -28,7 +28,7 @@ export class IntegrationTestApp extends BaseApp {
       },
       urlPrefix: ReqURLPrefix.QA,
     });
-    super(testHubArgs);
+    super(testHubArgs, LogLevel.Trace);
     this.hubArgs = testHubArgs;
   }
 
@@ -69,7 +69,7 @@ export class IntegrationTestApp extends BaseApp {
   }
 
   public async createTestBriefcaseDb(name: string): Promise<GuidString> {
-    const testIModelName = `${name} - ${process.platform}`;
+    const testIModelName = `${name}-${process.platform}`;
     const existingIModelId = await IModelHost.hubAccess.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
     if (existingIModelId) {
       await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });

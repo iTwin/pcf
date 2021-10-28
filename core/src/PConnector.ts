@@ -4,7 +4,6 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
-import { ChangesType } from "@bentley/imodelhub-client";
 import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
@@ -153,17 +152,16 @@ export abstract class PConnector {
     return this.config.dynamicSchema.schemaName;
   }
 
-  public async runJob(props: { db: IModelDb, jobArgs: pcf.JobArgs }): Promise<void> {
-
+  public async runJobUnsafe(db: IModelDb, jobArgs: pcf.JobArgs): Promise<void> {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
     this.seenIdSet = new Set<Id64String>();
 
-    this._db = props.db;
+    this._db = db;
 
-    this.tree.validate(props.jobArgs);
-    this._jobArgs = props.jobArgs;
+    this.tree.validate(jobArgs);
+    this._jobArgs = jobArgs;
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
@@ -209,7 +207,7 @@ export abstract class PConnector {
   }
 
   protected async _updateLoader(): Promise<pcf.UpdateResult> {
-    const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
+    const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
     await loaderNode.model.update();
     const res = await loaderNode.update() as pcf.UpdateResult;
     Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[res.state]}`);
@@ -218,7 +216,7 @@ export abstract class PConnector {
   }
 
   protected async _updateSubject(): Promise<pcf.UpdateResult> {
-    const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectKey, pcf.SubjectNode);
+    const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectNodeKey, pcf.SubjectNode);
     const res = await subjectNode.update() as pcf.UpdateResult;
     Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[res.state]}`);
     this._jobSubjectId = res.entityId;
@@ -248,14 +246,14 @@ export abstract class PConnector {
   }
 
   protected async _loadIRModel() {
-    const node = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
+    const node = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
     const loader = node.loader;
     this._irModel = new pcf.IRModel(loader, this.jobArgs.connection);
   }
 
   protected async _updateData() {
     let n = 0;
-    const nodes = this.tree.getNodes(this.jobArgs.subjectKey);
+    const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
       if (!node.hasUpdated) {
         const res = await node.update();
@@ -270,7 +268,7 @@ export abstract class PConnector {
 
   protected async _updateDeletedElements() {
     if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
+      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip element deletion.");
       return;
     }
 
@@ -300,6 +298,9 @@ export abstract class PConnector {
       if (this.db.elements.tryGetElement(elementId))
         this.db.elements.deleteDefinitionElements([elementId]);
     }
+
+    const nDeleted = elementIds.length + defElementIds.length;
+    Logger.logInfo(LogCategory.PCF, `Number of deleted EC Entity Instances: ${nDeleted}`);
   }
 
   protected async _updateProjectExtents() {
@@ -376,7 +377,6 @@ export abstract class PConnector {
     this.db.elements.updateAspect(xsa as ElementAspect);
     return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
   }
-
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {
     if (!node.dmo.fromAttr || !node.dmo.toAttr)

@@ -6,7 +6,7 @@ import { PrimitiveType } from "@itwin/ecschema-metadata";
 import { JSONConnector } from "./JSONConnector";
 import * as pcf from "../../pcf";
 
-export async function getBridgeInstance() {
+export async function getConnectorInstance() {
   const connector = new JSONConnector();
   await connector.form();
   const subjectNode = connector.tree.find<pcf.SubjectNode>("Subject1", pcf.SubjectNode);

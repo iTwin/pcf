@@ -72,8 +72,8 @@ export class RepoTree {
   }
 
   public validate(jobArgs: JobArgs): void {
-    this.find<LoaderNode>(jobArgs.connection.loaderKey, LoaderNode);
-    this.find<SubjectNode>(jobArgs.subjectKey, SubjectNode);
+    this.find<LoaderNode>(jobArgs.connection.loaderNodeKey, LoaderNode);
+    this.find<SubjectNode>(jobArgs.subjectNodeKey, SubjectNode);
   }
 }
 
