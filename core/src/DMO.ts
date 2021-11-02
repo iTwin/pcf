@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { EntityClassProps, RelationshipClassProps } from "@itwin/ecschema-metadata";
-import { IRInstance } from "./IRModel";
+import { IRInstance, PConnector } from "./pcf";
 
 /* 
  * A string that contains a JSON whose keys refer to EC Properties and values refer to their values.
@@ -41,8 +41,9 @@ export interface DMO {
   /*
    * Modifies the default properties assigned to the current ECInstance. 
    * An IRInstance contains the external data corresponding to current EC Entity.
+   * This function should always be awaited.
    */
-  modifyProps?(props: any, instance: IRInstance): Promise<void> | void;
+  modifyProps?(pc: PConnector, props: any, instance: IRInstance): Promise<void> | void;
 }
 
 /*

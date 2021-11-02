@@ -402,12 +402,14 @@ export class ElementNode extends Node implements ElementNodeProps {
       }
 
       if (typeof this.dmo.modifyProps === "function")
-        await this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(this.pc, props, instance);
 
       const res = this.pc.updateElement(props, instance);
       resList.push(res);
       this.pc.elementCache[instance.key] = res.entityId;
       this.pc.seenIdSet.add(res.entityId);
+
+      // Add custom handlers (WIP)
       // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
       // (classRef as any).onInsert = (args: bk.OnElementPropsArg) => console.log("hello");
       // console.log(classRef);
@@ -488,7 +490,7 @@ export class RelationshipNode extends Node {
 
       const props: RelationshipProps = { sourceId, targetId, classFullName };
       if (typeof this.dmo.modifyProps === "function")
-        await this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(this.pc, props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
       resList.push({ entityId: relId, state: ItemState.New, comment: "" })
@@ -562,7 +564,7 @@ export class RelatedElementNode extends Node {
       const props: RelatedElementProps = { id: sourceId, relClassName: classFullName };
 
       if (typeof this.dmo.modifyProps === "function")
-        await this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(this.pc, props, instance);
 
       const relatedElement = RelatedElement.fromJSON(props);
       if (!relatedElement)

@@ -4,8 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 import { GroupInformationElement, PhysicalElement, PhysicalType } from "@itwin/core-backend";
-import { ElementDMO } from "../../../DMO";
-import { IRInstance } from "../../../IRModel";
+import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
 
 export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",
@@ -23,7 +22,7 @@ export const ExtPhysicalElement: ElementDMO = {
       },
     ],
   },
-  modifyProps(props: any, instance: IRInstance) {
+  modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.buildingNumber = instance.get("id");
     props.roomNumber = instance.get("id");
   },
@@ -36,7 +35,7 @@ export const ExtPhysicalElement: ElementDMO = {
 export const ExtSpace: ElementDMO = {
   irEntity: "ExtSpace",
   ecElement: "BuildingSpatial:Space",
-  async modifyProps(props: any, instance: IRInstance) {
+  async modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.footprintArea = 10;
 
     // Test if async is properly awaited
@@ -59,7 +58,7 @@ export const ExtPhysicalType: ElementDMO = {
     name: "ExtPhysicalType",
     baseClass: PhysicalType.classFullName,
   },
-  modifyProps(props: any, instance: IRInstance) {
+  modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.userLabel = instance.get("ExtUserLabel");
   },
 };

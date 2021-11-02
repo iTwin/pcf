@@ -316,8 +316,11 @@ export abstract class PConnector {
     const codeSpecName = PConnector.CodeSpecName;
     if (this.db.codeSpecs.hasName(codeSpecName))
       return;
-    const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
-    this.db.codeSpecs.insert(newCodeSpec);
+    this.db.codeSpecs.insert(codeSpecName, CodeScopeSpec.Type.Model);
+    // const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
+    // console.log(newCodeSpec.properties);
+    // this.db.codeSpecs.insert(newCodeSpec);
+    // this.db.codeSpecs.insert(newCodeSpec);
   }
 
   public async persistChanges(changeDesc: string) {
