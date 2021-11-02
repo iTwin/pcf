@@ -8,7 +8,7 @@ Table of Contents
 * [Getting Started](#getting-started)
 * [Constructs](#constructs)
 * [Development](#development)
-* [How to write a Loader?](#how-to-write-a-loader)
+* [Write a Connector with iTwin PCF?](#write-a-connector-with-itwin-pcf)
 * [Programmatically Generate Construct Instances](#programmatically-generate-construct-instances)
 * [Install from source](#install-from-source)
 * [In-depth Concepts](https://github.com/iTwin/pcf/wiki)
@@ -22,7 +22,7 @@ Parametric Connector Framework (PCF) is the most advanced and intelligent tool f
 
 ```bash
 # make sure your npm version is < 7.0.0
-npm --version 
+npm --version
 # run this command if you npm version is > 7.0.0
 npm install -g npm@6.x
 
@@ -33,9 +33,9 @@ npm install -g npm@6.x
 # 1. install global pcf command line utility
 npm install -g @itwin/pcf-cli
 
-# 2. initialize a connector template with a name. This command will create a project directory named "output"
-pcf init <name of your connector> 
-cd output
+# 2. initialize a connector template. Change "MyProject" to your desired project name.
+pcf init MyProject
+cd MyProject
 
 # 3. install the latest version of pcf core in your project
 npm install @itwin/pcf
@@ -79,10 +79,13 @@ You will be using a set of constructs to build your connector.
     * Each Loader is recorded as a [Repository Link](https://www.itwinjs.org/reference/imodeljs-backend/elements/repositorylink) in your iModel.
     * Currently supported loaders can be found in [here](https://github.com/iTwin/pcf/tree/main/core/src/loaders). 
 
+# Write a Connector with iTwin PCF
+
+
 ## How to write a Loader?
 
 You may need to write your own Loader if you need to customize the way of accessing source data.
- 
+
 Before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
 
 ## Programmatically Generate Construct Instances
@@ -101,7 +104,7 @@ export class XYZConnector extends pcf.PConnector {
     ...
 
     const model = new pcf.ModelNode(...);
-   
+
     const data: any[] = // Define any logics to get the data necessary to generate PCF construct instances
  
     for (const item of data) {
