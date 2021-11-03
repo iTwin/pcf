@@ -6,10 +6,8 @@ Table of Contents
 
 * [About](#about)
 * [Getting Started](#getting-started)
-* [Constructs](#constructs)
-* [Development](#development)
-* [Write a Connector with iTwin PCF?](#write-a-connector-with-itwin-pcf)
-* [Programmatically Generate Construct Instances](#programmatically-generate-construct-instances)
+* [PCF Constructs](#pcf-constructs)
+* [Tutorial](#tutorial)
 * [Install from source](#install-from-source)
 * [In-depth Concepts](https://github.com/iTwin/pcf/wiki)
 
@@ -49,7 +47,7 @@ npm run start
 
 Currently, all the documentations and API references of this project are embedded in source files. Use your IDE/language server to look them up through go-to-definitions.
 
-# Constructs
+# PCF Constructs
 
 You will be using a set of constructs to build your connector.
 
@@ -61,7 +59,7 @@ You will be using a set of constructs to build your connector.
 |**Node**          | A Node corresponds to an EC Entity and some Nodes use DMO to populate multiple EC Instances. An iModel is synchronized based on user-defined Nodes. |
 
 
-# Write a Connector with iTwin PCF
+# Tutorial
 
 It's important to first see an overall picture of what a Connector does:
 1. Read source data 
@@ -167,7 +165,7 @@ export class SampleConnector extends pcf.PConnector {
 }
 ```
 
-## Programmatically Generate Construct Instances
+## Programmatically Generate Constructs
 
 Everything doesn't have to be static. You still have the freedom to dynamically generate DMO's & Nodes based on a set of rules and data. Since your connector is represented purely by objects (DMOs & Nodes), you can programmatically generate them based on external source data. See a sample below.
 
@@ -210,7 +208,7 @@ Though runtime errors are minimized, there are still a few types of runtime erro
    
 > "Where did the API documentation for PCF go?"
    
-[LookupDefinition](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LookupDefinition.png)
+![LookupDefinition](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LookupDefinition.png)
 
 They are all embedded in code. You will be working in a single context, your modern IDE. Why?  There are a few reasons: 1. you tend to do this anyway as you code 2. you will always see the correct version of the doc 3. easier for me to sync the doc with code : ) 
    
@@ -265,7 +263,6 @@ npm link @itwin/pcf
 ```console
 npm run test
 ```
-
 
    
 # Inspired by
