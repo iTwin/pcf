@@ -8,6 +8,7 @@ Table of Contents
 * [Getting Started](#getting-started)
 * [PCF Constructs](#pcf-constructs)
 * [Tutorial](#tutorial)
+* [FAQ](#faq)
 * [Install from source](#install-from-source)
 * [In-depth Concepts](https://github.com/iTwin/pcf/wiki)
 
@@ -68,7 +69,7 @@ It's important to first see an overall picture of what a Connector does:
 
 Next, we will go over them in order and show how they are handled by PCF constructs.
 
-## Pick or extend a Loader
+### Pick or extend a Loader
    
 ![LoaderDiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LoaderDiagram.png)
 
@@ -80,7 +81,7 @@ You may need to write your own Loader if you need to customize the way of access
 
 Before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
    
-## Understand the IR Model
+### Understand the IR Model
    
 ![IRModelDiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/IRModelDiagram.png)
 
@@ -90,7 +91,7 @@ An IR Model is an in-memory store that consists of two types of object, IR Entit
 
 [What is IR Model for?](https://github.com/iTwin/pcf/wiki#intermediate-representation)
 
-## Define mappings with Dynamic Mapping Objects (DMO)
+### Define mappings with Dynamic Mapping Objects (DMO)
    
 ![DMODiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/DMODiagram.png)
 
@@ -137,7 +138,7 @@ export const dmoB: pcf.ElementDMO = {
 
 One-to-one mapping only works for tabular data like Excel sheets. DMO handles all types of mappings.
    
-## Sketch out iModel hierarchy with Nodes and attach DMO's
+### Sketch out iModel hierarchy with Nodes and attach DMO's
    
 ![NodeTree](https://github.com/iTwin/pcf/blob/enhance-doc/docs/NodeTree.png)
    
@@ -146,6 +147,10 @@ A collection of Nodes is the Single Source of Truth of the hierarchy of a subjec
 ElementNode & RelationshipNode must attach a DMO so that they can  populate multiple instances of EC Elements & Relationships in iModel based on the instances of external data.
 
 ```typescript
+import * as pcf from "@itwin/pcf";
+import { dmoA, dmoB } from "./dmos/Elements.ts";
+import { dmoC } from "./dmos/RelatedElements.ts";
+
 export class SampleConnector extends pcf.PConnector {
   public async form() {
     // skip some config ...
@@ -165,7 +170,7 @@ export class SampleConnector extends pcf.PConnector {
 }
 ```
 
-## Programmatically Generate Constructs
+### Programmatically Generate Constructs
 
 Everything doesn't have to be static. You still have the freedom to dynamically generate DMO's & Nodes based on a set of rules and data. Since your connector is represented purely by objects (DMOs & Nodes), you can programmatically generate them based on external source data. See a sample below.
 
@@ -194,31 +199,10 @@ export class XYZConnector extends pcf.PConnector {
 
 ```   
 
-## Questions
-
-> "Wait… don't we need to write tests to ensure that the elements are correctly inserted/updated/deleted in all kinds of scenarios?"
-
-PCF aims to eliminate the need for end applications to write tests. Looking back at what we did, we defined a bunch of objects as the inputs to PCF, which would handle the rest to synchronize the target iModel to our desired state through the objects. So long as their definitions are correct, PCF promises a successful synchronization.
-
-> "Okay… people make mistakes in configuration files all the time, how can I be confident that my definitions are correct for the objects?" 
-
-PCF enforces strict typing on objects through TypeScript so that functionalities such as code completion and code-refactoring available in most modern IDE's (e.g. Visual Studio Code) will help you to write the correct definitions for them.
-
-Though runtime errors are minimized, there are still a few types of runtime errors that could not be discovered at compile time. For example, you may accidentally assign a PhysicalElement to a FunctionalModel this will fail because they are not of the same type. You should still have a very basic understanding of how information is organized in an iModel.      
-   
-> "Where did the API documentation for PCF go?"
-   
-![LookupDefinition](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LookupDefinition.png)
-
-They are all embedded in code. You will be working in a single context, your modern IDE. Why?  There are a few reasons: 1. you tend to do this anyway as you code 2. you will always see the correct version of the doc 3. easier for me to sync the doc with code : ) 
-   
-However, if you are a vim user like me, I suggest you set up vim-lsc with typescript-language-server. If you are a Notepad user, why do you even need any of this?
-
-
-## Development
+### Development
 
 * Dependencies
-    * You should not install any iTwin.js related dependencies aside from schema npm packages (@bentley/<schema name>-schema). If the same package is installed in two different versions by your connector and PCF, you may encounter hidden bugs.
+    * You do not need to install any iTwin.js related dependencies aside from schema npm packages (@bentley/{schema name}-schema) since most iTwin.js libraries are automatically installed as you install @itwin/pcf. If you do, you must make sure that they share the same version string as the ones installed by PCF, otherwise you may encounter unknown errors.
     * Most existing domain schema packages can be found [here](https://www.npmjs.com/search?q=%40bentley%20schema%20).
 * Node
     * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
@@ -234,6 +218,25 @@ However, if you are a vim user like me, I suggest you set up vim-lsc with typesc
     * Currently supported loaders can be found in [here](https://github.com/iTwin/pcf/tree/main/core/src/loaders). 
 
 
+# FAQ
+
+> "Wait… don't we need to write tests to ensure that the elements are correctly inserted/updated/deleted in all kinds of scenarios?"
+
+PCF aims to eliminate the need for end applications to write tests. Looking back at what we did, we defined a bunch of objects as the inputs to PCF, which would handle the rest to synchronize the target iModel to our desired state through the objects. So long as their definitions are correct, PCF promises a successful synchronization.
+
+> "Okay… people make mistakes in configuration files all the time, how can I be confident that my definitions are correct for the objects?" 
+
+PCF enforces strict typing on objects through TypeScript so that functionalities such as code completion and code-refactoring available in most modern IDE's (e.g. Visual Studio Code) will help you to write the correct definitions for them.
+
+Though runtime errors are minimized, there are still a few types of runtime errors that could not be discovered at compile time. For example, you may accidentally assign a PhysicalElement to a FunctionalModel this will fail because they are not of the same type. You should still have a very basic understanding of how information is organized in an iModel.      
+   
+> "Where did the API documentation for PCF go?"
+   
+![LookupDefinition](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LookupDefinition.png)
+
+They are all embedded in code. You will be working in a single context, your modern IDE. Why?  There are a few reasons: 1. you tend to do this anyway as you code 2. you will always see the correct version of the doc 3. easier to sync the doc with code : ) 
+
+   
 # Install from source
 
 ### pre-steps:
