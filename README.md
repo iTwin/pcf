@@ -77,7 +77,7 @@ It's important to first see an overall picture of what a Connector does:
 Next, we will go over them in order and show how they are handled by PCF constructs.
 
 ### Pick or extend a Loader
-   
+
 ![LoaderDiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LoaderDiagram.png)
 
 X could be any data source. (e.g., database, spreadsheet, API, etc.)
@@ -87,23 +87,23 @@ Similar to a keyboard driver for an operating system, Loader makes your data ava
 You may need to write your own Loader if you need to customize the way of accessing source data.
 
 Before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
-   
+
 ### Understand the IR Model
-   
+
 ![IRModelDiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/IRModelDiagram.png)
 
-IR Model is meant to be generic to represent all types of external data models.   
-   
+IR Model is meant to be generic to represent all types of external data models.
+
 An IR Model is an in-memory store that consists of two types of object, IR Entity and IR Relationship, whose instances are called IR Instances.
 
 [What is IR Model for?](https://github.com/iTwin/pcf/wiki#intermediate-representation)
 
 ### Define mappings with Dynamic Mapping Objects (DMO)
-   
+
 ![DMODiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/DMODiagram.png)
 
 A collection of DMO's is the Single Source of Truth of the mappings from source data to an iModel. Each DMO controls the one-to-one mapping from an IR/external class to an EC class in iModel. PCF provides a default property mapping from IR Instance to iModel Element, in addition, DMO's could attach callbacks on each visit to override element property values.
-   
+
 ```typescript
 export const dmoA: ElementDMO = {
   irEntity: "ExternalClassB",
@@ -144,13 +144,13 @@ export const dmoB: pcf.ElementDMO = {
 ```
 
 One-to-one mapping only works for tabular data like Excel sheets. DMO handles all types of mappings.
-   
+
 ### Sketch out iModel hierarchy with Nodes and attach DMO's
-   
+
 ![NodeTree](https://github.com/iTwin/pcf/blob/enhance-doc/docs/NodeTree.png)
-   
+
 A collection of Nodes is the Single Source of Truth of the hierarchy of a subject tree in iModel. You now gain the freedom to organize the content of your iModel as if it's a file system by passing around Nodes. It's important to know that the ordering of Nodes matters as they are synchronized in the same order as defined. Since the dependencies between Nodes are constrained by the fact that a variable cannot be referenced until it's defined in a programming language, we can guarantee that the elements inside an iModel are always synchronized in the correct order without hardcoding the logic anywhere.
-   
+
 ElementNode & RelationshipNode must attach a DMO so that they can  populate multiple instances of EC Elements & Relationships in iModel based on the instances of external data.
 
 ```typescript
@@ -195,7 +195,7 @@ export class XYZConnector extends pcf.PConnector {
     const model = new pcf.ModelNode(...);
 
     const data: any[] = // Define any logics to get the data necessary to generate PCF construct instances
- 
+
     for (const item of data) {
       // use data stored in "item" to populate the fields of DMO and/or Node
       const dmo: pcf.ElementDMO = ...
@@ -204,7 +204,7 @@ export class XYZConnector extends pcf.PConnector {
   }
 }
 
-```   
+```
 
 ### Development
 
@@ -222,7 +222,7 @@ export class XYZConnector extends pcf.PConnector {
     * Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
 * Loaders
     * Each Loader is recorded as a [Repository Link](https://www.itwinjs.org/reference/imodeljs-backend/elements/repositorylink) in your iModel.
-    * Currently supported loaders can be found in [here](https://github.com/iTwin/pcf/tree/main/core/src/loaders). 
+    * Currently supported loaders can be found in [here](https://github.com/iTwin/pcf/tree/main/core/src/loaders).
 
 
 # FAQ
@@ -231,19 +231,19 @@ export class XYZConnector extends pcf.PConnector {
 
 PCF aims to eliminate the need for end applications to write tests. Looking back at what we did, we defined a bunch of objects as the inputs to PCF, which would handle the rest to synchronize the target iModel to our desired state through the objects. So long as their definitions are correct, PCF promises a successful synchronization.
 
-> "Okay… people make mistakes in configuration files all the time, how can I be confident that my definitions are correct for the objects?" 
+> "Okay… people make mistakes in configuration files all the time, how can I be confident that my definitions are correct for the objects?"
 
 PCF enforces strict typing on objects through TypeScript so that functionalities such as code completion and code-refactoring available in most modern IDE's (e.g. Visual Studio Code) will help you to write the correct definitions for them.
 
-Though runtime errors are minimized, there are still a few types of runtime errors that could not be discovered at compile time. For example, you may accidentally assign a PhysicalElement to a FunctionalModel this will fail because they are not of the same type. You should still have a very basic understanding of how information is organized in an iModel.      
-   
+Though runtime errors are minimized, there are still a few types of runtime errors that could not be discovered at compile time. For example, you may accidentally assign a PhysicalElement to a FunctionalModel this will fail because they are not of the same type. You should still have a very basic understanding of how information is organized in an iModel.
+
 > "Where did the API documentation for PCF go?"
-   
+
 ![LookupDefinition](https://github.com/iTwin/pcf/blob/enhance-doc/docs/LookupDefinition.png)
 
-They are all embedded in code. You will be working in a single context, your modern IDE. Why?  There are a few reasons: 1. you tend to do this anyway as you code 2. you will always see the correct version of the doc 3. easier to sync the doc with code : ) 
+They are all embedded in code. You will be working in a single context, your modern IDE. Why? You tend to do this anyway as you code and you always see the correct version of the documentation.
 
-   
+
 # Install from source
 
 ### pre-steps:
@@ -274,7 +274,7 @@ npm link @itwin/pcf
 npm run test
 ```
 
-   
+
 # Inspired by
 
 - [Compiler Design](https://en.wikipedia.org/wiki/Compiler)
