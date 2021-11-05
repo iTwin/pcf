@@ -106,16 +106,16 @@ A collection of DMO's is the Single Source of Truth of the mappings from source 
 
 ```typescript
 export const dmoA: ElementDMO = {
-  irEntity: "ExternalClassB",
+  irEntity: "ExternalClassA",
   // use an existing class from BisCore schema
   ecElement: "BisCore:SpatialCategory",
 };
 
 export const dmoB: pcf.ElementDMO = {
-  irEntity: "ExternalClassA",
+  irEntity: "ExternalClassB",
   // create a dynamic class in iModel
   ecElement: {
-    name: "ExternalClassA",
+    name: "ExternalClassB",
     baseClass: PhysicalElement.classFullName,
     properties: [
       {
