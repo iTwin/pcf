@@ -2,7 +2,7 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String, Logger, LogLevel } from "@itwin/core-bentley";
+import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
 import { ElectronAuthorizationBackend } from "@itwin/core-electron/lib/cjs/backend/ElectronAuthorizationBackend";
 import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@itwin/core-common";
@@ -58,13 +58,6 @@ export interface JobArgsProps {
    * Header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
   revisionHeader?: string;
-
-  /*
-   * Enables interactive sign in through a browser page
-   *
-   * Equals true by default
-   */
-  interactiveSignin?: boolean;
 }
 
 export class JobArgs implements JobArgsProps {
@@ -76,7 +69,6 @@ export class JobArgs implements JobArgsProps {
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
   public revisionHeader: string = "iTwin.PCF";
-  public interactiveSignin: boolean = true; 
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
@@ -93,8 +85,6 @@ export class JobArgs implements JobArgsProps {
       this.enableDelete = props.enableDelete;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
-    if (props.interactiveSignin !== undefined)
-      this.interactiveSignin = props.interactiveSignin;
 
     this.validate();
   }
@@ -156,6 +146,7 @@ export class HubArgs implements HubArgsProps {
 export class BaseApp {
 
   public hubArgs: HubArgs;
+  public briefcaseDb?: BriefcaseDb;
   protected _token?: AccessToken;
 
   public get token() {
@@ -192,36 +183,59 @@ export class BaseApp {
    * Safely executes a connector job to synchronize a BriefcaseDb.
    */
   public async runConnectorJob(jobArgs: JobArgs): Promise<boolean> {
-    let db: BriefcaseDb | undefined = undefined;
     let success = false;
-
     try {
       await IModelHost.startup();
+      await this.signin();
 
-      if (jobArgs.interactiveSignin)
-        await this.interactiveSignin();
-      else
-        await this.nonInteractiveSignin();
-
-      db = await this.openBriefcaseDb();
-      Logger.logInfo(LogCategory.PCF, `Opening local iModel at ${db.pathName}`);
+      this.briefcaseDb = await this.openBriefcaseDb();
 
       const connector: PConnector = await require(jobArgs.connectorPath).getConnectorInstance();
-      await connector.runJobUnsafe(db, jobArgs);
+      await connector.runJobUnsafe(this.briefcaseDb, jobArgs);
       success = true;
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
-      Logger.logTrace(LogCategory.PCF, err.stack as any);
+      Logger.logTrace(LogCategory.PCF, (err as any).stack);
+      await this.handleError(err);
       success = false
     } finally {
-      if (db) {
-        db.abandonChanges();
-        db.close();
+      if (this.briefcaseDb) {
+        this.briefcaseDb.abandonChanges();
+        if (this.briefcaseDb.isBriefcaseDb())
+          await this.briefcaseDb.locks.releaseAllLocks();
+        this.briefcaseDb.close();
       }
       await IModelHost.shutdown();
     }
 
     return success;
+  }
+
+  /*
+   * Handle errors/exceptions occurred to potentially prevent the same error in the next run
+   */
+  public async handleError(err: any) {
+    if (!(err instanceof BentleyError))
+      return;
+    if (this.briefcaseDb && err.errorNumber === IModelHubStatus.BriefcaseDoesNotBelongToUser) {
+      const ignoreCache = true;
+      const db = await this.openBriefcaseDb(ignoreCache);
+      db.close();
+      const errorStr = IModelHubStatus[IModelHubStatus.BriefcaseDoesNotBelongToUser];
+      Logger.logInfo(LogCategory.PCF, `Handled ${errorStr} error and downloaded a new iModel with a new BriefcaseId for current user. Try running again.`);
+    }
+  }
+
+  /*
+   * Sign in based on client config
+   */
+  public async signin(): Promise<AccessToken> {
+    let token: AccessToken;
+    if ((this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration).clientSecret)
+      token = await this.nonInteractiveSignin();
+    else
+      token = await this.interactiveSignin();
+    return token;
   }
 
   /*
@@ -269,7 +283,8 @@ export class BaseApp {
     if (bcPropsList.length == 0)
       return undefined;
 
-    const fileName = bcPropsList[0].fileName;
+    const last = bcPropsList.length - 1;
+    const fileName = bcPropsList[last].fileName;
     const cachedDb = await BriefcaseDb.open({
       fileName: fileName,
       readonly: readonlyMode,
@@ -283,10 +298,12 @@ export class BaseApp {
   /*
    * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
    */
-  public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    const cachedDb = await this.openCachedBriefcaseDb(false);
-    if (cachedDb)
-      return cachedDb;
+  public async openBriefcaseDb(ignoreCache: boolean = false): Promise<BriefcaseDb> {
+    if (!ignoreCache) {
+      const cachedDb = await this.openCachedBriefcaseDb(false);
+      if (cachedDb)
+        return cachedDb;
+    }
 
     const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
     const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);

@@ -15,11 +15,10 @@ export async function main() {
       kind: "pcf_file_connection",
       filepath: path.join(__dirname, "../assets/v1.json"),
     },
-    interactiveSignin: false,
   });
   const hubArgs = new pcf.HubArgs({
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
-    iModelId: "9949ce88-97ad-42e8-a3f1-046f8a7a5d22",
+    iModelId: "e3da2033-d815-4970-aed0-80b0d3d1050b",
     clientConfig: { 
       clientId: process.env.imjs_test_client_id as string,
       clientSecret: process.env.imjs_test_client_secret as string,

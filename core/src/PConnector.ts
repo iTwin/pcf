@@ -159,6 +159,7 @@ export abstract class PConnector {
     this.seenIdSet = new Set<Id64String>();
 
     this._db = db;
+    Logger.logInfo(LogCategory.PCF, `Used local iModel at ${this.db.pathName}`);
 
     this.tree.validate(jobArgs);
     this._jobArgs = jobArgs;
@@ -169,18 +170,21 @@ export abstract class PConnector {
     await this.acquireLock(IModel.repositoryModelId);
     await this._updateDomainSchema();
     await this.persistChanges(`Domain Schema Update`);
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Domain Schema Update...");
 
     Logger.logInfo(LogCategory.PCF, "Started Dynamic Schema Update...");
     await this.acquireLock(IModel.repositoryModelId);
     await this._updateDynamicSchema();
     await this.persistChanges("Dynamic Schema Update");
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Dynamic Schema Update.");
 
     Logger.logInfo(LogCategory.PCF, "Started Subject Update...");
     await this.acquireLock(IModel.repositoryModelId);
     await this._updateSubject();
     await this.persistChanges("Subject Update");
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Subject Update.");
 
     Logger.logInfo(LogCategory.PCF, "Started Data Update...");
@@ -201,6 +205,7 @@ export abstract class PConnector {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
     await this.persistChanges("Data Update");
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Data Update.");
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
@@ -339,6 +344,12 @@ export abstract class PConnector {
     if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
       return;
     await this.db.locks.acquireExclusiveLock(rootId);
+  }
+
+  public async releaseAllLocks() {
+    if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
+      return;
+    await this.db.locks.releaseAllLocks();
   }
 
   // For Nodes
