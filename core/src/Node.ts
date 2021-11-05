@@ -15,6 +15,8 @@ import * as fs from "fs";
 
 /* 
  * Represents the Repository Model (the root of an iModel).
+ *
+ * It is made of Nodes with hierarchical structure.
  */
 export class RepoTree {
 
@@ -26,20 +28,23 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  public getNodes<T extends Node>(subjectKey: string): Array<T> {
+  /*
+   * Grabs all the Nodes under a SubjectNode with their ordering preserved
+   */
+  public getNodes<T extends Node>(subjectNodeKey: string): Array<T> {
     const nodes: any[] = [];
     for (const node of this.nodeMap.values()) {
-      if (node instanceof SubjectNode && node.key === subjectKey)
+      if (node instanceof SubjectNode && node.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof ModelNode && node.subject.key === subjectKey)
+      else if (node instanceof ModelNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof LoaderNode && node.model.subject.key === subjectKey)
+      else if (node instanceof LoaderNode && node.model.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof ElementNode && node.model.subject.key === subjectKey)
+      else if (node instanceof ElementNode && node.model.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof RelationshipNode && node.subject.key === subjectKey)
+      else if (node instanceof RelationshipNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof RelatedElementNode && node.subject.key === subjectKey)
+      else if (node instanceof RelatedElementNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
     }
     return nodes;
@@ -97,6 +102,9 @@ export interface UpdateResult {
   comment: string;
 }
 
+/*
+ * Node is a wrapper for an EC Entity
+ */
 export abstract class Node implements NodeProps {
 
   public pc: PConnector;
@@ -108,22 +116,39 @@ export abstract class Node implements NodeProps {
     this.key = props.key;
   }
 
+  /*
+   * Returns true if this.update() has been called.
+   */
   public get hasUpdated() {
     return this._hasUpdated;
   }
 
+  /*
+   * Synchronize Element(s) without commiting
+   */
   public async update(): Promise<UpdateResult | UpdateResult[]> {
     this._hasUpdated = true;
     return this._update();
   };
 
+  /*
+   * Must be implemented by subclass Nodes
+   */
   protected abstract _update(): Promise<UpdateResult | UpdateResult[]>;
 
+  /*
+   * Serialize current Node to JSON
+   */
   public abstract toJSON(): any;
 }
 
 export interface SubjectNodeProps extends NodeProps {}
 
+/*
+ * SubjectNode represents a Subject Element (with parent Subject = root Subject) in iModel.
+ *
+ * Each synchronization must target a SubjectNode through JobArgs.subjectNodeKey.
+ */
 export class SubjectNode extends Node implements SubjectNodeProps {
 
   public models: ModelNode[];
@@ -185,22 +210,27 @@ export interface ModelNodeProps extends NodeProps {
 
   /*
    * References an EC Model class
-   * it must have the same type as partitionClass
+   * It must have the same type as partitionClass
    */
   modelClass: typeof Model;
   
   /*
-   * References an EC Partition class 
-   * it must have the same type as modelClass
+   * References an EC Partition Element class 
+   * It must have the same type as modelClass
    */
   partitionClass: typeof InformationPartitionElement;
 
   /*
-   * References a Subject Node defined by user
+   * References a Subject Node defined in the same context
    */
   subject: SubjectNode;
 }
 
+/*
+ * ModelNode represents both a Model and Partition Element in iModel.
+ *
+ * Elements must be contained by Models = ElementNodes must reference ModelNode
+ */
 export class ModelNode extends Node implements ModelNodeProps {
 
   public modelClass: typeof Model;
@@ -275,6 +305,13 @@ export interface LoaderNodeProps extends NodeProps {
   loader: Loader;
 }
 
+/*
+ * LoaderNode represents a RepositoryLink Element in iModel
+ *
+ * It must be contained by a LinkModel
+ *
+ * It is a special ElementNode that is responsible for persisting Loader configuration in iModel
+ */
 export class LoaderNode extends Node implements LoaderNodeProps {
 
   public model: ModelNode;
@@ -357,6 +394,11 @@ export interface ElementNodeProps extends NodeProps {
   category?: ElementNode;
 }
 
+/*
+ * ElementNode Represents a regular Element in iModel
+ *
+ * It populates multiple Element instances based on DMO
+ */
 export class ElementNode extends Node implements ElementNodeProps {
 
   public dmo: ElementDMO;
@@ -448,6 +490,12 @@ export interface RelationshipNodeProps extends NodeProps {
   target?: ElementNode;
 }
 
+/*
+ * RelationshipNode Represents a regular Relationship in iModel
+ * (Relationships are like link tables in a relational database)
+ *
+ * It populates multiple Relationship instances based on RelationshipDMO
+ */
 export class RelationshipNode extends Node {
 
   public subject: SubjectNode;
@@ -528,6 +576,12 @@ export interface RelatedElementNodeProps extends NodeProps {
   target?: ElementNode;
 }
 
+/*
+ * RelatedElementNode Represents a regular RelatedElement in iModel
+ * (Relationships are foreign keys in a relational database)
+ *
+ * It populates multiple RelatedElement instances based on RelatedElementDMO
+ */
 export class RelatedElementNode extends Node {
 
   public subject: SubjectNode;
