@@ -35,7 +35,7 @@ export class IntegrationTestApp extends BaseApp {
   /*
    * Sign in through your iModelHub test user account. This call would grab your test user credentials from environment variables.
    */
-  public override async signin(): Promise<AccessToken> {
+  public override async nonInteractiveSignin(): Promise<AccessToken> {
     const email = process.env.imjs_test_regular_user_name;
     const password = process.env.imjs_test_regular_user_password;
     if (!email)

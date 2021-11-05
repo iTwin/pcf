@@ -28,7 +28,8 @@
     "test:integration": "mocha --opts ./src/test/unit/mocha.opts \"./src/test/integration/**/*.test.ts*\"",
     "copyFiles": "npx babel src --out-dir lib --copy-files",
     "deploy": "git push && npm run clean && npm run build && npm publish",
-    "docs": "betools docs"
+    "docs": "betools docs",
+    "test-connector": "node lib/test/JSONConnector/App.js"
   },
   "dependencies": {
     "@bentley/imodelhub-client": "^3.0.0-dev.109",

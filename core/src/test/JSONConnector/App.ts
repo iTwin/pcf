@@ -15,19 +15,20 @@ export async function main() {
       kind: "pcf_file_connection",
       filepath: path.join(__dirname, "../assets/v1.json"),
     },
-    logLevel: LogLevel.Info,
+    interactiveSignin: false,
   });
   const hubArgs = new pcf.HubArgs({
     projectId: "cef2040d-651e-4307-8b2a-dac0b44fbf7f", 
-    iModelId: "46e97028-a81f-4082-b2fa-2e5ed1f38e32",
+    iModelId: "9949ce88-97ad-42e8-a3f1-046f8a7a5d22",
     clientConfig: { 
       clientId: process.env.imjs_test_client_id as string,
+      clientSecret: process.env.imjs_test_client_secret as string,
       redirectUri: "http://localhost:3000/signin-callback",
-      scope: "openid projects:modify users:read itwinjs email organization profile projects:read",
+      scope: "itwinjs",
     },
     urlPrefix: pcf.ReqURLPrefix.QA,
   });
-  const app = new pcf.BaseApp(hubArgs);
+  const app = new pcf.BaseApp(hubArgs, LogLevel.Trace);
   await app.runConnectorJob(jobArgs);
 }
 

@@ -22,42 +22,49 @@ export enum ReqURLPrefix {
 export interface JobArgsProps {
 
   /* 
-   * absolute path to compiler connector module (.js)
+   * Absolute path to compiler connector module (.js)
    */
   connectorPath: string; 
 
   /* 
-   * info needed to connect to source data
+   * Info needed to connect to source data
    */
   connection: DataConnection;
 
   /*
-   * subjectKey references an existing subject node defined in your connector and uniquely identifies 
+   * subjectNodeKey references an existing subject node defined in your connector and uniquely identifies 
    * a subject element in an iModel. pcf will synchronize all the data stored under this subject 
    * with source file.
    */
   subjectNodeKey: string;
 
   /*
-   * absolute path to the directory for storing output files like cached Briefcase.
+   * Absolute path to the directory for storing output files like cached Briefcase.
    */
   outputDir?: string;
 
   /*
-   * change log level to debug your connector (rarely needed)
+   * Change log level to debug your connector (rarely needed)
    */
   logLevel?: LogLevel;
 
   /* 
-   * allows elements to be deleted if they no longer exist in the source file. For a BriefcaseDb, 
-   * only elements in the current subject channel can be deleted.
+   * Allows elements to be deleted if they no longer exist in the source file. 
+   * For a BriefcaseDb, only elements in the current subject channel can be deleted.
    */
   enableDelete?: boolean;
 
   /*
-   * header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
+   * Header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
   revisionHeader?: string;
+
+  /*
+   * Enables interactive sign in through a browser page
+   *
+   * Equals true by default
+   */
+  interactiveSignin?: boolean;
 }
 
 export class JobArgs implements JobArgsProps {
@@ -69,11 +76,13 @@ export class JobArgs implements JobArgsProps {
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
   public revisionHeader: string = "iTwin.PCF";
+  public interactiveSignin: boolean = true; 
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
     this.connection = props.connection;
     this.subjectNodeKey = props.subjectNodeKey;
+
     if (props.outputDir)
       this.outputDir = props.outputDir;
     if (props.logLevel !== undefined)
@@ -84,6 +93,9 @@ export class JobArgs implements JobArgsProps {
       this.enableDelete = props.enableDelete;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
+    if (props.interactiveSignin !== undefined)
+      this.interactiveSignin = props.interactiveSignin;
+
     this.validate();
   }
 
@@ -96,17 +108,17 @@ export class JobArgs implements JobArgsProps {
 export interface HubArgsProps {
 
   /*
-   * your project GUID (it's also called "contextId")
+   * Your project GUID (it's also called "contextId")
    */
   projectId: Id64String;
 
   /*
-   * your iModel GUID
+   * Your iModel GUID
    */
   iModelId: Id64String;
 
   /*
-   * you may acquire client configurations from https://developer.bentley.com by creating a SPA app
+   * You may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
   clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
 
@@ -185,14 +197,21 @@ export class BaseApp {
 
     try {
       await IModelHost.startup();
-      await this.signin();
+
+      if (jobArgs.interactiveSignin)
+        await this.interactiveSignin();
+      else
+        await this.nonInteractiveSignin();
+
       db = await this.openBriefcaseDb();
+      Logger.logInfo(LogCategory.PCF, `Opening local iModel at ${db.pathName}`);
+
       const connector: PConnector = await require(jobArgs.connectorPath).getConnectorInstance();
       await connector.runJobUnsafe(db, jobArgs);
       success = true;
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
-      Logger.logTrace(LogCategory.PCF, err as any);
+      Logger.logTrace(LogCategory.PCF, err.stack as any);
       success = false
     } finally {
       if (db) {
@@ -208,7 +227,7 @@ export class BaseApp {
   /*
    * Interactively sign in through your Bentley account. This call opens up a page in your browser and prompts you to sign in.
    */
-  public async signin(): Promise<AccessToken> {
+  public async interactiveSignin(): Promise<AccessToken> {
     if (this._token)
       return this._token;
 
@@ -225,9 +244,9 @@ export class BaseApp {
   }
 
   /*
-   * Non-interactively sign in
+   * Non-interactively sign in through a client secret.
    */
-  public async signinSilent(): Promise<AccessToken> {
+  public async nonInteractiveSignin(): Promise<AccessToken> {
     if (this._token)
       return this._token;
 

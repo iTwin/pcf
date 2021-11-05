@@ -63,7 +63,7 @@ describe("Integration Tests", () => {
     if (!fs.existsSync(KnownTestLocations.testOutputDir))
       fs.mkdirSync(KnownTestLocations.testOutputDir);
     await IModelHost.startup();
-    await app.signin();
+    await app.interactiveSignin();
   });
 
   after(async () => {
@@ -90,6 +90,7 @@ describe("Integration Tests", () => {
             sourceFile,
             connectorPath,
             connection,
+            interactiveSignin: false,
           } as pcf.JobArgsProps);
 
           let success: boolean;
