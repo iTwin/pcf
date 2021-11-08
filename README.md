@@ -151,7 +151,13 @@ One-to-one mapping only works for tabular data like Excel sheets. DMO handles al
 
 A collection of Nodes is the Single Source of Truth of the hierarchy of a subject tree in iModel. You now gain the freedom to organize the content of your iModel as if it's a file system by passing around Nodes. It's important to know that the ordering of Nodes matters as they are synchronized in the same order as defined. Since the dependencies between Nodes are constrained by the fact that a variable cannot be referenced until it's defined in a programming language, we can guarantee that the elements inside an iModel are always synchronized in the correct order without hardcoding the logic anywhere.
 
-ElementNode & RelationshipNode must attach a DMO so that they can  populate multiple instances of EC Elements & Relationships in iModel based on the instances of external data.
+ElementNode & RelationshipNode must attach a DMO so that they can populate multiple instances of EC Elements & Relationships in iModel based on the instances of external data.
+
+Read the following material if you're not familiar with concepts such as Element, Model and Relationship in iModel:
+1. [Element Fundamentals](https://www.itwinjs.org/bis/intro/element-fundamentals/)
+2. [Model Fundamentals](https://www.itwinjs.org/bis/intro/model-fundamentals/)
+3. [Relationship Fundamentals](https://www.itwinjs.org/bis/intro/relationship-fundamentals/)
+
 
 ```typescript
 import * as pcf from "@itwin/pcf";
@@ -176,6 +182,7 @@ export class SampleConnector extends pcf.PConnector {
   }
 }
 ```
+
 
 ### Programmatically Generate Constructs
 
