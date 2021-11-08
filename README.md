@@ -13,7 +13,6 @@ Table of Contents
    * [Define mappings with Dynamic Mapping Objects (DMO)](https://github.com/iTwin/pcf/tree/enhance-doc#define-mappings-with-dynamic-mappingobjects-dmo)
    * [Sketch out iModel hierarchy with Nodes and attach DMO's](https://github.com/iTwin/pcf/tree/enhance-doc#sketch-out-imodel-hierarchy-with-nodes-and-attachdmos)
    * [Programmatically Generate Constructs](https://github.com/iTwin/pcf/tree/enhance-doc#programmatically-generate-constructs)
-   * [Development](https://github.com/iTwin/pcf/tree/enhance-doc#development)
 * [FAQ](#faq)
 * [Install from source](#install-from-source)
 * [In-depth Concepts](https://github.com/iTwin/pcf/wiki)
@@ -53,6 +52,9 @@ npm run start
 
 ```
 
+You usually do not need to install any iTwin.js related dependencies besides [domain schema npm packages](https://www.npmjs.com/search?q=%40bentley%20schema%20) (@bentley/{schema name}-schema) since most iTwin.js libraries are automatically installed as you install @itwin/pcf. If you do, you must make sure that they share the same version string as the ones installed by PCF, otherwise you may encounter unknown errors.
+
+
 Currently, all the documentations and API references of this project are embedded in source files. Use your IDE/language server to look them up through go-to-definitions.
 
 # PCF Constructs
@@ -88,6 +90,8 @@ You may need to write your own Loader if you need to customize the way of access
 
 Before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
 
+Each Loader will be recorded as a [Repository Link Element](https://www.itwinjs.org/reference/imodeljs-backend/elements/repositorylink) in your iModel.
+
 ### Understand the IR Model
 
 ![IRModelDiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/IRModelDiagram.png)
@@ -102,7 +106,7 @@ An IR Model is an in-memory store that consists of two types of object, IR Entit
 
 ![DMODiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/DMODiagram.png)
 
-A collection of DMO's is the Single Source of Truth of the mappings from source data to an iModel. Each DMO controls the one-to-one mapping from an IR/external class to an EC class in iModel. PCF provides a default property mapping from IR Instance to iModel Element, in addition, DMO's could attach callbacks on each visit to override element property values.
+A collection of DMO's is the Single Source of Truth of the mappings from source data to an iModel. Each DMO controls the one-to-one mapping from an IR class to an EC class in iModel. PCF provides a default property mapping from IR Instance to iModel Element, in addition, DMO's could attach callbacks on each visit to override element property values.
 
 ```typescript
 export const dmoA: ElementDMO = {
@@ -143,7 +147,8 @@ export const dmoB: pcf.ElementDMO = {
 };
 ```
 
-One-to-one mapping only works for tabular data like Excel sheets. DMO handles all types of mappings.
+Note:
+- Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
 
 ### Sketch out iModel hierarchy with Nodes and attach DMO's
 
@@ -152,11 +157,6 @@ One-to-one mapping only works for tabular data like Excel sheets. DMO handles al
 A collection of Nodes is the Single Source of Truth of the hierarchy of a subject tree in iModel. You now gain the freedom to organize the content of your iModel as if it's a file system by passing around Nodes. It's important to know that the ordering of Nodes matters as they are synchronized in the same order as defined. Since the dependencies between Nodes are constrained by the fact that a variable cannot be referenced until it's defined in a programming language, we can guarantee that the elements inside an iModel are always synchronized in the correct order without hardcoding the logic anywhere.
 
 ElementNode & RelationshipNode must attach a DMO so that they can populate multiple instances of EC Elements & Relationships in iModel based on the instances of external data.
-
-Read the following material if you're not familiar with concepts such as Element, Model and Relationship in iModel:
-1. [Element Fundamentals](https://www.itwinjs.org/bis/intro/element-fundamentals/)
-2. [Model Fundamentals](https://www.itwinjs.org/bis/intro/model-fundamentals/)
-3. [Relationship Fundamentals](https://www.itwinjs.org/bis/intro/relationship-fundamentals/)
 
 
 ```typescript
@@ -183,6 +183,19 @@ export class SampleConnector extends pcf.PConnector {
 }
 ```
 
+Read the following material if you're not familiar with concepts such as Element, Model and Relationship in iModel:
+- [Element Fundamentals](https://www.itwinjs.org/bis/intro/element-fundamentals/)
+- [Model Fundamentals](https://www.itwinjs.org/bis/intro/model-fundamentals/)
+- [Relationship Fundamentals](https://www.itwinjs.org/bis/intro/relationship-fundamentals/)
+
+Great articles to learn some background information to help you organize Nodes
+- [iModel information hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/)
+- [Fabric of the universe](https://www.itwinjs.org/bis/intro/fabric-of-the-universe/)
+
+Note:
+- The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
+- Modifying the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
+- Parent-child Modeling is not supported yet. Only the top models and their elements are synchronized.
 
 ### Programmatically Generate Constructs
 
@@ -212,24 +225,6 @@ export class XYZConnector extends pcf.PConnector {
 }
 
 ```
-
-### Development
-
-* Dependencies
-    * You do not need to install any iTwin.js related dependencies aside from schema npm packages (@bentley/{schema name}-schema) since most iTwin.js libraries are automatically installed as you install @itwin/pcf. If you do, you must make sure that they share the same version string as the ones installed by PCF, otherwise you may encounter unknown errors.
-    * Most existing domain schema packages can be found [here](https://www.npmjs.com/search?q=%40bentley%20schema%20).
-* Node
-    * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
-    * Modifying the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
-    * Parent-child Modeling is not supported yet. Only the top models and their elements are synchronized.
-    * Great articles to learn some background information to help you organize Nodes
-        * [iModel information hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/)
-        * [Fabric of the universe](https://www.itwinjs.org/bis/intro/fabric-of-the-universe/)
-* Dynamic Schema
-    * Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
-* Loaders
-    * Each Loader is recorded as a [Repository Link](https://www.itwinjs.org/reference/imodeljs-backend/elements/repositorylink) in your iModel.
-    * Currently supported loaders can be found in [here](https://github.com/iTwin/pcf/tree/main/core/src/loaders).
 
 
 # FAQ
