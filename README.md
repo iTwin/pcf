@@ -86,19 +86,13 @@ X could be any data source. (e.g., database, spreadsheet, API, etc.)
 
 Similar to a keyboard driver for an operating system, Loader makes your data available to be consumed by a universal connector that is configured through Node & DMO definitions. It is a lightweight object that's responsible for converting a type of source data into an intermediate representation model (IR Model) in memory, which can be interfaced and optimized independently of the source data.
 
-You may need to write your own Loader if you need to customize the way of accessing source data.
-
-Before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
-
-Each Loader will be recorded as a [Repository Link Element](https://www.itwinjs.org/reference/imodeljs-backend/elements/repositorylink) in your iModel.
+You may need to write your own Loader if you need to customize the way of accessing source data. But before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
 
 ### Understand the IR Model
 
 ![IRModelDiagram](https://github.com/iTwin/pcf/blob/enhance-doc/docs/IRModelDiagram.png)
 
-IR Model is meant to be generic to represent all types of external data models.
-
-An IR Model is an in-memory store that consists of two types of object, IR Entity and IR Relationship, whose instances are called IR Instances.
+IR Model is meant to be generic to represent all types of external data models. It is an in-memory store that consists of two types of object, IR Entity and IR Relationship, whose instances are called IR Instances.
 
 [What is IR Model for?](https://github.com/iTwin/pcf/wiki#intermediate-representation)
 
