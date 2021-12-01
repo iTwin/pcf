@@ -35,7 +35,7 @@
     "@bentley/imodelhub-client": "3.0.0-dev.119",
     "@bentley/itwin-client": "3.0.0-dev.119",
     "@bentley/telemetry-client": "3.0.0-dev.119",
-    "@itwin/browser-authorization": "^0.3.0",
+    "@itwin/browser-authorization": "^0.3.2",
     "@itwin/core-backend": "3.0.0-dev.119",
     "@itwin/core-bentley": "3.0.0-dev.119",
     "@itwin/core-common": "3.0.0-dev.119",
