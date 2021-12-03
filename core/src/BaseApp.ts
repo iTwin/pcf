@@ -4,8 +4,8 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
-import { ElectronMainAuthorization, ElectronMainAuthorizationConfiguration } from "@itwin/electron-authorization/lib/cjs/ElectronMain";
-import { LocalBriefcaseProps, OpenBriefcaseProps } from "@itwin/core-common";
+import { LocalBriefcaseProps, OpenBriefcaseProps, NativeAppAuthorizationConfiguration } from "@itwin/core-common";
+import { ElectronAuthorizationBackend } from "@itwin/core-electron/lib/cjs/backend/ElectronAuthorizationBackend";
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
 import { AccessToken } from "@itwin/core-bentley";
@@ -110,7 +110,7 @@ export interface HubArgsProps {
   /*
    * You may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
-  clientConfig: ElectronMainAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+  clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
 
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
@@ -122,7 +122,7 @@ export class HubArgs implements HubArgsProps {
 
   public projectId: Id64String;
   public iModelId: Id64String;
-  public clientConfig: ElectronMainAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+  public clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
   public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -231,7 +231,8 @@ export class BaseApp {
    */
   public async signin(): Promise<AccessToken> {
     let token: AccessToken;
-    if ((this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration).clientSecret)
+    const hasClientSecret = (this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration).clientSecret;
+    if (hasClientSecret)
       token = await this.nonInteractiveSignin();
     else
       token = await this.interactiveSignin();
@@ -241,17 +242,19 @@ export class BaseApp {
   /*
    * Interactively sign in through your Bentley account. This call opens up a page in your browser and prompts you to sign in.
    */
+
   public async interactiveSignin(): Promise<AccessToken> {
     if (this._token)
       return this._token;
 
-    const config = this.hubArgs.clientConfig as ElectronMainAuthorizationConfiguration;
+    const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
     if (!config.issuerUrl)
       config.issuerUrl = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
-  
-    const client = await ElectronMainAuthorization.create(config);
+
+    const client = new ElectronAuthorizationBackend(config);
+    await client.initialize(config);
     IModelHost.authorizationClient = client;
-    const token = await client.getAccessToken();
+    const token = await client.signInComplete();
     this._token = token;
     return token;
   }
