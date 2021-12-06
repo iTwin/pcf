@@ -416,11 +416,15 @@ export class ElementNode extends Node implements ElementNodeProps {
 
   protected async _update() {
     const resList: UpdateResult[] = [];
-    let instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
-    if (typeof this.dmo.doSyncInstance === "function")
-      instances = instances.filter(this.dmo.doSyncInstance);
+    const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
       const modelId = this.pc.modelCache[this.model.key];
       const codeSpec: CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
@@ -517,11 +521,15 @@ export class RelationshipNode extends Node {
 
   protected async _update() {
     const resList: UpdateResult[] = [];
-    let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
-    if (typeof this.dmo.doSyncInstance === "function")
-      instances = instances.filter(this.dmo.doSyncInstance);
+    const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
       if (!pair)
         continue;
@@ -601,11 +609,15 @@ export class RelatedElementNode extends Node {
 
   protected async _update() {
     const resList: UpdateResult[] = [];
-    let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
-    if (typeof this.dmo.doSyncInstance === "function")
-      instances = instances.filter(this.dmo.doSyncInstance);
+    const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
       if (!pair)
         continue;

@@ -34,14 +34,15 @@ export interface DMO {
 
   /*
    * Defines a condition to determine if an ECInstance should be created from an IRInstance.
-   * The instance will not be synchronized if "false" is returned,
+   * The instance will not be synchronized if "false" is returned.
+   * This function is always awaited in case if a Promise is returned.
    */ 
   doSyncInstance?(instance: IRInstance): Promise<boolean> | boolean;
 
   /*
    * Modifies the default properties assigned to the current ECInstance. 
    * An IRInstance contains the external data corresponding to current EC Entity.
-   * This function should always be awaited.
+   * This function is always awaited in case if a Promise is returned.
    */
   modifyProps?(pc: PConnector, props: any, instance: IRInstance): Promise<void> | void;
 }
