@@ -6,23 +6,28 @@ Table of Contents
 
 * [About](#about)
 * [Getting Started](#getting-started)
-* [Constructs](#constructs)
-* [Development](#development)
-* [How to write a Loader?](#how-to-write-a-loader)
-* [Programmatically Generate Construct Instances](#programmatically-generate-construct-instances)
+* [PCF Constructs](#pcf-constructs)
+* [Tutorial](#tutorial)
+   * [Pick or extend a loader](https://github.com/iTwin/pcf/tree/main#pick-or-extend-aloader)
+   * [Understand the IR Model](https://github.com/iTwin/pcf/tree/main#understand-the-irmodel)
+   * [Define mappings with Dynamic Mapping Objects (DMO)](https://github.com/iTwin/pcf/tree/main#define-mappings-with-dynamic-mappingobjects-dmo)
+   * [Sketch out iModel hierarchy with Nodes and attach DMO's](https://github.com/iTwin/pcf/tree/main#sketch-out-imodel-hierarchy-with-nodes-and-attachdmos)
+   * [Programmatically Generate Constructs](https://github.com/iTwin/pcf/tree/main#programmatically-generate-constructs)
+* [FAQ](#faq)
 * [Install from source](#install-from-source)
 * [In-depth Concepts](https://github.com/iTwin/pcf/wiki)
 
 # About
 
-Parametric Connector Framework (PCF) is the most advanced and intelligent tool for synchronizing external data with digital twins. PCF allows you to **define** your iModel as code then it takes care of the steps to synchronize it with external data to your desired state. It essentially empowers you to build a [Connector](https://www.itwinjs.org/learning/imodel-connectors/). With PCF, you have the full control over how you would like your data mapped to an iModel with minimal programming effort.
+Parametric Connector Framework (PCF) follows a declarative paradigm and aims to make modern IDE the new user interface for modeling & synchronizing data with digital twins. It allows you to **define** your iModel as code then it takes care of the steps to synchronize it with external data to your desired state. It requires minimal programming experience and domain knowledge so any developer can quickly write a [Connector](https://www.itwinjs.org/learning/imodel-connectors/) that just works and scales.
+
 
 # Getting Started
 
 
 ```bash
 # make sure your npm version is < 7.0.0
-npm --version 
+npm --version
 # run this command if you npm version is > 7.0.0
 npm install -g npm@6.x
 
@@ -33,9 +38,9 @@ npm install -g npm@6.x
 # 1. install global pcf command line utility
 npm install -g @itwin/pcf-cli
 
-# 2. initialize a connector template with a name. This command will create a project directory named "output"
-pcf init <name of your connector> 
-cd output
+# 2. initialize a connector template. Change "MyProject" to your desired project name.
+pcf init MyProject
+cd MyProject
 
 # 3. install the latest version of pcf core in your project
 npm install @itwin/pcf
@@ -47,9 +52,12 @@ npm run start
 
 ```
 
+You usually do not need to install any iTwin.js related dependencies besides [domain schema npm packages](https://www.npmjs.com/search?q=%40bentley%20schema%20) (@bentley/{schema name}-schema) since most iTwin.js libraries are automatically installed as you install @itwin/pcf. If you do, you must make sure that they share the same version string as the ones installed by PCF, otherwise you may encounter unknown errors.
+
+
 Currently, all the documentations and API references of this project are embedded in source files. Use your IDE/language server to look them up through go-to-definitions.
 
-# Constructs
+# PCF Constructs
 
 You will be using a set of constructs to build your connector.
 
@@ -61,33 +69,131 @@ You will be using a set of constructs to build your connector.
 |**Node**          | A Node corresponds to an EC Entity and some Nodes use DMO to populate multiple EC Instances. An iModel is synchronized based on user-defined Nodes. |
 
 
-# Development
+# Tutorial
 
-* Dependencies
-    * You should not install any iTwin.js related dependencies aside from schema npm packages (@bentley/<schema name>-schema). If the same package is installed in two different versions by your connector and PCF, you may encounter hidden bugs.
-    * Most existing domain schema packages can be found [here](https://www.npmjs.com/search?q=%40bentley%20schema%20).
-* Node
-    * The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
-    * Modifying the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
-    * Parent-child Modeling is not supported yet. Only the top models and their elements are synchronized.
-    * Great articles to learn some background information to help you organize Nodes
-        * [iModel information hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/)
-        * [Fabric of the universe](https://www.itwinjs.org/bis/intro/fabric-of-the-universe/)
-* Dynamic Schema
-    * Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
-* Loaders
-    * Each Loader is recorded as a [Repository Link](https://www.itwinjs.org/reference/imodeljs-backend/elements/repositorylink) in your iModel.
-    * Currently supported loaders can be found in [here](https://github.com/iTwin/pcf/tree/main/core/src/loaders). 
+It's important to first see an overall picture of what a Connector does:
+1. Read source data 
+2. Define mappings (and transform geometries)
+3. Attach mappings to the iModel elements
 
-## How to write a Loader?
+Next, we will go over them in order and show how they are handled by PCF constructs.
 
-You may need to write your own Loader if you need to customize the way of accessing source data.
- 
-Before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
+### Pick or extend a Loader
 
-## Programmatically Generate Construct Instances
+![LoaderDiagram](https://github.com/iTwin/pcf/blob/main/docs/LoaderDiagram.png)
 
-Since your connector is represented purely by objects (DMOs & Nodes), you can programmatically generate them based on external source data. See a sample below.
+X could be any data source. (e.g., database, spreadsheet, API, etc.)
+
+Similar to a keyboard driver for an operating system, Loader makes your data available to be consumed by a universal connector that is configured through Node & DMO definitions. It is a lightweight object that's responsible for converting a type of source data into an intermediate representation model (IR Model) in memory, which can be interfaced and optimized independently of the source data.
+
+You may need to write your own Loader if you need to customize the way of accessing source data. But before deciding to write one yourself, check out the existing ones or consider extending them. All loaders must extend the base class [Loader](https://github.com/itwin/pcf/blob/main/core/src/loaders/Loader.ts).
+
+### Understand the IR Model
+
+![IRModelDiagram](https://github.com/iTwin/pcf/blob/main/docs/IRModelDiagram.png)
+
+IR Model is meant to be generic to represent all types of external data models. It is an in-memory store that consists of two types of object, IR Entity and IR Relationship, whose instances are called IR Instances.
+
+[What is IR Model for?](https://github.com/iTwin/pcf/wiki#intermediate-representation)
+
+### Define mappings with Dynamic Mapping Objects (DMO)
+
+![DMODiagram](https://github.com/iTwin/pcf/blob/main/docs/DMODiagram.png)
+
+A collection of DMO's is the Single Source of Truth of the mappings from source data to an iModel. Each DMO controls the one-to-one mapping from an IR class to an EC class in iModel. PCF provides a default property mapping from IR Instance to iModel Element, in addition, DMO's could attach callbacks on each visit to override element property values.
+
+```typescript
+export const dmoA: ElementDMO = {
+  irEntity: "ExternalClassA",
+  // use an existing class from BisCore schema
+  ecElement: "BisCore:SpatialCategory",
+};
+
+export const dmoB: pcf.ElementDMO = {
+  irEntity: "ExternalClassB",
+  // create a dynamic class in iModel
+  ecElement: {
+    name: "ExternalClassB",
+    baseClass: PhysicalElement.classFullName,
+    properties: [
+      {
+        name: "BuildingNumber",
+        type: primitiveTypeToString(PrimitiveType.String),
+      },
+      {
+        name: "RoomNumber",
+        type: primitiveTypeToString(PrimitiveType.String),
+      },
+    ],
+  },
+  // callback to override property values or attach geometry streams to current element
+  modifyProps(props: any, instance: IRInstance) {
+    props.buildingNumber = instance.get("building_id");
+    props.roomNumber = instance.get("room_number");
+    // props.geom = <build geometry stream>
+  },
+  // callback to skip syncing an element
+  doSyncInstance(instance: IRInstance) {
+    return isValidId(instance.get("id")) ? true : false;
+  },
+  // find class B instances with this foreign key column
+  categoryAttr: "external_class_b_id",
+};
+```
+
+Note:
+- Only Primitive EC Properties can be added to DMO.ecElement/ecRelationship. They cannot be deleted once added.
+
+### Sketch out iModel hierarchy with Nodes and attach DMO's
+
+![NodeTree](https://github.com/iTwin/pcf/blob/main/docs/NodeTree.png)
+
+A collection of Nodes is the Single Source of Truth of the hierarchy of a subject tree in iModel. You now gain the freedom to organize the content of your iModel as if it's a file system by passing around Nodes. It's important to know that the ordering of Nodes matters as they are synchronized in the same order as defined. Since the dependencies between Nodes are constrained by the fact that a variable cannot be referenced until it's defined in a programming language, we can guarantee that the elements inside an iModel are always synchronized in the correct order without hardcoding the logic anywhere.
+
+ElementNode & RelationshipNode must attach a DMO so that they can populate multiple instances of EC Elements & Relationships in iModel based on the instances of external data.
+
+
+```typescript
+import * as pcf from "@itwin/pcf";
+import { dmoA, dmoB } from "./dmos/Elements.ts";
+import { dmoC } from "./dmos/RelatedElements.ts";
+
+export class SampleConnector extends pcf.PConnector {
+  public async form() {
+    // skip some config ...
+    const subjectA = new pcf.SubjectNode(this, { key: "SubjectA" });
+    const defModel = new pcf.ModelNode(this, { key: "ModelA", subject: subjectA, modelClass: DefinitionModel, partitionClass: DefinitionPartition });
+    const phyModel = new pcf.ModelNode(this, { key: "ModelB", subject: subjectA, modelClass: PhysicalModel, partitionClass: PhysicalPartition });
+    const sptCategory = new pcf.ElementNode(this, { key: "CategoryA", model: defModel, dmo: dmoA });
+    const phyElement = new pcf.ElementNode(this, { key: "ElementB", model: phyModel, dmo: dmoB, category: sptCategory });
+    const assembly = new pcf.RelatedElementNode(this, {
+      key: "PhysicalElementAssemblesElementsA",
+      subject: subjectA,
+      dmo: dmoC,
+      source: phyElement,
+      target: phyElement,
+    });
+  }
+}
+```
+
+Read the following material if you're not familiar with concepts such as Element, Model and Relationship in iModel:
+- [Element Fundamentals](https://www.itwinjs.org/bis/intro/element-fundamentals/)
+- [Model Fundamentals](https://www.itwinjs.org/bis/intro/model-fundamentals/)
+- [Relationship Fundamentals](https://www.itwinjs.org/bis/intro/relationship-fundamentals/)
+
+Great articles to learn some background information to help you organize Nodes
+- [iModel information hierarchy](https://www.itwinjs.org/bis/intro/information-hierarchy/)
+- [Fabric of the universe](https://www.itwinjs.org/bis/intro/fabric-of-the-universe/)
+
+Note:
+- The following entity class cannot be deleted from your iModel once created: Subject, Partition, Model.
+- Modifying the key of SubjectNode or ModelNode would cause new Subject, Model, and Partition to be created.
+- Parent-child Modeling is not supported yet. Only the top models and their elements are synchronized.
+
+### Programmatically Generate Constructs
+
+Everything doesn't have to be static. You still have the freedom to dynamically generate DMO's & Nodes based on a set of rules and data. Since your connector is represented purely by objects (DMOs & Nodes), you can programmatically generate them based on external source data. See a sample below.
 
 ```typescript
 
@@ -101,9 +207,9 @@ export class XYZConnector extends pcf.PConnector {
     ...
 
     const model = new pcf.ModelNode(...);
-   
+
     const data: any[] = // Define any logics to get the data necessary to generate PCF construct instances
- 
+
     for (const item of data) {
       // use data stored in "item" to populate the fields of DMO and/or Node
       const dmo: pcf.ElementDMO = ...
@@ -113,6 +219,25 @@ export class XYZConnector extends pcf.PConnector {
 }
 
 ```
+
+
+# FAQ
+
+> "Wait… don't we need to write tests to ensure that the elements are correctly inserted/updated/deleted in all kinds of scenarios?"
+
+PCF aims to eliminate the need for end applications to write tests. Looking back at what we did, we defined a bunch of objects as the inputs to PCF, which would handle the rest to synchronize the target iModel to our desired state through the objects. So long as their definitions are correct, PCF promises a successful synchronization.
+
+> "Okay… people make mistakes in configuration files all the time, how can I be confident that my definitions are correct for the objects?"
+
+PCF enforces strict typing on objects through TypeScript so that functionalities such as code completion and code-refactoring available in most modern IDE's (e.g. Visual Studio Code) will help you to write the correct definitions for them.
+
+Though runtime errors are minimized, there are still a few types of runtime errors that could not be discovered at compile time. For example, you may accidentally assign a PhysicalElement to a FunctionalModel this will fail because they are not of the same type. You should still have a very basic understanding of how information is organized in an iModel.
+
+> "Where did the API documentation for PCF go?"
+
+![LookupDefinition](https://github.com/iTwin/pcf/blob/main/docs/LookupDefinition.png)
+
+They are all embedded in code. You will be working in a single context, your modern IDE. Why? You tend to do this anyway as you code and you always see the correct version of the documentation.
 
 
 # Install from source
@@ -144,6 +269,7 @@ npm link @itwin/pcf
 ```console
 npm run test
 ```
+
 
 # Inspired by
 
