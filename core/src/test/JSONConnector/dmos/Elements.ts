@@ -2,10 +2,9 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { PrimitiveType, primitiveTypeToString } from "@bentley/ecschema-metadata";
-import { GroupInformationElement, PhysicalElement, PhysicalType } from "@bentley/imodeljs-backend";
-import { ElementDMO } from "../../../DMO";
-import { IRInstance } from "../../../IRModel";
+import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
+import { GroupInformationElement, PhysicalElement, PhysicalType } from "@itwin/core-backend";
+import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
 
 export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",
@@ -23,7 +22,7 @@ export const ExtPhysicalElement: ElementDMO = {
       },
     ],
   },
-  modifyProps(props: any, instance: IRInstance) {
+  modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.buildingNumber = instance.get("id");
     props.roomNumber = instance.get("id");
   },
@@ -36,8 +35,11 @@ export const ExtPhysicalElement: ElementDMO = {
 export const ExtSpace: ElementDMO = {
   irEntity: "ExtSpace",
   ecElement: "BuildingSpatial:Space",
-  modifyProps(props: any, instance: IRInstance) {
+  async modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.footprintArea = 10;
+
+    // Test if async is properly awaited
+    await new Promise(resolve => setTimeout(resolve, 1000));
   },
   categoryAttr: "category",
 };
@@ -56,7 +58,7 @@ export const ExtPhysicalType: ElementDMO = {
     name: "ExtPhysicalType",
     baseClass: PhysicalType.classFullName,
   },
-  modifyProps(props: any, instance: IRInstance) {
+  modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.userLabel = instance.get("ExtUserLabel");
   },
 };

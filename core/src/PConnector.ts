@@ -2,16 +2,12 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String, Logger } from "@bentley/bentleyjs-core";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@bentley/imodeljs-common";
-import { ChangesType } from "@bentley/imodelhub-client";
-import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { BridgeJobDefArgs, IModelBridge } from "@bentley/imodel-bridge";
+import { Id64String, Logger } from "@itwin/core-bentley";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
+import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
-import * as bk from "@bentley/imodeljs-backend";
 import * as util from "./Util";
 import * as pcf from "./pcf";
-import * as fs from "fs";
 import * as path from "path";
 
 export interface PConnectorConfigProps {
@@ -77,7 +73,7 @@ export class PConnectorConfig implements PConnectorConfigProps {
   }
 }
 
-export abstract class PConnector extends IModelBridge {
+export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
 
@@ -90,9 +86,8 @@ export abstract class PConnector extends IModelBridge {
   public readonly tree: pcf.RepoTree;
 
   protected _config?: PConnectorConfig;
-  protected _db?: bk.IModelDb;
+  protected _db?: IModelDb;
   protected _jobArgs?: pcf.JobArgs;
-  protected _authReqContext?: bk.AuthorizedBackendRequestContext;
   protected _irModel?: pcf.IRModel;
   protected _jobSubjectId?: Id64String;
   protected _srcState?: pcf.ItemState;
@@ -103,7 +98,6 @@ export abstract class PConnector extends IModelBridge {
   public abstract form(): Promise<void>;
 
   constructor() {
-    super();
     this.subjectCache = {};
     this.modelCache = {};
     this.elementCache = {};
@@ -134,21 +128,6 @@ export abstract class PConnector extends IModelBridge {
     return this._jobArgs;
   }
 
-  public get authReqContext() {
-    if (!this._authReqContext) 
-      throw new Error("Authorized Request Context is not assigned");
-    return this._authReqContext;
-  }
-
-  public get reqContext() {
-    if (this.db.isBriefcaseDb()) {
-      if (!this._authReqContext) 
-        throw new Error("Authorized Request Context is not passed in by BaseApp.");
-      return this._authReqContext;
-    }
-    return new bk.BackendRequestContext();
-  }
-
   public get jobSubjectId() {
     if (!this._jobSubjectId) 
       throw new Error("job subject ID is undefined. call updateSubject to populate its value.");
@@ -173,42 +152,43 @@ export abstract class PConnector extends IModelBridge {
     return this.config.dynamicSchema.schemaName;
   }
 
-  public async runJob(props: { db: bk.IModelDb, jobArgs: pcf.JobArgs, authReqContext?: bk.AuthorizedBackendRequestContext }): Promise<void> {
-
+  public async runJobUnsafe(db: IModelDb, jobArgs: pcf.JobArgs): Promise<void> {
     this.modelCache = {};
     this.elementCache = {};
     this.aspectCache = {};
     this.seenIdSet = new Set<Id64String>();
 
-    this._db = props.db;
+    this._db = db;
+    Logger.logInfo(LogCategory.PCF, `Used local iModel at ${this.db.pathName}`);
 
-    this.tree.validate(props.jobArgs);
-    this._jobArgs = props.jobArgs;
-
-    this._authReqContext = props.authReqContext;
+    this.tree.validate(jobArgs);
+    this._jobArgs = jobArgs;
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has started");
 
     Logger.logInfo(LogCategory.PCF, "Started Domain Schema Update...");
-    await this.enterChannel(IModel.repositoryModelId);
+    await this.acquireLock(IModel.repositoryModelId);
     await this._updateDomainSchema();
-    await this.persistChanges(`Domain Schema Update`, ChangesType.Schema);
+    await this.persistChanges(`Domain Schema Update`);
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Domain Schema Update...");
 
     Logger.logInfo(LogCategory.PCF, "Started Dynamic Schema Update...");
-    await this.enterChannel(IModel.repositoryModelId);
+    await this.acquireLock(IModel.repositoryModelId);
     await this._updateDynamicSchema();
-    await this.persistChanges("Dynamic Schema Update", ChangesType.Schema);
+    await this.persistChanges("Dynamic Schema Update");
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Dynamic Schema Update.");
 
     Logger.logInfo(LogCategory.PCF, "Started Subject Update...");
-    await this.enterChannel(IModel.repositoryModelId);
+    await this.acquireLock(IModel.repositoryModelId);
     await this._updateSubject();
-    await this.persistChanges("Subject Update", ChangesType.Schema);
+    await this.persistChanges("Subject Update");
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Subject Update.");
 
     Logger.logInfo(LogCategory.PCF, "Started Data Update...");
-    await this.enterChannel(this.jobSubjectId);
+    await this.acquireLock(this.jobSubjectId);
     await this._updateLoader();
 
     if (this.srcState !== pcf.ItemState.Unchanged) {
@@ -224,14 +204,15 @@ export abstract class PConnector extends IModelBridge {
     } else {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
     }
-    await this.persistChanges("Data Update", ChangesType.Regular);
+    await this.persistChanges("Data Update");
+    await this.releaseAllLocks();
     Logger.logInfo(LogCategory.PCF, "Completed Data Update.");
 
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
 
   protected async _updateLoader(): Promise<pcf.UpdateResult> {
-    const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
+    const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
     await loaderNode.model.update();
     const res = await loaderNode.update() as pcf.UpdateResult;
     Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[res.state]}`);
@@ -240,7 +221,7 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _updateSubject(): Promise<pcf.UpdateResult> {
-    const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectKey, pcf.SubjectNode);
+    const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectNodeKey, pcf.SubjectNode);
     const res = await subjectNode.update() as pcf.UpdateResult;
     Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[res.state]}`);
     this._jobSubjectId = res.entityId;
@@ -250,7 +231,7 @@ export abstract class PConnector extends IModelBridge {
   protected async _updateDomainSchema(): Promise<any> {
     const { domainSchemaPaths } = this.config;
     if (domainSchemaPaths.length > 0)
-      await this.db.importSchemas(this.reqContext, domainSchemaPaths);
+      await this.db.importSchemas(domainSchemaPaths);
   }
 
   protected async _updateDynamicSchema(): Promise<any> {
@@ -261,7 +242,7 @@ export abstract class PConnector extends IModelBridge {
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
       const { schemaName, schemaAlias } = this.config.dynamicSchema;
       const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, this.reqContext, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
+      const schemaState = await pcf.syncDynamicSchema(this.db, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
       Logger.logInfo(LogCategory.PCF, `Dynamic Schema State: ${pcf.ItemState[schemaState]}`);
       const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
@@ -270,14 +251,14 @@ export abstract class PConnector extends IModelBridge {
   }
 
   protected async _loadIRModel() {
-    const node = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderKey, pcf.LoaderNode);
+    const node = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
     const loader = node.loader;
     this._irModel = new pcf.IRModel(loader, this.jobArgs.connection);
   }
 
   protected async _updateData() {
     let n = 0;
-    const nodes = this.tree.getNodes(this.jobArgs.subjectKey);
+    const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
       if (!node.hasUpdated) {
         const res = await node.update();
@@ -292,11 +273,11 @@ export abstract class PConnector extends IModelBridge {
 
   protected async _updateDeletedElements() {
     if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip deleting elements.");
+      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip element deletion.");
       return;
     }
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${bk.ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
     const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
@@ -306,14 +287,8 @@ export abstract class PConnector extends IModelBridge {
       const elementId = row.elementId;
       if (this.seenIdSet.has(elementId))
         continue;
-      if (this.db.isBriefcaseDb()) {
-        const elementChannelRoot = this.db.concurrencyControl.channel.getChannelOfElement(this.db.elements.getElement(elementId));
-        const elementNotInChannelRoot = elementChannelRoot.channelRoot !== this.db.concurrencyControl.channel.channelRoot;
-        if (elementNotInChannelRoot)
-          continue;
-      }
       const element = this.db.elements.getElement(elementId);
-      if (element instanceof bk.DefinitionElement)
+      if (element instanceof DefinitionElement)
         defElementIds.push(elementId);
       else
         elementIds.push(elementId);
@@ -328,10 +303,13 @@ export abstract class PConnector extends IModelBridge {
       if (this.db.elements.tryGetElement(elementId))
         this.db.elements.deleteDefinitionElements([elementId]);
     }
+
+    const nDeleted = elementIds.length + defElementIds.length;
+    Logger.logInfo(LogCategory.PCF, `Number of deleted EC Entity Instances: ${nDeleted}`);
   }
 
   protected async _updateProjectExtents() {
-    const options: bk.ComputeProjectExtentsOptions = {
+    const options: ComputeProjectExtentsOptions = {
       reportExtentsWithOutliers: false,
       reportOutliers: false,
     };
@@ -343,39 +321,35 @@ export abstract class PConnector extends IModelBridge {
     const codeSpecName = PConnector.CodeSpecName;
     if (this.db.codeSpecs.hasName(codeSpecName))
       return;
-    const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
-    this.db.codeSpecs.insert(newCodeSpec);
+    this.db.codeSpecs.insert(codeSpecName, CodeScopeSpec.Type.Model);
+    // const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
+    // console.log(newCodeSpec.properties);
+    // this.db.codeSpecs.insert(newCodeSpec);
+    // this.db.codeSpecs.insert(newCodeSpec);
   }
 
-  public async persistChanges(changeDesc: string, ctype: ChangesType) {
+  public async persistChanges(changeDesc: string) {
     const { revisionHeader } = this.jobArgs;
     const header = revisionHeader ? revisionHeader.substring(0, 400) : "itwin-pcf";
-    const comment = `${header} - ${changeDesc}`;
-    if (this.db.isBriefcaseDb()) {
-      await (this.db as bk.BriefcaseDb).concurrencyControl.request(this.authReqContext);
-      await (this.db as bk.BriefcaseDb).pullAndMergeChanges(this.authReqContext);
-      this.db.saveChanges(comment);
-      await (this.db as bk.BriefcaseDb).pushChanges(this.authReqContext, comment, ctype); // not atomic
-    } else {
-      this.db.saveChanges(comment);
+    const description = `${header} - ${changeDesc}`;
+    if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb) {
+      this.db.saveChanges();
+    } else if (this.db instanceof BriefcaseDb) {
+      this.db.saveChanges();
+      await this.db.pushChanges({ description } as PushChangesArgs);
     }
   }
 
-  public async enterChannel(rootId: Id64String) {
-    if (!this.db.isBriefcaseDb())
+  public async acquireLock(rootId: Id64String) {
+    if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
       return;
-    if (!(this.db as bk.BriefcaseDb).concurrencyControl.isBulkMode)
-      (this.db as bk.BriefcaseDb).concurrencyControl.startBulkMode();
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.hasPendingRequests)
-      throw new Error("has pending requests");
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasSchemaLock)
-      throw new Error("has schema lock");
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.locks.hasCodeSpecsLock)
-      throw new Error("has code spec lock");
-    if ((this.db as bk.BriefcaseDb).concurrencyControl.channel.isChannelRootLocked)
-      throw new Error("holds lock on current channel root. it must be released before entering a new channel.");
-    (this.db as bk.BriefcaseDb).concurrencyControl.channel.channelRoot = rootId;
-    await (this.db as bk.BriefcaseDb).concurrencyControl.channel.lockChannelRoot(this.authReqContext);
+    await this.db.locks.acquireExclusiveLock(rootId);
+  }
+
+  public async releaseAllLocks() {
+    if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
+      return;
+    await this.db.locks.releaseAllLocks();
   }
 
   // For Nodes
@@ -389,11 +363,11 @@ export abstract class PConnector extends IModelBridge {
     if (existingElement)
       element.id = existingElement.id;
 
-    const { aspectId } = bk.ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
     if (!aspectId) {
       element.insert();
       this.db.elements.insertAspect({
-        classFullName: bk.ExternalSourceAspect.classFullName,
+        classFullName: ExternalSourceAspect.classFullName,
         element: { id: element.id },
         scope: { id: element.model },
         identifier,
@@ -404,7 +378,7 @@ export abstract class PConnector extends IModelBridge {
       return { entityId: element.id, state: pcf.ItemState.New, comment: "" };
     }
 
-    const xsa: bk.ExternalSourceAspect = this.db.elements.getAspect(aspectId) as bk.ExternalSourceAspect;
+    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
@@ -414,10 +388,9 @@ export abstract class PConnector extends IModelBridge {
     xsa.checksum = checksum;
 
     element.update();
-    this.db.elements.updateAspect(xsa as bk.ElementAspect);
+    this.db.elements.updateAspect(xsa as ElementAspect);
     return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
   }
-
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {
     if (!node.dmo.fromAttr || !node.dmo.toAttr)
@@ -483,6 +456,7 @@ export abstract class PConnector extends IModelBridge {
 
   // For itwin-connector-framework
 
+  /*
   public initialize(jobDefArgs: BridgeJobDefArgs) {
     if (!jobDefArgs.argsJson || !jobDefArgs.argsJson.jobArgs)
       throw new Error("BridgeJobDefArgs.argsJson.jobArgs must be defined to use pcf");
@@ -542,5 +516,5 @@ export abstract class PConnector extends IModelBridge {
   public getBridgeName() {
     return this.config.connectorName;
   }
+  */
 }
-

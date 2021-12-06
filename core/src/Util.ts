@@ -2,9 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { DbResult, Logger } from "@bentley/bentleyjs-core";
-import { ECSqlStatement, IModelDb } from "@bentley/imodeljs-backend";
-import { LogCategory } from "./LogCategory";
+import { DbResult } from "@itwin/core-bentley";
+import { ECSqlStatement, IModelDb } from "@itwin/core-backend";
 
 export interface QueryToCount {
   [ecsql: string]: number;
@@ -76,13 +75,12 @@ export async function locateElement(db: IModelDb, locator: string): Promise<Loca
   const conds: string[] = [];
   for (const k of Object.keys(searchObj)) {
     const v = searchObj[k];
-    if (typeof v === "number") {
+    if (typeof v === "number")
       conds.push(`${k}=${v}`);
-    } else if (typeof v === "string" && isHex(v)) {
+    else if (typeof v === "string" && isHex(v))
       conds.push(`${k}=${v}`);
-    } else if (typeof v === "string") {
+    else if (typeof v === "string")
       conds.push(`${k}='${v}'`);
-    }
   }
 
   const ecsql = `select ECInstanceId[id] from ${table} where ${conds.join(" and ")}`;
@@ -100,27 +98,3 @@ export async function locateElement(db: IModelDb, locator: string): Promise<Loca
 
   return { elementId: rows[0].id, ecsql };
 }
-
-export async function retryLoop(atomicOp: () => Promise<void>): Promise<void> {
-  while (true) {
-    try {
-      await atomicOp();
-    } catch(err) {
-      if ((err as any).status === 429) { // Too Many Request Error 
-        Logger.logInfo(LogCategory.PCF, "Requests are sent too frequent. Sleep for 60-70 seconds.");
-        await new Promise(resolve => setTimeout(resolve, 60 * 1000 + Math.random() * 10 * 1000));
-      } else {
-        throw err;
-      }
-      continue;
-    }
-    break;
-  }
-}
-
-export async function sleep(seconds: number) {
-  if (process.env.rate_limited === "0")
-    return;
-  await new Promise(resolve => setTimeout(resolve, seconds * 1000));
-}
-

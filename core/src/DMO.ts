@@ -2,8 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { EntityClassProps, RelationshipClassProps } from "@bentley/ecschema-metadata";
-import { IRInstance } from "./IRModel";
+import { EntityClassProps, RelationshipClassProps } from "@itwin/ecschema-metadata";
+import { IRInstance, PConnector } from "./pcf";
 
 /* 
  * A string that contains a JSON whose keys refer to EC Properties and values refer to their values.
@@ -34,15 +34,17 @@ export interface DMO {
 
   /*
    * Defines a condition to determine if an ECInstance should be created from an IRInstance.
-   * The instance will not be synchronized if "false" is returned,
+   * The instance will not be synchronized if "false" is returned.
+   * This function is always awaited in case if a Promise is returned.
    */ 
-  doSyncInstance?(instance: IRInstance): boolean;
+  doSyncInstance?(instance: IRInstance): Promise<boolean> | boolean;
 
   /*
    * Modifies the default properties assigned to the current ECInstance. 
    * An IRInstance contains the external data corresponding to current EC Entity.
+   * This function is always awaited in case if a Promise is returned.
    */
-  modifyProps?(props: any, instance: IRInstance): void;
+  modifyProps?(pc: PConnector, props: any, instance: IRInstance): Promise<void> | void;
 }
 
 /*

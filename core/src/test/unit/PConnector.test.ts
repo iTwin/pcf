@@ -2,8 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Logger, LogLevel } from "@bentley/bentleyjs-core";
-import * as bk from "@bentley/imodeljs-backend";
+import { Logger, LogLevel } from "@itwin/core-bentley";
+import { IModelHost, StandaloneDb } from "@itwin/core-backend";
 import * as chai from "chai";
 import * as path from "path";
 import * as fs from "fs";
@@ -22,9 +22,9 @@ describe("Unit Tests", () => {
         {
           sourceFile: "v1.json",
           connectorFile: "JSONConnector.js",
-          subjectKey: "Subject1",
+          subjectNodeKey: "Subject1",
           connection: {
-            loaderKey: "json-loader-1",
+            loaderNodeKey: "json-loader-1",
             kind: "pcf_file_connection",
             filepath: tempSrcPath,
           }
@@ -32,9 +32,9 @@ describe("Unit Tests", () => {
         {
           sourceFile: "v2.json",
           connectorFile: "JSONConnectorV2.js",
-          subjectKey: "Subject1",
+          subjectNodeKey: "Subject1",
           connection: {
-            loaderKey: "json-loader-1",
+            loaderNodeKey: "json-loader-1",
             kind: "pcf_file_connection",
             filepath: tempSrcPath,
           }
@@ -42,9 +42,9 @@ describe("Unit Tests", () => {
         {
           sourceFile: "v4.json",
           connectorFile: "JSONConnector.js",
-          subjectKey: "Subject2",
+          subjectNodeKey: "Subject2",
           connection: {
-            loaderKey: "api-loader-1",
+            loaderNodeKey: "api-loader-1",
             kind: "pcf_api_connection",
             baseUrl: "test.com",
           }
@@ -52,9 +52,9 @@ describe("Unit Tests", () => {
         {
           sourceFile: "v4.json",
           connectorFile: "JSONConnector.js",
-          subjectKey: "Subject2",
+          subjectNodeKey: "Subject2",
           connection: {
-            loaderKey: "api-loader-1",
+            loaderNodeKey: "api-loader-1",
             kind: "pcf_api_connection",
             baseUrl: "test.com",
           }
@@ -66,23 +66,22 @@ describe("Unit Tests", () => {
   const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath, path.extname(tempSrcPath))}.bim`);
 
   before(async () => {
-    await bk.IModelHost.startup();
+    await IModelHost.startup();
+    if (!fs.existsSync(KnownTestLocations.testOutputDir))
+      fs.mkdirSync(KnownTestLocations.testOutputDir);
     Logger.initializeToConsole();
     Logger.configureLevels({
-      defaultLevel: LogLevel[LogLevel.Warning],
       categoryLevels: [
         {
           category: pcf.LogCategory.PCF,
-          logLevel: LogLevel[LogLevel.Info],
+          logLevel: LogLevel[LogLevel.Trace],
         },
       ]
     });
-    if (!fs.existsSync(KnownTestLocations.testOutputDir))
-      fs.mkdirSync(KnownTestLocations.testOutputDir);
   });
 
   after(async () => {
-    await bk.IModelHost.shutdown();
+    await IModelHost.shutdown();
 
     if (fs.existsSync(tempSrcPath))
       fs.unlinkSync(tempSrcPath);
@@ -96,23 +95,29 @@ describe("Unit Tests", () => {
       if (fs.existsSync(targetPath))
         fs.unlinkSync(targetPath);
 
-      bk.StandaloneDb.createEmpty(targetPath, { rootSubject: { name: "TestRootSubject" } }).close();
+      StandaloneDb.createEmpty(targetPath, { rootSubject: { name: "TestRootSubject" } }).close();
 
       for (const job of testCase.jobs) {
-        const { subjectKey, sourceFile, connection, connectorFile } = job;
+        const { subjectNodeKey, sourceFile, connection, connectorFile } = job;
         const connectorPath = path.join(KnownTestLocations.JSONConnectorDir, connectorFile);
 
         const sourcePath = path.join(KnownTestLocations.testAssetsDir, sourceFile);
         const newData = fs.readFileSync(sourcePath);
         fs.writeFileSync(tempSrcPath, newData);
 
-        const db = bk.StandaloneDb.openFile(targetPath);
-        const jobArgs = new pcf.JobArgs({ subjectKey, connectorPath, connection } as pcf.JobArgsProps);
-        const connector: pcf.PConnector = await require(jobArgs.connectorPath).getBridgeInstance();
-        await connector.runJob({ db, jobArgs });
+        const db = StandaloneDb.openFile(targetPath);
+        const testJobArgs = new pcf.JobArgs({
+          subjectNodeKey,
+          connectorPath,
+          connection,
+          logLevel: LogLevel.Trace,
+        } as pcf.JobArgsProps);
+
+        const connector: pcf.PConnector = await require(testJobArgs.connectorPath).getConnectorInstance();
+        await connector.runJobUnsafe(db, testJobArgs);
         db.close();
 
-        const updatedDb = bk.StandaloneDb.openFile(targetPath);
+        const updatedDb = StandaloneDb.openFile(targetPath);
         const mismatches = await pcf.verifyIModel(updatedDb, TestResults[sourceFile]);
         updatedDb.close();
         if (mismatches.length > 0)

@@ -38,8 +38,8 @@ stages:
         matrix:
           linux:
             imageName: 'ubuntu-latest'
-          mac:
-            imageName: 'macos-latest'
+          # mac:
+            # imageName: 'macos-latest'
           windows:
             imageName: 'windows-latest'
 
@@ -79,7 +79,6 @@ stages:
         displayName: 'npm run test:integration'
         workingDirectory: core
         env:
-          rate_limited: $(rate_limited)
           imjs_test_project_id: $(test_project_id)
           imjs_test_client_id: $(test_client_id)
           imjs_test_regular_user_name: $(test_user_name)
@@ -132,8 +131,11 @@ stages:
         workingDirectory: cli
 
       - bash: |
-          npm install ../../core/*.tgz
-        displayName: 'npm install core/*tgz'
+          # npm installing a local modules does not automatically install its dependencies
+          npm install ../../core
+          npm install ../../core/node_modules/@itwin/core-backend
+          npm install ../../core/node_modules/@itwin/ecschema-metadata
+        displayName: 'Link local dependencies'
         workingDirectory: cli/TestProject
 
       - script: |
@@ -223,8 +225,10 @@ stages:
       parameters:
         path: '*.tgz'
         artifactName: core
+        name: core
     - template: templates/npmjs-publish-deployment.yaml@build-pipeline-scripts
       parameters:
         path: '*.tgz'
         artifactName: cli
+        name: cli
 

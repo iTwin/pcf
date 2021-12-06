@@ -2,9 +2,9 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String } from "@bentley/bentleyjs-core";
-import * as bk from "@bentley/imodeljs-backend";
-import * as common from "@bentley/imodeljs-common";
+import { Id64String } from "@itwin/core-bentley";
+import { InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
+import { Code, CodeSpec, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
 import { JobArgs } from "./BaseApp";
 import { ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
@@ -15,6 +15,8 @@ import * as fs from "fs";
 
 /* 
  * Represents the Repository Model (the root of an iModel).
+ *
+ * It is made of Nodes with hierarchical structure.
  */
 export class RepoTree {
 
@@ -26,20 +28,23 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  public getNodes<T extends Node>(subjectKey: string): Array<T> {
+  /*
+   * Grabs all the Nodes under a SubjectNode with their ordering preserved
+   */
+  public getNodes<T extends Node>(subjectNodeKey: string): Array<T> {
     const nodes: any[] = [];
     for (const node of this.nodeMap.values()) {
-      if (node instanceof SubjectNode && node.key === subjectKey)
+      if (node instanceof SubjectNode && node.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof ModelNode && node.subject.key === subjectKey)
+      else if (node instanceof ModelNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof LoaderNode && node.model.subject.key === subjectKey)
+      else if (node instanceof LoaderNode && node.model.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof ElementNode && node.model.subject.key === subjectKey)
+      else if (node instanceof ElementNode && node.model.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof RelationshipNode && node.subject.key === subjectKey)
+      else if (node instanceof RelationshipNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
-      else if (node instanceof RelatedElementNode && node.subject.key === subjectKey)
+      else if (node instanceof RelatedElementNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
     }
     return nodes;
@@ -72,8 +77,8 @@ export class RepoTree {
   }
 
   public validate(jobArgs: JobArgs): void {
-    this.find<LoaderNode>(jobArgs.connection.loaderKey, LoaderNode);
-    this.find<SubjectNode>(jobArgs.subjectKey, SubjectNode);
+    this.find<LoaderNode>(jobArgs.connection.loaderNodeKey, LoaderNode);
+    this.find<SubjectNode>(jobArgs.subjectNodeKey, SubjectNode);
   }
 }
 
@@ -97,6 +102,9 @@ export interface UpdateResult {
   comment: string;
 }
 
+/*
+ * Node is a wrapper for an EC Entity
+ */
 export abstract class Node implements NodeProps {
 
   public pc: PConnector;
@@ -108,22 +116,39 @@ export abstract class Node implements NodeProps {
     this.key = props.key;
   }
 
+  /*
+   * Returns true if this.update() has been called.
+   */
   public get hasUpdated() {
     return this._hasUpdated;
   }
 
+  /*
+   * Synchronize Element(s) without commiting
+   */
   public async update(): Promise<UpdateResult | UpdateResult[]> {
     this._hasUpdated = true;
     return this._update();
   };
 
+  /*
+   * Must be implemented by subclass Nodes
+   */
   protected abstract _update(): Promise<UpdateResult | UpdateResult[]>;
 
+  /*
+   * Serialize current Node to JSON
+   */
   public abstract toJSON(): any;
 }
 
 export interface SubjectNodeProps extends NodeProps {}
 
+/*
+ * SubjectNode represents a Subject Element (with parent Subject = root Subject) in iModel.
+ *
+ * Each synchronization must target a SubjectNode through JobArgs.subjectNodeKey.
+ */
 export class SubjectNode extends Node implements SubjectNodeProps {
 
   public models: ModelNode[];
@@ -136,10 +161,10 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 
   protected async _update() {
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
-    const code = bk.Subject.createCode(this.pc.db, common.IModel.rootSubjectId, this.key);
+    const code = Subject.createCode(this.pc.db, IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
-      const existingSub = this.pc.db.elements.getElement<bk.Subject>(existingSubId);
+      const existingSub = this.pc.db.elements.getElement<Subject>(existingSubId);
       res.entityId = existingSub.id;
       res.state = ItemState.Unchanged;
       res.comment = `Use an existing subject - ${this.key}`;
@@ -158,12 +183,12 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       };
 
       const root = this.pc.db.elements.getRootSubject();
-      const subProps: common.SubjectProps = {
-        classFullName: bk.Subject.classFullName,
+      const subProps: SubjectProps = {
+        classFullName: Subject.classFullName,
         model: root.model,
         code,
         jsonProperties,
-        parent: new bk.SubjectOwnsSubjects(root.id),
+        parent: new SubjectOwnsSubjects(root.id),
       };
 
       const newSubId = this.pc.db.elements.insertElement(subProps);
@@ -185,26 +210,31 @@ export interface ModelNodeProps extends NodeProps {
 
   /*
    * References an EC Model class
-   * it must have the same type as partitionClass
+   * It must have the same type as partitionClass
    */
-  modelClass: typeof bk.Model;
+  modelClass: typeof Model;
   
   /*
-   * References an EC Partition class 
-   * it must have the same type as modelClass
+   * References an EC Partition Element class 
+   * It must have the same type as modelClass
    */
-  partitionClass: typeof bk.InformationPartitionElement;
+  partitionClass: typeof InformationPartitionElement;
 
   /*
-   * References a Subject Node defined by user
+   * References a Subject Node defined in the same context
    */
   subject: SubjectNode;
 }
 
+/*
+ * ModelNode represents both a Model and Partition Element in iModel.
+ *
+ * Elements must be contained by Models = ElementNodes must reference ModelNode
+ */
 export class ModelNode extends Node implements ModelNodeProps {
 
-  public modelClass: typeof bk.Model;
-  public partitionClass: typeof bk.InformationPartitionElement;
+  public modelClass: typeof Model;
+  public partitionClass: typeof InformationPartitionElement;
   public elements: Array<ElementNode | LoaderNode>;
   public subject: SubjectNode;
 
@@ -224,12 +254,12 @@ export class ModelNode extends Node implements ModelNodeProps {
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
 
-    const partitionProps: common.InformationPartitionElementProps = {
+    const partitionProps: InformationPartitionElementProps = {
       classFullName: this.partitionClass.classFullName,
       federationGuid: this.key,
       userLabel: this.key,
-      model: common.IModel.repositoryModelId,
-      parent: new bk.SubjectOwnsPartitionElements(subjectId),
+      model: IModel.repositoryModelId,
+      parent: new SubjectOwnsPartitionElements(subjectId),
       code,
     };
 
@@ -241,7 +271,7 @@ export class ModelNode extends Node implements ModelNodeProps {
       res.comment = `Use an existing Model - ${this.key}`;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
-      const modelProps: common.ModelProps = {
+      const modelProps: ModelProps = {
         classFullName: this.modelClass.classFullName,
         modeledElement: { id: partitionId },
         name: this.key,
@@ -275,6 +305,13 @@ export interface LoaderNodeProps extends NodeProps {
   loader: Loader;
 }
 
+/*
+ * LoaderNode represents a RepositoryLink Element in iModel
+ *
+ * It must be contained by a LinkModel
+ *
+ * It is a special ElementNode that is responsible for persisting Loader configuration in iModel
+ */
 export class LoaderNode extends Node implements LoaderNodeProps {
 
   public model: ModelNode;
@@ -316,16 +353,16 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     }
 
     const modelId = this.pc.modelCache[this.model.key];
-    const code = bk.RepositoryLink.createCode(this.pc.db, modelId, this.key);
+    const code = RepositoryLink.createCode(this.pc.db, modelId, this.key);
     const loaderProps = this.loader.toJSON();
     const repoLinkProps = {
-      classFullName: bk.RepositoryLink.classFullName,
+      classFullName: RepositoryLink.classFullName,
       model: modelId,
       code,
       format: loaderProps.format,
       userLabel: instance.userLabel,
       jsonProperties: instance.data,
-    } as common.RepositoryLinkProps;
+    } as RepositoryLinkProps;
     const res = this.pc.updateElement(repoLinkProps, instance);
     this.pc.elementCache[instance.key] = res.entityId;
     this.pc.seenIdSet.add(res.entityId);
@@ -357,6 +394,11 @@ export interface ElementNodeProps extends NodeProps {
   category?: ElementNode;
 }
 
+/*
+ * ElementNode Represents a regular Element in iModel
+ *
+ * It populates multiple Element instances based on DMO
+ */
 export class ElementNode extends Node implements ElementNodeProps {
 
   public dmo: ElementDMO;
@@ -374,19 +416,23 @@ export class ElementNode extends Node implements ElementNodeProps {
 
   protected async _update() {
     const resList: UpdateResult[] = [];
-    let instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
-    if (typeof this.dmo.doSyncInstance === "function")
-      instances = instances.filter(this.dmo.doSyncInstance);
+    const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
       const modelId = this.pc.modelCache[this.model.key];
-      const codeSpec: common.CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
-      const code = new common.Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
+      const codeSpec: CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
+      const code = new Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
       const { ecElement } = this.dmo;
       const classFullName = typeof ecElement === "string" ? ecElement : `${this.pc.dynamicSchemaName}:${ecElement.name}`;
 
-      const props: common.ElementProps = {
+      const props: ElementProps = {
         code,
         federationGuid: instance.key,
         userLabel: instance.userLabel,
@@ -402,12 +448,14 @@ export class ElementNode extends Node implements ElementNodeProps {
       }
 
       if (typeof this.dmo.modifyProps === "function")
-        this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(this.pc, props, instance);
 
       const res = this.pc.updateElement(props, instance);
       resList.push(res);
       this.pc.elementCache[instance.key] = res.entityId;
       this.pc.seenIdSet.add(res.entityId);
+
+      // Add custom handlers (WIP)
       // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
       // (classRef as any).onInsert = (args: bk.OnElementPropsArg) => console.log("hello");
       // console.log(classRef);
@@ -446,6 +494,12 @@ export interface RelationshipNodeProps extends NodeProps {
   target?: ElementNode;
 }
 
+/*
+ * RelationshipNode Represents a regular Relationship in iModel
+ * (Relationships are like link tables in a relational database)
+ *
+ * It populates multiple Relationship instances based on RelationshipDMO
+ */
 export class RelationshipNode extends Node {
 
   public subject: SubjectNode;
@@ -467,11 +521,15 @@ export class RelationshipNode extends Node {
 
   protected async _update() {
     const resList: UpdateResult[] = [];
-    let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
-    if (typeof this.dmo.doSyncInstance === "function")
-      instances = instances.filter(this.dmo.doSyncInstance);
+    const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
       if (!pair)
         continue;
@@ -486,9 +544,9 @@ export class RelationshipNode extends Node {
         continue;
       }
 
-      const props: common.RelationshipProps = { sourceId, targetId, classFullName };
+      const props: RelationshipProps = { sourceId, targetId, classFullName };
       if (typeof this.dmo.modifyProps === "function")
-        this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(this.pc, props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
       resList.push({ entityId: relId, state: ItemState.New, comment: "" })
@@ -526,6 +584,12 @@ export interface RelatedElementNodeProps extends NodeProps {
   target?: ElementNode;
 }
 
+/*
+ * RelatedElementNode Represents a regular RelatedElement in iModel
+ * (Relationships are foreign keys in a relational database)
+ *
+ * It populates multiple RelatedElement instances based on RelatedElementDMO
+ */
 export class RelatedElementNode extends Node {
 
   public subject: SubjectNode;
@@ -545,11 +609,15 @@ export class RelatedElementNode extends Node {
 
   protected async _update() {
     const resList: UpdateResult[] = [];
-    let instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
-    if (typeof this.dmo.doSyncInstance === "function")
-      instances = instances.filter(this.dmo.doSyncInstance);
+    const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
       const pair = await this.pc.getSourceTargetIdPair(this, instance);
       if (!pair)
         continue;
@@ -559,12 +627,12 @@ export class RelatedElementNode extends Node {
 
       const { ecRelationship } = this.dmo;
       const classFullName = typeof ecRelationship === "string" ? ecRelationship : `${this.pc.dynamicSchemaName}:${ecRelationship.name}`;
-      const props: common.RelatedElementProps = { id: sourceId, relClassName: classFullName };
+      const props: RelatedElementProps = { id: sourceId, relClassName: classFullName };
 
       if (typeof this.dmo.modifyProps === "function")
-        this.dmo.modifyProps(props, instance);
+        await this.dmo.modifyProps(this.pc, props, instance);
 
-      const relatedElement = common.RelatedElement.fromJSON(props);
+      const relatedElement = RelatedElement.fromJSON(props);
       if (!relatedElement)
         throw new Error("Failed to create RelatedElement");
 

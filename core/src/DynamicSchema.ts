@@ -2,23 +2,22 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, Schema as MetaSchema, SchemaChanges, SchemaComparer, SchemaContext, SchemaContextEditor } from "@bentley/ecschema-metadata";
-import { IModelSchemaLoader } from "@bentley/imodeljs-backend/lib/IModelSchemaLoader";
-import { MutableSchema } from "@bentley/ecschema-metadata/lib/Metadata/Schema";
-import { AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { ClientRequestContext } from "@bentley/bentleyjs-core";
+import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
+import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
 import { DOMParser, XMLSerializer } from "xmldom";
-import * as bk from "@bentley/imodeljs-backend";
+import { ClassRegistry, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
+import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
+import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
 
 export interface DynamicEntityMap {
   elements: {
     props: pcf.ECDynamicElementClassProps,
-    registeredClass?: typeof bk.Element,
+    registeredClass?: typeof Element,
   }[],
   relationships: {
     props: pcf.ECDynamicRelationshipClassProps,
-    registeredClass?: typeof bk.Relationship,
+    registeredClass?: typeof Relationship,
   }[],
 }
 
@@ -34,15 +33,14 @@ export interface SchemaVersion {
   minorVersion: number;
 }
 
-export async function tryGetSchema(db: bk.IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
+export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
   const loader = new IModelSchemaLoader(db);
   const schema = loader.tryGetSchema(schemaName);
   return schema;
 }
 
 export async function syncDynamicSchema(
-  db: bk.IModelDb, 
-  requestContext: AuthorizedClientRequestContext | ClientRequestContext, 
+  db: IModelDb, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
   ): Promise<pcf.ItemState> {
@@ -74,7 +72,7 @@ export async function syncDynamicSchema(
 
   if (schemaState !== pcf.ItemState.Unchanged) {
     const schemaString = await schemaToXmlString(dynamicSchema);
-    await db.importSchemaStrings(requestContext, [schemaString]);
+    await db.importSchemaStrings([schemaString]);
     registerDynamicSchema(props);
   }
 
@@ -97,16 +95,16 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
     }
   }
 
-  const dynamicSchemaClass = class BackendDynamicSchema extends bk.Schema {
-    public static get schemaName(): string {
+  const dynamicSchemaClass = class BackendDynamicSchema extends Schema {
+    public static override get schemaName(): string {
       return props.schemaName;
     }
     public static registerSchema() {
-      if (this !== bk.Schemas.getRegisteredSchema(this.schemaName)) {
-        bk.Schemas.unregisterSchema(this.schemaName);
-        bk.Schemas.registerSchema(this);
-        bk.ClassRegistry.registerModule(elementsModule, this);
-        bk.ClassRegistry.registerModule(relationshipsModule, this);
+      if (this !== Schemas.getRegisteredSchema(this.schemaName)) {
+        Schemas.unregisterSchema(this.schemaName);
+        Schemas.registerSchema(this);
+        ClassRegistry.registerModule(elementsModule, this);
+        ClassRegistry.registerModule(relationshipsModule, this);
       }
     }
   }
@@ -115,7 +113,7 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
 
 // Generates an in-memory [Dynamic EC Schema](https://www.itwinjs.org/bis/intro/schema-customization/) from user-defined DMO.
 async function createDynamicSchema(
-  db: bk.IModelDb, 
+  db: IModelDb, 
   version: SchemaVersion, 
   domainSchemaNames: string[],
   props: DynamicSchemaProps
@@ -170,7 +168,7 @@ async function createDynamicSchema(
   return newSchema;
 }
 
-function getSchemaVersion(db: bk.IModelDb, schemaName: string): SchemaVersion {
+function getSchemaVersion(db: IModelDb, schemaName: string): SchemaVersion {
   const versionStr = db.querySchemaVersion(schemaName);
   if (!versionStr)
     return { readVersion: 1, writeVersion: 0, minorVersion: 0 };
@@ -179,7 +177,7 @@ function getSchemaVersion(db: bk.IModelDb, schemaName: string): SchemaVersion {
 }
 
 async function schemaToXmlString(schema: MetaSchema): Promise<string> {
-  let xmlDoc = new DOMParser().parseFromString(`<?xml version="1.0" encoding="UTF-8"?>`);
+  let xmlDoc = new DOMParser().parseFromString(`<?xml version="1.0" encoding="UTF-8"?>`, "application/xml");
   xmlDoc = await schema.toXml(xmlDoc);
   const xmlString = new XMLSerializer().serializeToString(xmlDoc);
   return xmlString;

@@ -1,6 +1,5 @@
 import * as pcf from "@itwin/pcf";
-
-const { PhysicalElement } = pcf.imodeljs_backend;
+import { PhysicalElement } from "@itwin/core-backend";
 
 export const Component: pcf.ElementDMO = {
   // represents the sheet named "Component" in ./assets/sample.xlsx

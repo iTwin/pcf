@@ -2,8 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { ElementGroupsMembers, ElementRefersToElements, GroupInformationElement, PhysicalElement } from "@bentley/imodeljs-backend";
-import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@bentley/ecschema-metadata";
+import { ElementGroupsMembers, ElementRefersToElements, GroupInformationElement, PhysicalElement } from "@itwin/core-backend";
+import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@itwin/ecschema-metadata";
 import { RelationshipDMO } from "../../../DMO";
 
 export const ExtElementRefersToElements: RelationshipDMO = {

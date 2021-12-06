@@ -1,7 +1,6 @@
+import { ElementRefersToElements, PhysicalElement } from "@itwin/core-backend";
+import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@itwin/ecschema-metadata";
 import * as pcf from "@itwin/pcf";
-
-const { ElementRefersToElements, PhysicalElement } = pcf.imodeljs_backend;
-const { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } = pcf.ecschema_metadata;
 
 export const ComponentConnectsComponent: pcf.RelationshipDMO = {
   irEntity: "Connection",

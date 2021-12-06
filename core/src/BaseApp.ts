@@ -2,71 +2,69 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { BentleyStatus, Config, GuidString, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
-import { AuthorizedBackendRequestContext, StandaloneDb, BriefcaseDb, BriefcaseManager, IModelHost, NativeHost } from "@bentley/imodeljs-backend";
-import { ElectronAuthorizationBackend } from "@bentley/electron-manager/lib/ElectronBackend";
-import { LocalBriefcaseProps, NativeAppAuthorizationConfiguration, OpenBriefcaseProps } from "@bentley/imodeljs-common";
-import { AccessToken, AuthorizedClientRequestContext } from "@bentley/itwin-client";
-import { CodeState, HubCode, HubIModel, IModelQuery } from "@bentley/imodelhub-client";
-import { BridgeRunner, BridgeJobDefArgs } from "@bentley/imodel-bridge";
-import { ServerArgs } from "@bentley/imodel-bridge/lib/IModelHubUtils"
-import { LogCategory } from "./LogCategory";
-import { DataConnection } from "./loaders";
+import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@itwin/core-bentley";
+import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
+import { LocalBriefcaseProps, OpenBriefcaseProps, NativeAppAuthorizationConfiguration } from "@itwin/core-common";
+import { ElectronAuthorizationBackend } from "@itwin/core-electron/lib/cjs/backend/ElectronAuthorizationBackend";
+import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
+import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
+import { AccessToken } from "@itwin/core-bentley";
+import { PConnector, DataConnection, LogCategory } from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
-import * as util from "./Util";
 
-export enum Environment {
-  Prod = 0,    // Anyone
-  QA   = 102,  // Bentley Developer only
-  Dev  = 103,  // Bentley Developer only
+export enum ReqURLPrefix {
+  Prod = "",
+  QA   = "qa-",
+  Dev  = "dev-",
 }
 
 export interface JobArgsProps {
 
   /* 
-   * absolute path to compiler connector module (.js)
+   * Absolute path to compiler connector module (.js)
    */
   connectorPath: string; 
 
   /* 
-   * info needed to connect to source data
+   * Info needed to connect to source data
    */
   connection: DataConnection;
 
   /*
-   * subjectKey references an existing subject node defined in your connector and uniquely identifies 
+   * subjectNodeKey references an existing subject node defined in your connector and uniquely identifies 
    * a subject element in an iModel. pcf will synchronize all the data stored under this subject 
    * with source file.
    */
-  subjectKey: string;
+  subjectNodeKey: string;
 
   /*
-   * absolute path to the directory for storing output files like cached Briefcase.
+   * Absolute path to the directory for storing output files like cached Briefcase.
    */
   outputDir?: string;
 
   /*
-   * change log level to debug your connector (rarely needed)
+   * Change log level to debug your connector (rarely needed)
    */
   logLevel?: LogLevel;
 
   /* 
-   * allows elements to be deleted if they no longer exist in the source file. For a BriefcaseDb, 
-   * only elements in the current subject channel can be deleted.
+   * Allows elements to be deleted if they no longer exist in the source file. 
+   * For a BriefcaseDb, only elements in the current subject channel can be deleted.
    */
   enableDelete?: boolean;
 
   /*
-   * header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
+   * Header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
   revisionHeader?: string;
 }
 
 export class JobArgs implements JobArgsProps {
+
   public connectorPath: string;
   public connection: DataConnection;
-  public subjectKey: string;
+  public subjectNodeKey: string;
   public outputDir: string = path.join(__dirname, "output");
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
@@ -75,7 +73,8 @@ export class JobArgs implements JobArgsProps {
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
     this.connection = props.connection;
-    this.subjectKey = props.subjectKey;
+    this.subjectNodeKey = props.subjectNodeKey;
+
     if (props.outputDir)
       this.outputDir = props.outputDir;
     if (props.logLevel !== undefined)
@@ -86,6 +85,7 @@ export class JobArgs implements JobArgsProps {
       this.enableDelete = props.enableDelete;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
+
     this.validate();
   }
 
@@ -98,31 +98,32 @@ export class JobArgs implements JobArgsProps {
 export interface HubArgsProps {
 
   /*
-   * your project GUID (it's also called "contextId")
+   * Your project GUID (it's also called "contextId")
    */
   projectId: Id64String;
 
   /*
-   * your iModel GUID
+   * Your iModel GUID
    */
   iModelId: Id64String;
 
   /*
-   * you may acquire client configurations from https://developer.bentley.com by creating a SPA app
+   * You may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
-  clientConfig: NativeAppAuthorizationConfiguration;
+  clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
 
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
    */
-  env?: Environment;
+  urlPrefix?: ReqURLPrefix;
 }
 
 export class HubArgs implements HubArgsProps {
+
   public projectId: Id64String;
   public iModelId: Id64String;
-  public clientConfig: NativeAppAuthorizationConfiguration;
-  public env: Environment = Environment.Prod;
+  public clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+  public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
 
@@ -130,8 +131,8 @@ export class HubArgs implements HubArgsProps {
     this.projectId = props.projectId;
     this.iModelId = props.iModelId;
     this.clientConfig = props.clientConfig;
-    if (props.env !== undefined)
-      this.env = props.env;
+    if (props.urlPrefix !== undefined)
+      this.urlPrefix = props.urlPrefix;
     this.validate();
   }
 
@@ -144,31 +145,35 @@ export class HubArgs implements HubArgsProps {
  */
 export class BaseApp {
 
-  public jobArgs: JobArgs;
   public hubArgs: HubArgs;
-  protected _authReqContext?: AuthorizedClientRequestContext;
+  public briefcaseDb?: BriefcaseDb;
+  protected _token?: AccessToken;
 
-  public get authReqContext() {
-    if (!this._authReqContext)
-      throw new Error("not signed in");
-    return this._authReqContext;
+  public get token() {
+    if (!this._token)
+      throw new Error("Not signed in. Invoke either BaseApp.signin() or BaseApp.signinSilent().");
+    return this._token;
   }
 
-  constructor(jobArgs: JobArgs, hubArgs: HubArgs) {
+  constructor(hubArgs: HubArgs, logLevel: LogLevel = LogLevel.Info) {
     this.hubArgs = hubArgs;
-    this.jobArgs = jobArgs;
 
-    const envStr = String(this.hubArgs.env);
-    Config.App.set("imjs_buddi_resolve_url_using_region", envStr);
+    const envStr = String(this.hubArgs.urlPrefix);
+    process.env["IMJS_URL_PREFIX"] = envStr;
 
-    const defaultLevel = this.jobArgs.logLevel;
+    const hubAccess = new IModelHubBackend();
+    IModelHost.setHubAccess(hubAccess);
+
+    this.initLogging(logLevel);
+  }
+
+  public initLogging(defaultLevel: LogLevel) {
     Logger.initializeToConsole();
     Logger.configureLevels({
-      defaultLevel: LogLevel[defaultLevel],
       categoryLevels: [
         {
           category: LogCategory.PCF,
-          logLevel: LogLevel[LogLevel.Info],
+          logLevel: LogLevel[defaultLevel],
         },
       ]
     });
@@ -177,36 +182,147 @@ export class BaseApp {
   /*
    * Safely executes a connector job to synchronize a BriefcaseDb.
    */
-  public async run(): Promise<BentleyStatus> {
-    let db: BriefcaseDb | undefined = undefined;
-    let runStatus = BentleyStatus.SUCCESS;
+  public async runConnectorJob(jobArgs: JobArgs): Promise<boolean> {
+    let success = false;
     try {
       await IModelHost.startup();
       await this.signin();
-      db = await this.openBriefcaseDb();
-      const connector = await require(this.jobArgs.connectorPath).getBridgeInstance();
-      await connector.runJob({ db, jobArgs: this.jobArgs, authReqContext: this.authReqContext });
+
+      this.briefcaseDb = await this.openBriefcaseDb();
+
+      const connector: PConnector = await require(jobArgs.connectorPath).getConnectorInstance();
+      await connector.runJobUnsafe(this.briefcaseDb, jobArgs);
+      success = true;
     } catch(err) {
       Logger.logError(LogCategory.PCF, (err as any).message);
-      if (db && db.isBriefcaseDb())
-        await db.concurrencyControl.abandonResources(this.authReqContext);
-      runStatus = BentleyStatus.ERROR;
+      Logger.logTrace(LogCategory.PCF, (err as any).stack);
+      await this.handleError(err);
+      success = false
     } finally {
-      if (db) {
-        await BaseApp.clearRetiredCodes(this.authReqContext, this.hubArgs.iModelId, db.briefcaseId);
-        db.abandonChanges();
-        db.close();
+      if (this.briefcaseDb) {
+        this.briefcaseDb.abandonChanges();
+        if (this.briefcaseDb.isBriefcaseDb())
+          await this.briefcaseDb.locks.releaseAllLocks();
+        this.briefcaseDb.close();
       }
       await IModelHost.shutdown();
     }
-    return runStatus;
+
+    return success;
+  }
+
+  /*
+   * Handle errors/exceptions occurred to potentially prevent the same error in the next run
+   */
+  public async handleError(err: any) {
+    if (!(err instanceof BentleyError))
+      return;
+    if (this.briefcaseDb && err.errorNumber === IModelHubStatus.BriefcaseDoesNotBelongToUser) {
+      const ignoreCache = true;
+      const db = await this.openBriefcaseDb(ignoreCache);
+      db.close();
+      const errorStr = IModelHubStatus[IModelHubStatus.BriefcaseDoesNotBelongToUser];
+      Logger.logInfo(LogCategory.PCF, `Handled ${errorStr} error and downloaded a new iModel with a new BriefcaseId for current user. Try running again.`);
+    }
+  }
+
+  /*
+   * Sign in based on client config
+   */
+  public async signin(): Promise<AccessToken> {
+    let token: AccessToken;
+    const hasClientSecret = (this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration).clientSecret;
+    if (hasClientSecret)
+      token = await this.nonInteractiveSignin();
+    else
+      token = await this.interactiveSignin();
+    return token;
+  }
+
+  /*
+   * Interactively sign in through your Bentley account. This call opens up a page in your browser and prompts you to sign in.
+   */
+
+  public async interactiveSignin(): Promise<AccessToken> {
+    if (this._token)
+      return this._token;
+
+    const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
+    if (!config.issuerUrl)
+      config.issuerUrl = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+
+    const client = new ElectronAuthorizationBackend(config);
+    await client.initialize(config);
+    IModelHost.authorizationClient = client;
+    const token = await client.signInComplete();
+    this._token = token;
+    return token;
+  }
+
+  /*
+   * Non-interactively sign in through a client secret.
+   */
+  public async nonInteractiveSignin(): Promise<AccessToken> {
+    if (this._token)
+      return this._token;
+
+    const config = this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration;
+    if (!config.authority)
+      (config as any).authority = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+
+    const client = new ServiceAuthorizationClient(config);
+    const token = await client.getAccessToken();
+    IModelHost.authorizationClient = client;
+    this._token = token;
+    return token;
+  }
+
+  /*
+   * Open a previously downloaded BriefcaseDb on disk if present.
+   */
+  public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
+    const bcPropsList: LocalBriefcaseProps[] = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
+    if (bcPropsList.length == 0)
+      return undefined;
+
+    const last = bcPropsList.length - 1;
+    const fileName = bcPropsList[last].fileName;
+    const cachedDb = await BriefcaseDb.open({
+      fileName: fileName,
+      readonly: readonlyMode,
+    });
+
+    await cachedDb.pullChanges();
+    cachedDb.saveChanges();
+    return cachedDb;
+  }
+
+  /*
+   * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
+   */
+  public async openBriefcaseDb(ignoreCache: boolean = false): Promise<BriefcaseDb> {
+    if (!ignoreCache) {
+      const cachedDb = await this.openCachedBriefcaseDb(false);
+      if (cachedDb)
+        return cachedDb;
+    }
+
+    const arg: RequestNewBriefcaseArg = { accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
+    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(arg);
+
+    if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
+      await BriefcaseDb.upgradeSchemas(bcProps);
+
+    const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
+    const db = await BriefcaseDb.open(openArgs);
+    return db;
   }
 
   /*
    * Executes connector-framework in BaseApp
    */
   /*
-  public async runFwk(): Promise<BentleyStatus> {
+  public async runConnectorJob(): Promise<BentleyStatus> {
     await IModelHost.startup();
     const authReqContext = await this.signin();
 
@@ -240,98 +356,5 @@ export class BaseApp {
     return status;
   }
   */
-
-  /*
-   * Sign in through your iModelHub account. This call opens up a page in your browser and prompts you to sign in.
-   */
-  public async signin(): Promise<AuthorizedBackendRequestContext> {
-    if (this._authReqContext)
-      return this._authReqContext;
-    const token = await this.getToken();
-    this._authReqContext = new AuthorizedBackendRequestContext(token);
-    return this._authReqContext;
-  }
-
-  public async getToken(): Promise<AccessToken> {
-    const client = new ElectronAuthorizationBackend();
-    await client.initialize(this.hubArgs.clientConfig);
-    return new Promise<AccessToken>((resolve, reject) => {
-      NativeHost.onUserStateChanged.addListener((token) => {
-        if (token !== undefined)
-          resolve(token);
-        else
-          reject(new Error("Failed to sign in"));
-      });
-      client.signIn();
-    });
-  }
-
-  /*
-   * Open a previously downloaded BriefcaseDb on disk if present.
-   */
-  public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
-    const cachedDbs = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
-    const cachedDb = cachedDbs[0];
-    if (!cachedDb)
-      return undefined;
-
-    const db = await BriefcaseDb.open(this.authReqContext, {
-      fileName: cachedDb.fileName,
-      readonly: readonlyMode,
-    });
-    return db;
-  }
-
-  /*
-   * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
-   */
-  public async openBriefcaseDb(): Promise<BriefcaseDb> {
-    const cachedDb = await this.openCachedBriefcaseDb(false);
-    if (cachedDb) {
-      await cachedDb.pullAndMergeChanges(this.authReqContext);
-      cachedDb.saveChanges();
-      return cachedDb;
-    }
-
-    const req = { contextId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId };
-    const bcProps: LocalBriefcaseProps = await BriefcaseManager.downloadBriefcase(this.authReqContext, req);
-
-    if (this.hubArgs.updateDbProfile || this.hubArgs.updateDomainSchemas)
-      await BriefcaseDb.upgradeSchemas(this.authReqContext, bcProps);
-
-    const openArgs: OpenBriefcaseProps = { fileName: bcProps.fileName };
-    const db = await BriefcaseDb.open(this.authReqContext, openArgs);
-    return db;
-  }
-
-  /*
-   * Change Codes of state "Retired" to "Available" so that they can be reused.
-   */
-  public static async clearRetiredCodes(authReqContext: AuthorizedBackendRequestContext, iModelId: Id64String, briefcaseId: number) {
-    const codes = await IModelHost.iModelClient.codes.get(authReqContext, iModelId);
-    const retiredCodes = codes.filter((code: HubCode) => code.state === CodeState.Retired);
-    for (const code of retiredCodes) {
-      code.briefcaseId = briefcaseId;
-      code.state = CodeState.Available;
-    }
-    if (retiredCodes.length > 0)
-      await IModelHost.iModelClient.codes.update(authReqContext, iModelId, retiredCodes);
-  }
-
-  public static repl(dbpath: string) {
-    const readline = require("readline");
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    const db = StandaloneDb.openFile(dbpath);
-    while (true) {
-      rl.question("$: ", function(input: string) {
-        if (input === "exit")
-          return;
-        util.getRows(db, input);
-      });
-    }
-  }
 }
 

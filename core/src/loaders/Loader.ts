@@ -2,17 +2,17 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Logger } from "@bentley/bentleyjs-core";
+import { Logger } from "@itwin/core-bentley";
 import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 import { PConnector } from "../PConnector";
 import { LogCategory } from "../LogCategory";
 
 export interface BaseConnection {
   /*
-   * loaderKey is a unique identifier of a Repository Link element in an iModel.
+   * loaderNodeKey references a LoaderNode and is a unique identifier of a Repository Link element in an iModel.
    * pcf will synchronize all the data stored under this subject with source file.
    */
-  loaderKey: string;
+  loaderNodeKey: string;
 
   /*
    * Source data will be loaded into the IR Model on demand if true.
@@ -33,9 +33,9 @@ export interface FileConnection extends BaseConnection {
    */
   kind: "pcf_file_connection";
 
-  /* 
+  /*
    * Absolute path to your local source file.
-   */ 
+   */
   filepath: string;
 }
 
@@ -46,9 +46,9 @@ export interface APIConnection extends BaseConnection {
    */
   kind: "pcf_api_connection";
 
-  /* 
+  /*
    * Base URL to fetch data from the API
-   */ 
+   */
   baseUrl: string;
 }
 
@@ -83,7 +83,7 @@ export interface LoaderProps {
   /*
    * IR Entity Key => Primary Key
    */
-  primaryKeyMap?: {[entityKey: string]: string}; 
+  primaryKeyMap?: {[entityKey: string]: string};
 
   /*
    * Defines the version of current loader.
@@ -103,7 +103,7 @@ export abstract class Loader {
   private _format: string;
   private _entities: string[];
   private _relationships: string[];
-  private _primaryKeyMap: {[entityKey: string]: string}; 
+  private _primaryKeyMap: {[entityKey: string]: string};
   private _defaultPrimaryKey: string;
 
   public version: string;
@@ -184,11 +184,11 @@ export abstract class Loader {
   };
 
   public toJSON(): LoaderProps {
-    return { 
-      format: this._format, 
-      entities: this._entities, 
-      relationships: this._relationships, 
-      primaryKeyMap: this._primaryKeyMap, 
+    return {
+      format: this._format,
+      entities: this._entities,
+      relationships: this._relationships,
+      primaryKeyMap: this._primaryKeyMap,
       defaultPrimaryKey: this._defaultPrimaryKey,
     };
   }
