@@ -131,6 +131,7 @@ stages:
         workingDirectory: cli
 
       - bash: |
+          # npm installing a local modules does not automatically install its dependencies
           npm install ../../core
           npm install ../../core/node_modules/@itwin/core-backend
           npm install ../../core/node_modules/@itwin/ecschema-metadata
