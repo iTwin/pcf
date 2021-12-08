@@ -1,6 +1,6 @@
 {
   "name": "@itwin/pcf-cli",
-  "version": "0.1.2",
+  "version": "0.2.0-0",
   "description": "iTwin PCF command line",
   "license": "MIT",
   "keywords": [
