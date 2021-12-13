@@ -63,6 +63,8 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from TestSchema:ExtPhysicalElementAssemblesElements": 1,
     // Element Aspect
     "select * from TestSchema:ExtElementAspect": 1,
+    // TODO: figure out how to store provenance for ElementAspects
+    // "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspect-1\'": 1,
     // Relationship
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)
