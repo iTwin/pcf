@@ -322,10 +322,6 @@ export abstract class PConnector {
     if (this.db.codeSpecs.hasName(codeSpecName))
       return;
     this.db.codeSpecs.insert(codeSpecName, CodeScopeSpec.Type.Model);
-    // const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
-    // console.log(newCodeSpec.properties);
-    // this.db.codeSpecs.insert(newCodeSpec);
-    // this.db.codeSpecs.insert(newCodeSpec);
   }
 
   public async persistChanges(changeDesc: string) {
@@ -464,68 +460,4 @@ export abstract class PConnector {
     const codeSpec: CodeSpec = this.db.codeSpecs.getByName(PConnector.CodeSpecName);
     return codeSpec;
   }
-
-  // For itwin-connector-framework
-
-  /*
-  public initialize(jobDefArgs: BridgeJobDefArgs) {
-    if (!jobDefArgs.argsJson || !jobDefArgs.argsJson.jobArgs)
-      throw new Error("BridgeJobDefArgs.argsJson.jobArgs must be defined to use pcf");
-    this._jobArgs = jobDefArgs.argsJson.jobArgs;
-    this.tree.validate(this.jobArgs);
-  }
-
-  public async initializeJob(): Promise<void> {}
-
-  public async openSourceData() {
-    if (!this.synchronizer)
-      throw new Error("Syncrhonizer is not assigned yet");
-    this._db = this.synchronizer.imodel;
-  }
-
-  public async importDomainSchema(reqContext: AuthorizedClientRequestContext) {
-    this._authReqContext = reqContext;
-    await this._updateDomainSchema();
-  }
-
-  public async importDynamicSchema(reqContext: AuthorizedClientRequestContext) {
-    this._authReqContext = reqContext;
-    await this._updateDynamicSchema();
-  }
-
-  public async importDefinitions() {
-    this._updateCodeSpecs();
-    this._jobSubjectId = this.jobSubject.id;
-  }
-
-  public async updateExistingData() {
-    await this._updateLoader();
-    if (this.srcState === pcf.ItemState.Unchanged)
-      return;
-
-    await this._loadIRModel();
-    await this.irModel.load();
-    await this._updateData();
-    await this.irModel.clear();
-
-    await this._updateDeletedElements();
-    await this._updateProjectExtents();
-  }
-
-  public getJobSubjectName(sourcePath: string) {
-    return this.jobArgs.subjectKey;
-  }
-
-  public getApplicationId() {
-    return this.config.appId;
-  }
-
-  public getApplicationVersion() {
-    return this.config.appVersion;
-  }
-
-  public getBridgeName() {
-    return this.config.connectorName;
-  }
-  */
 }
