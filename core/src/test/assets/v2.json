@@ -46,6 +46,14 @@
       "id": "1"
     }
   ],
+  "ExtElementAspect": [
+    {
+      "id": "1",
+      "Name": "Hello",
+      "Type": "World",
+      "ExistingElementLocator": "{\"ECClassId\": \"BisCore.PhysicalElement\", \"CodeValue\": \"ExtPhysicalElement-1\"}"
+    }
+  ],
   "ExtElementRefersToElements": [
     {
       "id": "1",

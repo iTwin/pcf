@@ -44,7 +44,7 @@ export class JSONConnector extends pcf.PConnector {
       model: lnkModel1, 
       loader: new pcf.JSONLoader({
         format: "json",
-        entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
+        entities: ["ExtPhysicalElement", "ExtElementAspect", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
         relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtExistingElementRefersToElements", "ExtElementGroupsMembers"],
         defaultPrimaryKey: "id",
       }), 
@@ -62,7 +62,9 @@ export class JSONConnector extends pcf.PConnector {
     });
 
     const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", model: defModel, dmo: elements.ExtSpatialCategory });
+    const aspect = new pcf.ElementNode(this, { key: "ExtElementAspect", model: defModel, dmo: elements.ExtElementAspect });
     const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", model: defModel, dmo: elements.ExtPhysicalType });
+
     const space = new pcf.ElementNode(this, { key: "ExtSpace", model: sptModel, dmo: elements.ExtSpace, category: sptCategory });
     const extPhysicalElement = new pcf.ElementNode(this, { key: "ExtPhysicalElement", model: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
     const extGroupInformationElement = new pcf.ElementNode(this, { key: "ExtGroupInformationElement", model: grpModel, dmo: elements.ExtGroupInformationElement });

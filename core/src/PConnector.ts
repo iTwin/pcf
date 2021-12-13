@@ -354,7 +354,7 @@ export abstract class PConnector {
 
   // For Nodes
 
-  public updateElement(props: ElementProps, instance: pcf.IRInstance): pcf.UpdateResult {
+  public updateElement(props: any, instance: pcf.IRInstance): pcf.UpdateResult {
     const identifier = props.code.value!;
     const version = instance.version;
     const checksum = instance.checksum;
@@ -363,13 +363,17 @@ export abstract class PConnector {
     if (existingElement)
       element.id = existingElement.id;
 
-    const { aspectId } = ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, props.model, instance.entityKey, identifier);
     if (!aspectId) {
-      element.insert();
+      if (element instanceof ElementAspect)
+        this.db.elements.insertAspect(props);
+      else
+        element.insert();
+
       this.db.elements.insertAspect({
         classFullName: ExternalSourceAspect.classFullName,
         element: { id: element.id },
-        scope: { id: element.model },
+        scope: { id: props.model },
         identifier,
         kind: instance.entityKey,
         checksum,
@@ -387,9 +391,17 @@ export abstract class PConnector {
     xsa.version = version;
     xsa.checksum = checksum;
 
-    element.update();
+    if (element instanceof ElementAspect)
+      this.db.elements.updateAspect(element);
+    else
+      element.update();
+
     this.db.elements.updateAspect(xsa as ElementAspect);
     return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
+  }
+
+  public updateElementAspect(props: any, instance: pcf.IRInstance) {
+
   }
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {

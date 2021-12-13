@@ -61,6 +61,8 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from TestSchema:ExtPhysicalElement": 3,                 // -2+1 (from v1)
     "select * from TestSchema:ExtGroupInformationElement": 1,         // -1 (from v1)
     "select * from TestSchema:ExtPhysicalElementAssemblesElements": 1,
+    // Element Aspect
+    "select * from TestSchema:ExtElementAspect": 1,
     // Relationship
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)

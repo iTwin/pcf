@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
-import { GroupInformationElement, PhysicalElement, PhysicalType } from "@itwin/core-backend";
+import { GroupInformationElement, PhysicalElement, ElementUniqueAspect, PhysicalType } from "@itwin/core-backend";
 import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
 
 export const ExtPhysicalElement: ElementDMO = {
@@ -49,6 +49,30 @@ export const ExtGroupInformationElement: ElementDMO = {
   ecElement: {
     name: "ExtGroupInformationElement",
     baseClass: GroupInformationElement.classFullName,
+  },
+};
+
+export const ExtElementAspect: ElementDMO = {
+  irEntity: "ExtElementAspect",
+  ecElement: {
+    name: "ExtElementAspect",
+    baseClass: ElementUniqueAspect.classFullName,
+    properties: [
+      {
+        name: "Name",
+        type: primitiveTypeToString(PrimitiveType.String),
+      },
+      {
+        name: "Type",
+        type: primitiveTypeToString(PrimitiveType.String),
+      },
+    ],
+  },
+  modifyProps(pc: PConnector, props: any, instance: IRInstance) {
+    console.log(props);
+    props.name = instance.get("Name");
+    props.type = instance.get("Type");
+    // props.element = { id: instance.get() };
   },
 };
 
