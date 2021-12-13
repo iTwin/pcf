@@ -354,54 +354,53 @@ export abstract class PConnector {
 
   // For Nodes
 
-  public updateElement(props: any, instance: pcf.IRInstance): pcf.UpdateResult {
-    const identifier = props.code.value!;
+  public updateEntity(props: any, instance: pcf.IRInstance): pcf.UpdateResult {
+    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
+    const entity = this.db.elements.createElement(props);
+    if (existingElement)
+      props.id = existingElement.id;
+
+    const identifier = props.code.value;
     const version = instance.version;
     const checksum = instance.checksum;
-    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
-    const element = this.db.elements.createElement(props);
-    if (existingElement)
-      element.id = existingElement.id;
 
     const { aspectId } = ExternalSourceAspect.findBySource(this.db, props.model, instance.entityKey, identifier);
     if (!aspectId) {
-      if (element instanceof ElementAspect)
+      if (entity instanceof ElementAspect) {
         this.db.elements.insertAspect(props);
-      else
-        element.insert();
+      } else {
+        const newElementId = this.db.elements.insertElement(props);
+        props.id = newElementId;
+        this.db.elements.insertAspect({
+          classFullName: ExternalSourceAspect.classFullName,
+          element: { id: props.id },
+          scope: { id: props.model },
+          identifier,
+          kind: instance.entityKey,
+          checksum,
+          version,
+        } as ExternalSourceAspectProps);
+      }
 
-      this.db.elements.insertAspect({
-        classFullName: ExternalSourceAspect.classFullName,
-        element: { id: element.id },
-        scope: { id: props.model },
-        identifier,
-        kind: instance.entityKey,
-        checksum,
-        version,
-      } as ExternalSourceAspectProps);
-      return { entityId: element.id, state: pcf.ItemState.New, comment: "" };
+      return { entityId: props.id, state: pcf.ItemState.New, comment: "" };
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return { entityId: element.id, state: pcf.ItemState.Unchanged, comment: "" };
+      return { entityId: props.id, state: pcf.ItemState.Unchanged, comment: "" };
 
     xsa.version = version;
     xsa.checksum = checksum;
 
-    if (element instanceof ElementAspect)
-      this.db.elements.updateAspect(element);
+    if (entity instanceof ElementAspect)
+      this.db.elements.updateAspect(props);
     else
-      element.update();
+      this.db.elements.updateElement(props);
 
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
-  }
-
-  public updateElementAspect(props: any, instance: pcf.IRInstance) {
-
+    return { entityId: props.id, state: pcf.ItemState.Changed, comment: "" };
   }
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {

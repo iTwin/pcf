@@ -363,7 +363,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       userLabel: instance.userLabel,
       jsonProperties: instance.data,
     } as RepositoryLinkProps;
-    const res = this.pc.updateElement(repoLinkProps, instance);
+    const res = this.pc.updateEntity(repoLinkProps, instance);
     this.pc.elementCache[instance.key] = res.entityId;
     this.pc.seenIdSet.add(res.entityId);
     return res;
@@ -373,7 +373,6 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     return { loader: this.loader.toJSON() };
   }
 }
-
 
 export interface ElementNodeProps extends NodeProps {
 
@@ -450,7 +449,7 @@ export class ElementNode extends Node implements ElementNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const res = this.pc.updateElement(props, instance);
+      const res = this.pc.updateEntity(props, instance);
       resList.push(res);
       this.pc.elementCache[instance.key] = res.entityId;
       this.pc.seenIdSet.add(res.entityId);

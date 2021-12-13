@@ -4,6 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 import { GroupInformationElement, PhysicalElement, ElementUniqueAspect, PhysicalType } from "@itwin/core-backend";
+import { RelatedElementProps } from "@itwin/core-common";
 import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
 
 export const ExtPhysicalElement: ElementDMO = {
@@ -69,10 +70,11 @@ export const ExtElementAspect: ElementDMO = {
     ],
   },
   modifyProps(pc: PConnector, props: any, instance: IRInstance) {
-    console.log(props);
+    // console.log(props);
+    // console.log(instance);
     props.name = instance.get("Name");
     props.type = instance.get("Type");
-    // props.element = { id: instance.get() };
+    props.element = { id: instance.get("ExistingElementId") } as RelatedElementProps;
   },
 };
 
