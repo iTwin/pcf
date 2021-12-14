@@ -550,6 +550,9 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
 
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
+      
+      if (!props.element || !props.element.id)
+        throw new Error("You must attach \"props.element = { ... } as RelatedElementProps\" in ElementAspectDMO.modifyProps()");
 
       const result = this.pc.syncElementUniqueAspect({
         props: props,

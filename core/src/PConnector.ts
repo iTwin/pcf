@@ -9,7 +9,7 @@ import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as path from "path";
-import { ModelNode, SubjectNode, SyncResult } from "./Node";
+import { ItemState, ModelNode, SubjectNode, SyncResult } from "./Node";
 import { IRInstance } from "./pcf";
 
 export interface PConnectorConfigProps {
@@ -219,10 +219,6 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, "Started Data Update...");
     await this.acquireLock(this.jobSubjectId);
     await this._updateLoader();
-
-    const locks = await IModelHost.hubAccess.queryAllLocks({ iModelId: this.db.iModelId, briefcaseId: this.db.getBriefcaseId(), changeset: this.db.changeset });
-    console.log("locks: ");
-    console.log(locks);
 
     if (this.srcState !== pcf.ItemState.Unchanged) {
       this._updateCodeSpecs();
@@ -453,17 +449,22 @@ export abstract class PConnector {
     const { props } = arg;
     const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
+
+    let state: pcf.ItemState;
+
     if (!existingAspect) {
       this.db.elements.insertAspect(props);
 
       // store provenance on the element that the aspect attaches to
       // this is ok because ExternalSourceAspect (provenance) is a ElementMultiAspect
-      props.id = props.element.id;
+      state = this.syncProvenance({ ...arg, props: { ...props, id: props.element.id} });
+      const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
+      props.id = newAspect.id;
     } else {
       props.id = existingAspect.id;
+      state = this.syncProvenance({ ...arg, props });
     }
 
-    const state = this.syncProvenance(arg);
     if (state === pcf.ItemState.Changed)
       this.db.elements.updateAspect(props);
 
