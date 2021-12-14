@@ -1,7 +1,6 @@
-import { ElementUniqueAspect } from "@itwin/core-backend";
+import { BriefcaseDb, ElementUniqueAspect, StandaloneDb } from "@itwin/core-backend";
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
-import { RelatedElementProps } from "@itwin/core-common";
-import { IRInstance, ElementDMO, ElementAspectDMO, PConnector } from "../../../pcf";
+import { IRInstance, ElementAspectDMO, PConnector } from "../../../pcf";
 
 export const ExtElementAspect: ElementAspectDMO = {
   irEntity: "ExtElementAspect",
@@ -22,7 +21,11 @@ export const ExtElementAspect: ElementAspectDMO = {
   modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     props.name = instance.get("Name");
     props.type = instance.get("Type");
-    // required
-    props.element = { id: instance.get("ExistingElementId") } as RelatedElementProps;
+
+    // ID has different values in StandaloneDb & BriefcaseDb
+    if (pc.db instanceof StandaloneDb)
+      props.element = { id: instance.get("StandaloneExistingElementId") };
+    else if (pc.db instanceof BriefcaseDb)
+      props.element = { id: instance.get("BriefcaseExistingElementId") };
   },
 };

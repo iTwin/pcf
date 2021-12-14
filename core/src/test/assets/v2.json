@@ -51,7 +51,8 @@
       "id": "1",
       "Name": "aspect-a",
       "Type": "aspect-type-a",
-      "ExistingElementId": "0x20"
+      "BriefcaseExistingElementId": "0x20000000010",
+      "StandaloneExistingElementId": "0x20"
     }
   ],
   "ExtElementRefersToElements": [
