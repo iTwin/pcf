@@ -3,8 +3,8 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps, ElementAspectProps } from "@itwin/core-common";
-import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps, ElementAspectProps, IModelError } from "@itwin/core-common";
+import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
 import * as pcf from "./pcf";
@@ -199,7 +199,7 @@ export abstract class PConnector {
       await this._updateData();
       await this.irModel.clear();
 
-      await this._updateDeletedElements();
+      await this._deleteData();
       await this._updateProjectExtents();
     } else {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
@@ -272,19 +272,34 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, `Number of updated EC Entity Instances: ${n}`);
   }
 
-  protected async _updateDeletedElements() {
+  protected async _deleteData() {
     if (!this.jobArgs.enableDelete) {
       Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip element deletion.");
       return;
     }
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
-    const rows = await util.getRows(this.db, ecsql);
+    let nDeleted = 0;
+
+    const deleteElementUniqueAspect = (elementId: string) => {
+      const aspects = this.db.elements.getAspects(elementId, ElementUniqueAspect.classFullName);
+      const aspectId = aspects[0].id;
+      if (!aspectId || this.seenIdSet.has(aspectId))
+        return;
+      try {
+        this.db.elements.deleteAspect(aspectId);
+        nDeleted += 1;
+      } catch (err) {
+        Logger.logWarning(LogCategory.PCF, (err as IModelError).message);
+      }
+    }
+
+    const elementEcsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    const elementRows = await util.getRows(this.db, elementEcsql);
 
     const elementIds: Id64String[] = [];
     const defElementIds: Id64String[] = [];
 
-    for (const row of rows) {
+    for (const row of elementRows) {
       const elementId = row.elementId;
       if (this.seenIdSet.has(elementId))
         continue;
@@ -296,16 +311,21 @@ export abstract class PConnector {
     }
 
     for (const elementId of elementIds) {
-      if (this.db.elements.tryGetElement(elementId))
+      if (this.db.elements.tryGetElement(elementId)) {
         this.db.elements.deleteElement(elementId);
+        nDeleted += 1;
+        deleteElementUniqueAspect(elementId);
+      }
     }
 
     for (const elementId of defElementIds) {
-      if (this.db.elements.tryGetElement(elementId))
+      if (this.db.elements.tryGetElement(elementId)) {
         this.db.elements.deleteDefinitionElements([elementId]);
+        nDeleted += 1;
+        deleteElementUniqueAspect(elementId);
+      }
     }
 
-    const nDeleted = elementIds.length + defElementIds.length;
     Logger.logInfo(LogCategory.PCF, `Number of deleted EC Entity Instances: ${nDeleted}`);
   }
 
@@ -478,5 +498,9 @@ export abstract class PConnector {
       throw new Error("Default CodeSpec is not in iModel");
     const codeSpec: CodeSpec = this.db.codeSpecs.getByName(PConnector.CodeSpecName);
     return codeSpec;
+  }
+
+  public subjectOwnsEcInstanceId() {
+
   }
 }
