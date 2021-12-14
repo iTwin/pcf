@@ -5,6 +5,7 @@
 import { LinkModel, LinkPartition, DefinitionModel, DefinitionPartition, PhysicalModel, PhysicalPartition, GroupModel, GroupInformationPartition, SpatialLocationModel, SpatialLocationPartition } from "@itwin/core-backend";
 import * as path from "path";
 import * as elements from "./dmos/Elements";
+import * as aspects from "./dmos/ElementAspects";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
 import * as pcf from "../../pcf";
@@ -61,7 +62,7 @@ export class JSONConnector extends pcf.PConnector {
       }), 
     });
 
-    const aspect = new pcf.ElementAspectNode(this, { key: "ExtElementAspect", subject: subject1, dmo: elements.ExtElementAspect });
+    const aspect = new pcf.ElementAspectNode(this, { key: "ExtElementAspect", subject: subject1, dmo: aspects.ExtElementAspect });
 
     const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", model: defModel, dmo: elements.ExtSpatialCategory });
     const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", model: defModel, dmo: elements.ExtPhysicalType });
