@@ -350,8 +350,6 @@ export abstract class PConnector {
     await this.db.locks.releaseAllLocks();
   }
 
-  // For Nodes
-
   public syncProvenance(arg: SyncArg): pcf.ItemState {
     const { props, version, checksum, scope, kind, identifier } = arg;
     const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
@@ -397,13 +395,18 @@ export abstract class PConnector {
     return { entityId: props.id, state, comment: "" };
   }
 
+  // Not supported yet.
+  // public syncElementMultiAspect(arg: SyncArg): pcf.SyncResult {}
+
   public syncElementUniqueAspect(arg: SyncArg): pcf.SyncResult {
     const { props } = arg;
     const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
     if (!existingAspect) {
       this.db.elements.insertAspect(props);
-      // const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
+
+      // store provenance on the element that the aspect attaches to
+      // this is ok because ExternalSourceAspect (provenance) is a ElementMultiAspect
       props.id = props.element.id;
     } else {
       props.id = existingAspect.id;
