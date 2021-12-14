@@ -49,6 +49,15 @@
       "id": "2"
     }
   ],
+  "ExtElementAspect": [
+    {
+      "id": "1",
+      "Name": "aspect-b",
+      "Type": "aspect-type-a",
+      "BriefcaseExistingElementId": "0x20000000010",
+      "StandaloneExistingElementId": "0x20"
+    }
+  ],
   "ExtElementRefersToElements": [
     {
       "id": "1",

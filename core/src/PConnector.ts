@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps, ElementAspectProps } from "@itwin/core-common";
 import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
@@ -211,21 +211,22 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
 
-  protected async _updateLoader(): Promise<pcf.UpdateResult> {
+  protected async _updateLoader(): Promise<pcf.SyncResult> {
     const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
-    await loaderNode.model.update();
-    const res = await loaderNode.update() as pcf.UpdateResult;
-    Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[res.state]}`);
-    this._srcState = res.state;
-    return res;
+    await loaderNode.model.sync();
+    const result = await loaderNode.sync() as pcf.SyncResult;
+    Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[result.state]}`);
+    this._srcState = result.state;
+    return result;
   }
 
-  protected async _updateSubject(): Promise<pcf.UpdateResult> {
+  protected async _updateSubject(): Promise<pcf.SyncResult> {
     const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectNodeKey, pcf.SubjectNode);
-    const res = await subjectNode.update() as pcf.UpdateResult;
-    Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[res.state]}`);
-    this._jobSubjectId = res.entityId;
-    return res;
+    const result = await subjectNode.sync() as pcf.SyncResult;
+    Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[result.state]}`);
+    this._jobSubjectId = result.entityId;
+    this.elementCache[subjectNode.key] = this.jobSubjectId;
+    return result;
   }
 
   protected async _updateDomainSchema(): Promise<any> {
@@ -236,7 +237,7 @@ export abstract class PConnector {
 
   protected async _updateDynamicSchema(): Promise<any> {
     const { entityMap: dynamicEntityMap } = this.tree;
-    const shouldGenerateSchema = dynamicEntityMap.elements.length + dynamicEntityMap.relationships.length > 0;
+    const shouldGenerateSchema = dynamicEntityMap.entities.length + dynamicEntityMap.relationships.length > 0;
     if (shouldGenerateSchema) {
       if (!this.config.dynamicSchema)
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
@@ -260,10 +261,10 @@ export abstract class PConnector {
     let n = 0;
     const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
-      if (!node.hasUpdated) {
-        const res = await node.update();
-        if (Array.isArray(res))
-          n += res.filter((r: pcf.UpdateResult) => r.state !== pcf.ItemState.Unchanged).length;
+      if (!node.isSynced) {
+        const result = await node.sync();
+        if (Array.isArray(result))
+          n += result.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
         else
           n += 1;
       }
@@ -313,8 +314,8 @@ export abstract class PConnector {
       reportExtentsWithOutliers: false,
       reportOutliers: false,
     };
-    const res = this.db.computeProjectExtents(options);
-    this.db.updateProjectExtents(res.extents);
+    const result = this.db.computeProjectExtents(options);
+    this.db.updateProjectExtents(result.extents);
   }
 
   protected _updateCodeSpecs() {
@@ -322,10 +323,6 @@ export abstract class PConnector {
     if (this.db.codeSpecs.hasName(codeSpecName))
       return;
     this.db.codeSpecs.insert(codeSpecName, CodeScopeSpec.Type.Model);
-    // const newCodeSpec = CodeSpec.create(this.db, codeSpecName, CodeScopeSpec.Type.Model);
-    // console.log(newCodeSpec.properties);
-    // this.db.codeSpecs.insert(newCodeSpec);
-    // this.db.codeSpecs.insert(newCodeSpec);
   }
 
   public async persistChanges(changeDesc: string) {
@@ -352,44 +349,73 @@ export abstract class PConnector {
     await this.db.locks.releaseAllLocks();
   }
 
-  // For Nodes
-
-  public updateElement(props: ElementProps, instance: pcf.IRInstance): pcf.UpdateResult {
-    const identifier = props.code.value!;
-    const version = instance.version;
-    const checksum = instance.checksum;
-    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
-    const element = this.db.elements.createElement(props);
-    if (existingElement)
-      element.id = existingElement.id;
-
-    const { aspectId } = ExternalSourceAspect.findBySource(this.db, element.model, instance.entityKey, identifier);
+  public syncProvenance(arg: pcf.SyncArg): pcf.ItemState {
+    const { props, version, checksum, scope, kind, identifier } = arg;
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
     if (!aspectId) {
-      element.insert();
       this.db.elements.insertAspect({
         classFullName: ExternalSourceAspect.classFullName,
-        element: { id: element.id },
-        scope: { id: element.model },
+        element: { id: props.id },
+        scope: { id: scope },
         identifier,
-        kind: instance.entityKey,
+        kind,
         checksum,
         version,
       } as ExternalSourceAspectProps);
-      return { entityId: element.id, state: pcf.ItemState.New, comment: "" };
+      return pcf.ItemState.New;
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return { entityId: element.id, state: pcf.ItemState.Unchanged, comment: "" };
+      return pcf.ItemState.Unchanged;
 
     xsa.version = version;
     xsa.checksum = checksum;
-
-    element.update();
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return { entityId: element.id, state: pcf.ItemState.Changed, comment: "" };
+    return pcf.ItemState.Changed;
+  }
+
+  public syncElement(arg: pcf.SyncArg): pcf.SyncResult {
+    const { props } = arg;
+    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
+    if (!existingElement) {
+      const newElementId = this.db.elements.insertElement(props);
+      props.id = newElementId;
+    } else {
+      props.id = existingElement.id; 
+    }
+
+    const state = this.syncProvenance(arg);
+    if (state === pcf.ItemState.Changed)
+      this.db.elements.updateElement(props);
+
+    return { entityId: props.id, state, comment: "" };
+  }
+
+  // Not supported yet.
+  // public syncElementMultiAspect(arg: pcf.SyncArg): pcf.SyncResult {}
+
+  public syncElementUniqueAspect(arg: pcf.SyncArg): pcf.SyncResult {
+    const { props } = arg;
+    const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
+    const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
+    if (!existingAspect) {
+      this.db.elements.insertAspect(props);
+
+      // store provenance on the element that the aspect attaches to
+      // this is ok because ExternalSourceAspect (provenance) is a ElementMultiAspect
+      props.id = props.element.id;
+    } else {
+      props.id = existingAspect.id;
+    }
+
+    const state = this.syncProvenance(arg);
+    if (state === pcf.ItemState.Changed)
+      this.db.elements.updateAspect(props);
+
+    return { entityId: props.id, state, comment: "" };
   }
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {
@@ -405,12 +431,12 @@ export abstract class PConnector {
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     } else if (node.dmo.fromType === "ECEntity") {
-      const res = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
-      if (res.error) {
-        Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${res.error}`);
+      const result = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
+      if (result.error) {
+        Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return undefined;
       }
-      sourceId = res.elementId;
+      sourceId = result.elementId;
     }
 
     let targetId: Id64String | undefined;
@@ -422,12 +448,12 @@ export abstract class PConnector {
       const targetCode = this.getCode(node.target.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {
-      const res = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
-      if (res.error) {
-        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${res.error}`);
+      const result = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
+      if (result.error) {
+        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return undefined;
       }
-      targetId = res.elementId;
+      targetId = result.elementId;
     }
 
     if (!sourceId) {
@@ -453,68 +479,4 @@ export abstract class PConnector {
     const codeSpec: CodeSpec = this.db.codeSpecs.getByName(PConnector.CodeSpecName);
     return codeSpec;
   }
-
-  // For itwin-connector-framework
-
-  /*
-  public initialize(jobDefArgs: BridgeJobDefArgs) {
-    if (!jobDefArgs.argsJson || !jobDefArgs.argsJson.jobArgs)
-      throw new Error("BridgeJobDefArgs.argsJson.jobArgs must be defined to use pcf");
-    this._jobArgs = jobDefArgs.argsJson.jobArgs;
-    this.tree.validate(this.jobArgs);
-  }
-
-  public async initializeJob(): Promise<void> {}
-
-  public async openSourceData() {
-    if (!this.synchronizer)
-      throw new Error("Syncrhonizer is not assigned yet");
-    this._db = this.synchronizer.imodel;
-  }
-
-  public async importDomainSchema(reqContext: AuthorizedClientRequestContext) {
-    this._authReqContext = reqContext;
-    await this._updateDomainSchema();
-  }
-
-  public async importDynamicSchema(reqContext: AuthorizedClientRequestContext) {
-    this._authReqContext = reqContext;
-    await this._updateDynamicSchema();
-  }
-
-  public async importDefinitions() {
-    this._updateCodeSpecs();
-    this._jobSubjectId = this.jobSubject.id;
-  }
-
-  public async updateExistingData() {
-    await this._updateLoader();
-    if (this.srcState === pcf.ItemState.Unchanged)
-      return;
-
-    await this._loadIRModel();
-    await this.irModel.load();
-    await this._updateData();
-    await this.irModel.clear();
-
-    await this._updateDeletedElements();
-    await this._updateProjectExtents();
-  }
-
-  public getJobSubjectName(sourcePath: string) {
-    return this.jobArgs.subjectKey;
-  }
-
-  public getApplicationId() {
-    return this.config.appId;
-  }
-
-  public getApplicationVersion() {
-    return this.config.appVersion;
-  }
-
-  public getBridgeName() {
-    return this.config.connectorName;
-  }
-  */
 }
