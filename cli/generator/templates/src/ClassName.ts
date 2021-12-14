@@ -1,5 +1,6 @@
 import { DefinitionModel, DefinitionPartition, LinkModel, LinkPartition, PhysicalModel, PhysicalPartition } from "@itwin/core-backend";
 import * as pcf from "@itwin/pcf";
+import * as aspects from "./dmos/ElementAspects";
 import * as elements from "./dmos/Elements";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
