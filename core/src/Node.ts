@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String } from "@itwin/core-bentley";
 import { InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
-import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
+import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, PackedFeatureTable, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
 import { JobArgs } from "./BaseApp";
 import { ElementDMO, RelationshipDMO, RelatedElementDMO, ElementAspectDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
@@ -102,6 +102,15 @@ export enum ItemState {
   Unchanged,
   New,
   Changed,
+}
+
+export interface SyncArg {
+  props: any;
+  version: string;
+  checksum: string;
+  scope: string;
+  kind: string;
+  identifier: string;
 }
 
 export interface SyncResult {
@@ -371,7 +380,16 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       userLabel: instance.userLabel,
       jsonProperties: instance.data,
     } as RepositoryLinkProps;
-    const res = this.pc.syncElement(repoLinkProps, instance);
+
+    const res = this.pc.syncElement({
+      props: repoLinkProps,
+      version: instance.version,
+      checksum: instance.checksum,
+      scope: modelId,
+      kind: instance.entityKey,
+      identifier: code.value,
+    });
+
     this.pc.elementCache[instance.key] = res.entityId;
     this.pc.seenIdSet.add(res.entityId);
     return res;
@@ -422,7 +440,7 @@ export class ElementNode extends Node implements ElementNodeProps {
   }
 
   protected async _sync() {
-    const resList: SyncResult[] = [];
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -457,17 +475,25 @@ export class ElementNode extends Node implements ElementNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const res = this.pc.syncElement(props, instance);
-      resList.push(res);
-      this.pc.elementCache[instance.key] = res.entityId;
-      this.pc.seenIdSet.add(res.entityId);
+      const result = this.pc.syncElement({
+        props: props,
+        version: instance.version,
+        checksum: instance.checksum,
+        scope: modelId,
+        kind: instance.entityKey,
+        identifier: code.value,
+      });
+
+      results.push(result);
+      this.pc.elementCache[instance.key] = result.entityId;
+      this.pc.seenIdSet.add(result.entityId);
 
       // Add custom handlers (WIP)
       // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
       // (classRef as any).onInsert = (args: bk.OnElementPropsArg) => console.log("hello");
       // console.log(classRef);
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {
@@ -506,7 +532,7 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
   }
 
   protected async _sync() {
-    const resList: SyncResult[] = [];
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -527,12 +553,21 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const res = this.pc.syncElementUniqueAspect(props, instance);
-      resList.push(res);
+      const subjectId = this.pc.elementCache[this.subject.key];
+      const result = this.pc.syncElementUniqueAspect({
+        props: props,
+        version: instance.version,
+        checksum: instance.checksum,
+        scope: subjectId,
+        kind: instance.entityKey,
+        identifier: instance.key,
+      });
+
+      results.push(result);
       // this.pc.aspectCache[instance.key] = res.entityId;
       // this.pc.seenIdSet.add(res.entityId);
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {
@@ -592,7 +627,7 @@ export class RelationshipNode extends Node {
   }
 
   protected async _sync() {
-    const resList: SyncResult[] = [];
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -612,7 +647,7 @@ export class RelationshipNode extends Node {
       const { sourceId, targetId } = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing) {
-        resList.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
+        results.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
         continue;
       }
 
@@ -621,9 +656,9 @@ export class RelationshipNode extends Node {
         await this.dmo.modifyProps(this.pc, props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
-      resList.push({ entityId: relId, state: ItemState.New, comment: "" })
+      results.push({ entityId: relId, state: ItemState.New, comment: "" })
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {
@@ -680,7 +715,7 @@ export class RelatedElementNode extends Node {
   }
 
   protected async _sync() {
-    const resList: SyncResult[] = [];
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -710,9 +745,9 @@ export class RelatedElementNode extends Node {
 
       (targetElement as any)[this.dmo.ecProperty] = relatedElement;
       targetElement.update();
-      resList.push({ entityId: relatedElement.id, state: ItemState.New, comment: "" });
+      results.push({ entityId: relatedElement.id, state: ItemState.New, comment: "" });
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {

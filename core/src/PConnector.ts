@@ -9,6 +9,7 @@ import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as path from "path";
+import { SyncArg } from "./Node";
 
 export interface PConnectorConfigProps {
 
@@ -350,20 +351,16 @@ export abstract class PConnector {
 
   // For Nodes
 
-  public syncProvenance(props: any, instance: pcf.IRInstance): pcf.ItemState {
-    const identifier = props.code ? props.code.value : instance.key;
-    const version = instance.version;
-    const checksum = instance.checksum;
-    const kind = instance.entityKey;
-
-    const { aspectId } = ExternalSourceAspect.findBySource(this.db, props.model, kind, identifier);
+  public syncProvenance(arg: SyncArg): pcf.ItemState {
+    const { props, version, checksum, scope, kind, identifier } = arg;
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
     if (!aspectId) {
       this.db.elements.insertAspect({
         classFullName: ExternalSourceAspect.classFullName,
         element: { id: props.id },
-        scope: { id: props.model },
+        scope: { id: scope },
         identifier,
-        kind: instance.entityKey,
+        kind,
         checksum,
         version,
       } as ExternalSourceAspectProps);
@@ -382,7 +379,8 @@ export abstract class PConnector {
     return pcf.ItemState.Changed;
   }
 
-  public syncElement(props: ElementProps, instance: pcf.IRInstance): pcf.SyncResult {
+  public syncElement(arg: SyncArg): pcf.SyncResult {
+    const { props } = arg;
     const existingElement = this.db.elements.tryGetElement(new Code(props.code));
     if (!existingElement) {
       const newElementId = this.db.elements.insertElement(props);
@@ -391,14 +389,15 @@ export abstract class PConnector {
       props.id = existingElement.id; 
     }
 
-    const state = this.syncProvenance(props, instance);
+    const state = this.syncProvenance(arg);
     if (state === pcf.ItemState.Changed)
       this.db.elements.updateElement(props);
 
     return { entityId: props.id, state, comment: "" };
   }
 
-  public syncElementUniqueAspect(props: ElementAspectProps, instance: pcf.IRInstance): pcf.SyncResult {
+  public syncElementUniqueAspect(arg: SyncArg): pcf.SyncResult {
+    const { props } = arg;
     const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
     if (!existingAspect) {
@@ -409,7 +408,7 @@ export abstract class PConnector {
       props.id = existingAspect.id;
     }
 
-    const state = this.syncProvenance(props, instance);
+    const state = this.syncProvenance(props);
     if (state === pcf.ItemState.Changed)
       this.db.elements.updateAspect(props);
 
