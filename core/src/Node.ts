@@ -177,14 +177,14 @@ export class SubjectNode extends Node implements SubjectNodeProps {
   }
 
   protected async _sync() {
-    const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
+    const result = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const code = Subject.createCode(this.pc.db, IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.pc.db.elements.getElement<Subject>(existingSubId);
-      res.entityId = existingSub.id;
-      res.state = ItemState.Unchanged;
-      res.comment = `Use an existing subject - ${this.key}`;
+      result.entityId = existingSub.id;
+      result.state = ItemState.Unchanged;
+      result.comment = `Use an existing subject - ${this.key}`;
     } else {
       const { appVersion, connectorName } = this.pc.config;
       const jsonProperties = {
@@ -209,13 +209,13 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       };
 
       const newSubId = this.pc.db.elements.insertElement(subProps);
-      res.entityId = newSubId;
-      res.state = ItemState.New;
-      res.comment = `Inserted a new subject - ${this.key}`;
+      result.entityId = newSubId;
+      result.state = ItemState.New;
+      result.comment = `Inserted a new subject - ${this.key}`;
     }
 
-    this.pc.subjectCache[this.key] = res.entityId;
-    return res;
+    this.pc.subjectCache[this.key] = result.entityId;
+    return result;
   }
 
   public toJSON(): any {
@@ -266,7 +266,7 @@ export class ModelNode extends Node implements ModelNodeProps {
   }
 
   protected async _sync() {
-    const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
+    const result = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
@@ -283,9 +283,9 @@ export class ModelNode extends Node implements ModelNodeProps {
     const existingPartitionId = this.pc.db.elements.queryElementIdByCode(code);
 
     if (existingPartitionId) {
-      res.entityId = existingPartitionId;
-      res.state = ItemState.Unchanged;
-      res.comment = `Use an existing Model - ${this.key}`;
+      result.entityId = existingPartitionId;
+      result.state = ItemState.Unchanged;
+      result.comment = `Use an existing Model - ${this.key}`;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
       const modelProps: ModelProps = {
@@ -293,13 +293,13 @@ export class ModelNode extends Node implements ModelNodeProps {
         modeledElement: { id: partitionId },
         name: this.key,
       };
-      res.entityId = this.pc.db.models.insertModel(modelProps);
-      res.state = ItemState.New;
-      res.comment = `Inserted a new Model - ${this.key}`;
+      result.entityId = this.pc.db.models.insertModel(modelProps);
+      result.state = ItemState.New;
+      result.comment = `Inserted a new Model - ${this.key}`;
     }
 
-    this.pc.modelCache[this.key] = res.entityId;
-    return res;
+    this.pc.modelCache[this.key] = result.entityId;
+    return result;
   }
 
   public toJSON(): any {
@@ -381,7 +381,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       jsonProperties: instance.data,
     } as RepositoryLinkProps;
 
-    const res = this.pc.syncElement({
+    const result = this.pc.syncElement({
       props: repoLinkProps,
       version: instance.version,
       checksum: instance.checksum,
@@ -390,9 +390,9 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       identifier: code.value,
     });
 
-    this.pc.elementCache[instance.key] = res.entityId;
-    this.pc.seenIdSet.add(res.entityId);
-    return res;
+    this.pc.elementCache[instance.key] = result.entityId;
+    this.pc.seenIdSet.add(result.entityId);
+    return result;
   }
 
   public toJSON() {
@@ -553,19 +553,18 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const subjectId = this.pc.elementCache[this.subject.key];
       const result = this.pc.syncElementUniqueAspect({
         props: props,
         version: instance.version,
         checksum: instance.checksum,
-        scope: subjectId,
+        scope: this.pc.jobSubjectId,
         kind: instance.entityKey,
         identifier: instance.key,
       });
 
       results.push(result);
-      // this.pc.aspectCache[instance.key] = res.entityId;
-      // this.pc.seenIdSet.add(res.entityId);
+      this.pc.aspectCache[instance.key] = result.entityId;
+      this.pc.seenIdSet.add(result.entityId);
     }
     return results;
   }

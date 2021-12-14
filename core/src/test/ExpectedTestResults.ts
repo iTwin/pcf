@@ -63,8 +63,8 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from TestSchema:ExtPhysicalElementAssemblesElements": 1,
     // Element Aspect
     "select * from TestSchema:ExtElementAspect": 1,
-    // TODO: figure out how to store provenance for ElementAspects
-    // "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspect-1\'": 1,
+    "select * from TestSchema:ExtElementAspect where Name=\'aspect-a\'": 1,
+    "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspect-1\'": 1,
     // Relationship
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)
@@ -75,12 +75,17 @@ const TestResults: {[fileName: string]: QueryToCount} = {
   },
   "v3.json": { // add a new element with the same code as a previously deleted element.
     "select * from TestSchema:ExtGroupInformationElement": 2, // +1 (from v2)
+    // Element Aspect
+    "select * from TestSchema:ExtElementAspect": 1,
+    "select * from TestSchema:ExtElementAspect where Name=\'aspect-b\'": 1,
   },
   "v4.json": {
     "select * from BisCore:Subject": 3,
     "select * from BisCore:Subject where codeValue=\'Subject2\'": 1,
     "select * from BisCore:RepositoryLink": 2,
     "select * from BisCore:RepositoryLink where codeValue=\'api-loader-1\'": 1,
+    // Element Aspect
+    "select * from TestSchema:ExtElementAspect": 0,
   }
 };
 

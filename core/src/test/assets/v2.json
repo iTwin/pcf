@@ -49,8 +49,8 @@
   "ExtElementAspect": [
     {
       "id": "1",
-      "Name": "Hello",
-      "Type": "World",
+      "Name": "aspect-a",
+      "Type": "aspect-type-a",
       "ExistingElementId": "0x20"
     }
   ],

@@ -215,18 +215,19 @@ export abstract class PConnector {
   protected async _updateLoader(): Promise<pcf.SyncResult> {
     const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
     await loaderNode.model.sync();
-    const res = await loaderNode.sync() as pcf.SyncResult;
-    Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[res.state]}`);
-    this._srcState = res.state;
-    return res;
+    const result = await loaderNode.sync() as pcf.SyncResult;
+    Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[result.state]}`);
+    this._srcState = result.state;
+    return result;
   }
 
   protected async _updateSubject(): Promise<pcf.SyncResult> {
     const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectNodeKey, pcf.SubjectNode);
-    const res = await subjectNode.sync() as pcf.SyncResult;
-    Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[res.state]}`);
-    this._jobSubjectId = res.entityId;
-    return res;
+    const result = await subjectNode.sync() as pcf.SyncResult;
+    Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[result.state]}`);
+    this._jobSubjectId = result.entityId;
+    this.elementCache[subjectNode.key] = this.jobSubjectId;
+    return result;
   }
 
   protected async _updateDomainSchema(): Promise<any> {
@@ -262,9 +263,9 @@ export abstract class PConnector {
     const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
       if (!node.isSynced) {
-        const res = await node.sync();
-        if (Array.isArray(res))
-          n += res.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
+        const result = await node.sync();
+        if (Array.isArray(result))
+          n += result.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
         else
           n += 1;
       }
@@ -314,8 +315,8 @@ export abstract class PConnector {
       reportExtentsWithOutliers: false,
       reportOutliers: false,
     };
-    const res = this.db.computeProjectExtents(options);
-    this.db.updateProjectExtents(res.extents);
+    const result = this.db.computeProjectExtents(options);
+    this.db.updateProjectExtents(result.extents);
   }
 
   protected _updateCodeSpecs() {
@@ -402,13 +403,13 @@ export abstract class PConnector {
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
     if (!existingAspect) {
       this.db.elements.insertAspect(props);
-      const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
-      props.id = newAspect.id;
+      // const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
+      props.id = props.element.id;
     } else {
       props.id = existingAspect.id;
     }
 
-    const state = this.syncProvenance(props);
+    const state = this.syncProvenance(arg);
     if (state === pcf.ItemState.Changed)
       this.db.elements.updateAspect(props);
 
@@ -428,12 +429,12 @@ export abstract class PConnector {
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     } else if (node.dmo.fromType === "ECEntity") {
-      const res = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
-      if (res.error) {
-        Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${res.error}`);
+      const result = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
+      if (result.error) {
+        Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return undefined;
       }
-      sourceId = res.elementId;
+      sourceId = result.elementId;
     }
 
     let targetId: Id64String | undefined;
@@ -445,12 +446,12 @@ export abstract class PConnector {
       const targetCode = this.getCode(node.target.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {
-      const res = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
-      if (res.error) {
-        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${res.error}`);
+      const result = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
+      if (result.error) {
+        Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return undefined;
       }
-      targetId = res.elementId;
+      targetId = result.elementId;
     }
 
     if (!sourceId) {
