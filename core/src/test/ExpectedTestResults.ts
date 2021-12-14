@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { QueryToCount } from "../Util";
 
-const TestResults: {[fileName: string]: QueryToCount} = {
+const TestResults: {[sourceFile: string]: QueryToCount} = {
   "v1.json": { // from empty
     // Subject
     "select * from BisCore:Subject": 2,
@@ -74,18 +74,24 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BuildingSpatial:Space": 1,
   },
   "v3.json": { // add a new element with the same code as a previously deleted element.
+    // Subject
+    "select * from BisCore:Subject": 2,
     "select * from TestSchema:ExtGroupInformationElement": 2, // +1 (from v2)
     // Element Aspect
     "select * from TestSchema:ExtElementAspect": 1,
     "select * from TestSchema:ExtElementAspect where Name=\'aspect-b\'": 1, // attribute update
   },
   "v4.json": {
+    // Element Aspect
+    "select * from TestSchema:ExtElementAspect": 0, // -1 (from v3)
+  },
+  "v5.json": { // introduce a new Subject
     "select * from BisCore:Subject": 3,
     "select * from BisCore:Subject where codeValue=\'Subject2\'": 1,
     "select * from BisCore:RepositoryLink": 2,
     "select * from BisCore:RepositoryLink where codeValue=\'api-loader-1\'": 1,
-    // Element Aspect
-    "select * from TestSchema:ExtElementAspect": 0, // -1 (from v3)
+    // Element
+    "select * from TestSchema:ExtGroupInformationElement": 2, // unchanged (from v3)
   }
 };
 

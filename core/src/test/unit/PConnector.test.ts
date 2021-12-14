@@ -39,26 +39,6 @@ describe("Unit Tests", () => {
             filepath: tempSrcPath,
           }
         },
-        {
-          sourceFile: "v4.json",
-          connectorFile: "JSONConnector.js",
-          subjectNodeKey: "Subject2",
-          connection: {
-            loaderNodeKey: "api-loader-1",
-            kind: "pcf_api_connection",
-            baseUrl: "test.com",
-          }
-        },
-        {
-          sourceFile: "v4.json",
-          connectorFile: "JSONConnector.js",
-          subjectNodeKey: "Subject2",
-          connection: {
-            loaderNodeKey: "api-loader-1",
-            kind: "pcf_api_connection",
-            baseUrl: "test.com",
-          }
-        },
       ]
     },
   ]
