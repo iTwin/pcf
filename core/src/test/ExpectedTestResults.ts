@@ -64,7 +64,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     // Element Aspect
     "select * from TestSchema:ExtElementAspect": 1,
     "select * from TestSchema:ExtElementAspect where Name=\'aspect-a\'": 1,
-    "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspect-1\'": 1,
+    "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspect-1\'": 1, // provenance of ExtElementAspect
     // Relationship
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)
@@ -77,7 +77,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from TestSchema:ExtGroupInformationElement": 2, // +1 (from v2)
     // Element Aspect
     "select * from TestSchema:ExtElementAspect": 1,
-    "select * from TestSchema:ExtElementAspect where Name=\'aspect-b\'": 1,
+    "select * from TestSchema:ExtElementAspect where Name=\'aspect-b\'": 1, // attribute update
   },
   "v4.json": {
     "select * from BisCore:Subject": 3,
@@ -85,7 +85,7 @@ const TestResults: {[fileName: string]: QueryToCount} = {
     "select * from BisCore:RepositoryLink": 2,
     "select * from BisCore:RepositoryLink where codeValue=\'api-loader-1\'": 1,
     // Element Aspect
-    "select * from TestSchema:ExtElementAspect": 0,
+    "select * from TestSchema:ExtElementAspect": 0, // -1 (from v3)
   }
 };
 

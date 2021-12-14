@@ -9,7 +9,6 @@ import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as path from "path";
-import { SyncArg } from "./Node";
 
 export interface PConnectorConfigProps {
 
@@ -350,7 +349,7 @@ export abstract class PConnector {
     await this.db.locks.releaseAllLocks();
   }
 
-  public syncProvenance(arg: SyncArg): pcf.ItemState {
+  public syncProvenance(arg: pcf.SyncArg): pcf.ItemState {
     const { props, version, checksum, scope, kind, identifier } = arg;
     const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
     if (!aspectId) {
@@ -378,7 +377,7 @@ export abstract class PConnector {
     return pcf.ItemState.Changed;
   }
 
-  public syncElement(arg: SyncArg): pcf.SyncResult {
+  public syncElement(arg: pcf.SyncArg): pcf.SyncResult {
     const { props } = arg;
     const existingElement = this.db.elements.tryGetElement(new Code(props.code));
     if (!existingElement) {
@@ -396,9 +395,9 @@ export abstract class PConnector {
   }
 
   // Not supported yet.
-  // public syncElementMultiAspect(arg: SyncArg): pcf.SyncResult {}
+  // public syncElementMultiAspect(arg: pcf.SyncArg): pcf.SyncResult {}
 
-  public syncElementUniqueAspect(arg: SyncArg): pcf.SyncResult {
+  public syncElementUniqueAspect(arg: pcf.SyncArg): pcf.SyncResult {
     const { props } = arg;
     const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
