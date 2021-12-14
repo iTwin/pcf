@@ -211,18 +211,18 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
 
-  protected async _updateLoader(): Promise<pcf.UpdateResult> {
+  protected async _updateLoader(): Promise<pcf.SyncResult> {
     const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
-    await loaderNode.model.update();
-    const res = await loaderNode.update() as pcf.UpdateResult;
+    await loaderNode.model.sync();
+    const res = await loaderNode.sync() as pcf.SyncResult;
     Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[res.state]}`);
     this._srcState = res.state;
     return res;
   }
 
-  protected async _updateSubject(): Promise<pcf.UpdateResult> {
+  protected async _updateSubject(): Promise<pcf.SyncResult> {
     const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectNodeKey, pcf.SubjectNode);
-    const res = await subjectNode.update() as pcf.UpdateResult;
+    const res = await subjectNode.sync() as pcf.SyncResult;
     Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[res.state]}`);
     this._jobSubjectId = res.entityId;
     return res;
@@ -260,10 +260,10 @@ export abstract class PConnector {
     let n = 0;
     const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
-      if (!node.hasUpdated) {
-        const res = await node.update();
+      if (!node.isSynced) {
+        const res = await node.sync();
         if (Array.isArray(res))
-          n += res.filter((r: pcf.UpdateResult) => r.state !== pcf.ItemState.Unchanged).length;
+          n += res.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
         else
           n += 1;
       }
@@ -350,19 +350,11 @@ export abstract class PConnector {
 
   // For Nodes
 
-  public syncElement(props: ElementProps, instance: pcf.IRInstance): pcf.UpdateResult {
-    const identifier = props.code.value ?? instance.key;
+  public syncProvenance(props: any, instance: pcf.IRInstance): pcf.ItemState {
+    const identifier = props.code ? props.code.value : instance.key;
     const version = instance.version;
     const checksum = instance.checksum;
     const kind = instance.entityKey;
-
-    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
-    if (!existingElement) {
-      const newElementId = this.db.elements.insertElement(props);
-      props.id = newElementId;
-    } else {
-      props.id = existingElement.id; 
-    }
 
     const { aspectId } = ExternalSourceAspect.findBySource(this.db, props.model, kind, identifier);
     if (!aspectId) {
@@ -375,26 +367,53 @@ export abstract class PConnector {
         checksum,
         version,
       } as ExternalSourceAspectProps);
-      return { entityId: props.id, state: pcf.ItemState.New, comment: "" };
+      return pcf.ItemState.New;
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return { entityId: props.id, state: pcf.ItemState.Unchanged, comment: "" };
+      return pcf.ItemState.Unchanged;
 
     xsa.version = version;
     xsa.checksum = checksum;
-
-    this.db.elements.updateElement(props);
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return { entityId: props.id, state: pcf.ItemState.Changed, comment: "" };
+    return pcf.ItemState.Changed;
   }
 
-  public syncElementAspect(props: ElementAspectProps, instance: pcf.IRInstance): pcf.UpdateResult {
-    this.db.elements.insertAspect(props);
-    return { entityId: "", state: pcf.ItemState.New, comment: "" };
+  public syncElement(props: ElementProps, instance: pcf.IRInstance): pcf.SyncResult {
+    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
+    if (!existingElement) {
+      const newElementId = this.db.elements.insertElement(props);
+      props.id = newElementId;
+    } else {
+      props.id = existingElement.id; 
+    }
+
+    const state = this.syncProvenance(props, instance);
+    if (state === pcf.ItemState.Changed)
+      this.db.elements.updateElement(props);
+
+    return { entityId: props.id, state, comment: "" };
+  }
+
+  public syncElementUniqueAspect(props: ElementAspectProps, instance: pcf.IRInstance): pcf.SyncResult {
+    const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
+    const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
+    if (!existingAspect) {
+      this.db.elements.insertAspect(props);
+      const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
+      props.id = newAspect.id;
+    } else {
+      props.id = existingAspect.id;
+    }
+
+    const state = this.syncProvenance(props, instance);
+    if (state === pcf.ItemState.Changed)
+      this.db.elements.updateAspect(props);
+
+    return { entityId: props.id, state, comment: "" };
   }
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {

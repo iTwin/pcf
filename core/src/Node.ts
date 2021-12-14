@@ -104,7 +104,7 @@ export enum ItemState {
   Changed,
 }
 
-export interface UpdateResult {
+export interface SyncResult {
   entityId: Id64String;
   state: ItemState;
   comment: string;
@@ -117,7 +117,7 @@ export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
-  protected _hasUpdated: boolean = false;
+  protected _isSynced: boolean = false;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
@@ -125,24 +125,24 @@ export abstract class Node implements NodeProps {
   }
 
   /*
-   * Returns true if this.update() has been called.
+   * Returns true if this.sync() has been called.
    */
-  public get hasUpdated() {
-    return this._hasUpdated;
+  public get isSynced() {
+    return this._isSynced;
   }
 
   /*
    * Synchronize Element(s) without commiting
    */
-  public async update(): Promise<UpdateResult | UpdateResult[]> {
-    this._hasUpdated = true;
-    return this._update();
+  public async sync(): Promise<SyncResult | SyncResult[]> {
+    this._isSynced = true;
+    return this._sync();
   };
 
   /*
    * Must be implemented by subclass Nodes
    */
-  protected abstract _update(): Promise<UpdateResult | UpdateResult[]>;
+  protected abstract _sync(): Promise<SyncResult | SyncResult[]>;
 
   /*
    * Serialize current Node to JSON
@@ -167,7 +167,7 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     this.pc.tree.insert<SubjectNode>(this);
   }
 
-  protected async _update() {
+  protected async _sync() {
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const code = Subject.createCode(this.pc.db, IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
@@ -256,7 +256,7 @@ export class ModelNode extends Node implements ModelNodeProps {
     this.pc.tree.insert<ModelNode>(this);
   }
 
-  protected async _update() {
+  protected async _sync() {
     const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
@@ -335,7 +335,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     this.pc.tree.insert<LoaderNode>(this);
   }
 
-  protected async _update() {
+  protected async _sync() {
     let instance: IRInstance | undefined = undefined;
     const con = this.pc.jobArgs.connection;
     switch(con.kind) {
@@ -421,8 +421,8 @@ export class ElementNode extends Node implements ElementNodeProps {
     this.pc.tree.insert<ElementNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const resList: SyncResult[] = [];
     const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -505,8 +505,8 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
     this.pc.tree.insert<ElementAspectNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const resList: SyncResult[] = [];
     const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -527,7 +527,7 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const res = this.pc.syncElementAspect(props, instance);
+      const res = this.pc.syncElementUniqueAspect(props, instance);
       resList.push(res);
       // this.pc.aspectCache[instance.key] = res.entityId;
       // this.pc.seenIdSet.add(res.entityId);
@@ -591,8 +591,8 @@ export class RelationshipNode extends Node {
     this.pc.tree.insert<RelationshipNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const resList: SyncResult[] = [];
     const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -679,8 +679,8 @@ export class RelatedElementNode extends Node {
     this.pc.tree.insert<RelatedElementNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const resList: SyncResult[] = [];
     const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
