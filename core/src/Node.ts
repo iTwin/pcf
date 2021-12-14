@@ -214,7 +214,7 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       result.comment = `Inserted a new subject - ${this.key}`;
     }
 
-    this.pc.subjectCache[this.key] = result.entityId;
+    this.pc.onSyncSubject(result, this);
     return result;
   }
 
@@ -298,7 +298,7 @@ export class ModelNode extends Node implements ModelNodeProps {
       result.comment = `Inserted a new Model - ${this.key}`;
     }
 
-    this.pc.modelCache[this.key] = result.entityId;
+    this.pc.onSyncModel(result, this);
     return result;
   }
 
@@ -390,8 +390,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       identifier: code.value,
     });
 
-    this.pc.elementCache[instance.key] = result.entityId;
-    this.pc.seenIdSet.add(result.entityId);
+    this.pc.onSyncElement(result, instance);
     return result;
   }
 
@@ -485,8 +484,7 @@ export class ElementNode extends Node implements ElementNodeProps {
       });
 
       results.push(result);
-      this.pc.elementCache[instance.key] = result.entityId;
-      this.pc.seenIdSet.add(result.entityId);
+      this.pc.onSyncElement(result, instance);
 
       // Add custom handlers (WIP)
       // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
@@ -563,8 +561,7 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
       });
 
       results.push(result);
-      this.pc.aspectCache[instance.key] = result.entityId;
-      this.pc.seenIdSet.add(result.entityId);
+      this.pc.onSyncAspect(result, instance);
     }
     return results;
   }

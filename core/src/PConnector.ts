@@ -4,11 +4,13 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps, ElementAspectProps, IModelError } from "@itwin/core-common";
-import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
+import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
 import * as pcf from "./pcf";
 import * as path from "path";
+import { ModelNode, SubjectNode, SyncResult } from "./Node";
+import { IRInstance } from "./pcf";
 
 export interface PConnectorConfigProps {
 
@@ -76,14 +78,14 @@ export class PConnectorConfig implements PConnectorConfigProps {
 export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
-
-  public subjectCache: { [subjectNodeKey: string]: Id64String };
-  public modelCache: { [modelNodeKey: string]: Id64String };
-  public elementCache: { [instanceKey: string]: Id64String };
-  public aspectCache: { [instanceKey: string]: Id64String };
-  public seenIdSet: Set<Id64String>;
-
   public readonly tree: pcf.RepoTree;
+
+  protected _subjectCache: { [subjectNodeKey: string]: Id64String };
+  protected _modelCache: { [modelNodeKey: string]: Id64String };
+  protected _elementCache: { [instanceKey: string]: Id64String };
+  protected _aspectCache: { [instanceKey: string]: Id64String };
+  protected _seenElementIdSet: Set<Id64String>;
+  protected _seenAspectIdSet: Set<Id64String>;
 
   protected _config?: PConnectorConfig;
   protected _db?: IModelDb;
@@ -98,13 +100,19 @@ export abstract class PConnector {
   public abstract form(): Promise<void>;
 
   constructor() {
-    this.subjectCache = {};
-    this.modelCache = {};
-    this.elementCache = {};
-    this.aspectCache = {};
+    this._subjectCache = {};
+    this._modelCache = {};
+    this._elementCache = {};
+    this._aspectCache = {};
     this.tree = new pcf.RepoTree();
-    this.seenIdSet = new Set<Id64String>();
+    this._seenElementIdSet = new Set<Id64String>();
+    this._seenAspectIdSet = new Set<Id64String>();
   }
+
+  public get subjectCache() { return this._subjectCache; }
+  public get modelCache() { return this._modelCache; }
+  public get elementCache() { return this._elementCache; }
+  public get aspectCache() { return this._aspectCache; }
 
   public get config() {
     if (!this._config)
@@ -152,11 +160,32 @@ export abstract class PConnector {
     return this.config.dynamicSchema.schemaName;
   }
 
+  public onSyncSubject(result: SyncResult, node: SubjectNode) {
+    this._subjectCache[node.key] = result.entityId;
+  }
+
+  public onSyncModel(result: SyncResult, node: ModelNode) {
+    this._modelCache[node.key] = result.entityId;
+  }
+
+  public onSyncElement(result: SyncResult, instance: IRInstance) {
+    this._elementCache[instance.key] = result.entityId;
+    this._seenElementIdSet.add(result.entityId);
+  }
+
+  public onSyncAspect(result: SyncResult, instance: IRInstance) {
+    this._aspectCache[instance.key] = result.entityId;
+    this._seenAspectIdSet.add(result.entityId);
+  }
+
+  public onSyncRelatedElement(result: SyncResult, instance: IRInstance) {}
+  public onSyncRelationship(result: SyncResult, instance: IRInstance) {}
+
   public async runJobUnsafe(db: IModelDb, jobArgs: pcf.JobArgs): Promise<void> {
-    this.modelCache = {};
-    this.elementCache = {};
-    this.aspectCache = {};
-    this.seenIdSet = new Set<Id64String>();
+    this._modelCache = {};
+    this._elementCache = {};
+    this._aspectCache = {};
+    this._seenElementIdSet = new Set<Id64String>();
 
     this._db = db;
     Logger.logInfo(LogCategory.PCF, `Used local iModel at ${this.db.pathName}`);
@@ -190,6 +219,10 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, "Started Data Update...");
     await this.acquireLock(this.jobSubjectId);
     await this._updateLoader();
+
+    const locks = await IModelHost.hubAccess.queryAllLocks({ iModelId: this.db.iModelId, briefcaseId: this.db.getBriefcaseId(), changeset: this.db.changeset });
+    console.log("locks: ");
+    console.log(locks);
 
     if (this.srcState !== pcf.ItemState.Unchanged) {
       this._updateCodeSpecs();
@@ -225,7 +258,7 @@ export abstract class PConnector {
     const result = await subjectNode.sync() as pcf.SyncResult;
     Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[result.state]}`);
     this._jobSubjectId = result.entityId;
-    this.elementCache[subjectNode.key] = this.jobSubjectId;
+    this._elementCache[subjectNode.key] = this.jobSubjectId;
     return result;
   }
 
@@ -258,23 +291,23 @@ export abstract class PConnector {
   }
 
   protected async _updateData() {
-    let n = 0;
+    let nUpdated = 0;
     const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
       if (!node.isSynced) {
         const result = await node.sync();
         if (Array.isArray(result))
-          n += result.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
+          nUpdated += result.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
         else
-          n += 1;
+          nUpdated += 1;
       }
     }
-    Logger.logInfo(LogCategory.PCF, `Number of updated EC Entity Instances: ${n}`);
+    Logger.logInfo(LogCategory.PCF, `Number of updated EC Entity Instances: ${nUpdated}`);
   }
 
   protected async _deleteData() {
     if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip element deletion.");
+      Logger.logWarning(LogCategory.PCF, "Deletion is disabled. Skip deletion.");
       return;
     }
 
@@ -282,11 +315,11 @@ export abstract class PConnector {
 
     const deleteElementUniqueAspect = (elementId: string) => {
       const aspects = this.db.elements.getAspects(elementId, ElementUniqueAspect.classFullName);
-      const aspectId = aspects[0].id;
-      if (!aspectId || this.seenIdSet.has(aspectId))
+      const aspect = aspects[0];
+      if (!aspect || this._seenAspectIdSet.has(aspect.id))
         return;
       try {
-        this.db.elements.deleteAspect(aspectId);
+        this.db.elements.deleteAspect(aspect.id);
         nDeleted += 1;
       } catch (err) {
         Logger.logWarning(LogCategory.PCF, (err as IModelError).message);
@@ -301,7 +334,8 @@ export abstract class PConnector {
 
     for (const row of elementRows) {
       const elementId = row.elementId;
-      if (this.seenIdSet.has(elementId))
+      deleteElementUniqueAspect(elementId);
+      if (this._seenElementIdSet.has(elementId))
         continue;
       const element = this.db.elements.getElement(elementId);
       if (element instanceof DefinitionElement)
@@ -314,7 +348,6 @@ export abstract class PConnector {
       if (this.db.elements.tryGetElement(elementId)) {
         this.db.elements.deleteElement(elementId);
         nDeleted += 1;
-        deleteElementUniqueAspect(elementId);
       }
     }
 
@@ -322,7 +355,6 @@ export abstract class PConnector {
       if (this.db.elements.tryGetElement(elementId)) {
         this.db.elements.deleteDefinitionElements([elementId]);
         nDeleted += 1;
-        deleteElementUniqueAspect(elementId);
       }
     }
 
@@ -444,7 +476,7 @@ export abstract class PConnector {
 
     let sourceId: Id64String | undefined;
     if (node.source && node.dmo.fromType === "IREntity") {
-      const sourceModelId = this.modelCache[node.source.model.key];
+      const sourceModelId = this._modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
       if (!sourceValue)
         return undefined;
@@ -461,7 +493,7 @@ export abstract class PConnector {
 
     let targetId: Id64String | undefined;
     if (node.target && node.dmo.toType === "IREntity") {
-      const targetModelId = this.modelCache[node.target.model.key];
+      const targetModelId = this._modelCache[node.target.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
       if (!targetValue)
         return undefined;
