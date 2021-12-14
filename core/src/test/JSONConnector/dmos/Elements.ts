@@ -5,7 +5,7 @@
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 import { GroupInformationElement, PhysicalElement, ElementUniqueAspect, PhysicalType } from "@itwin/core-backend";
 import { RelatedElementProps } from "@itwin/core-common";
-import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
+import { IRInstance, ElementDMO, PConnector, ElementAspectDMO } from "../../../pcf";
 
 export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",
@@ -53,9 +53,9 @@ export const ExtGroupInformationElement: ElementDMO = {
   },
 };
 
-export const ExtElementAspect: ElementDMO = {
+export const ExtElementAspect: ElementAspectDMO = {
   irEntity: "ExtElementAspect",
-  ecElement: {
+  ecElementAspect: {
     name: "ExtElementAspect",
     baseClass: ElementUniqueAspect.classFullName,
     properties: [
@@ -70,10 +70,9 @@ export const ExtElementAspect: ElementDMO = {
     ],
   },
   modifyProps(pc: PConnector, props: any, instance: IRInstance) {
-    // console.log(props);
-    // console.log(instance);
     props.name = instance.get("Name");
     props.type = instance.get("Type");
+    // required
     props.element = { id: instance.get("ExistingElementId") } as RelatedElementProps;
   },
 };

@@ -61,8 +61,9 @@ export class JSONConnector extends pcf.PConnector {
       }), 
     });
 
+    const aspect = new pcf.ElementAspectNode(this, { key: "ExtElementAspect", subject: subject1, dmo: elements.ExtElementAspect });
+
     const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", model: defModel, dmo: elements.ExtSpatialCategory });
-    const aspect = new pcf.ElementNode(this, { key: "ExtElementAspect", model: defModel, dmo: elements.ExtElementAspect });
     const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", model: defModel, dmo: elements.ExtPhysicalType });
 
     const space = new pcf.ElementNode(this, { key: "ExtSpace", model: sptModel, dmo: elements.ExtSpace, category: sptCategory });

@@ -4,9 +4,9 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String } from "@itwin/core-bentley";
 import { InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
-import { Code, CodeSpec, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
+import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
 import { JobArgs } from "./BaseApp";
-import { ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
+import { ElementDMO, RelationshipDMO, RelatedElementDMO, ElementAspectDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
 import { PConnector } from "./PConnector";
 import { Loader } from "./loaders";
@@ -24,7 +24,7 @@ export class RepoTree {
   public nodeMap: Map<string, Node>;
 
   constructor() {
-    this.entityMap = { elements: [], relationships: [] };
+    this.entityMap = { entities: [], relationships: [] };
     this.nodeMap = new Map<string, Node>();
   }
 
@@ -42,6 +42,8 @@ export class RepoTree {
         nodes.push(node);
       else if (node instanceof ElementNode && node.model.subject.key === subjectNodeKey)
         nodes.push(node);
+      else if (node instanceof ElementAspectNode && node.subject.key === subjectNodeKey)
+        nodes.push(node);
       else if (node instanceof RelationshipNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
       else if (node instanceof RelatedElementNode && node.subject.key === subjectNodeKey)
@@ -57,12 +59,18 @@ export class RepoTree {
     this.nodeMap.set(node.key, node);
 
     if ((node instanceof ElementNode) && (typeof node.dmo.ecElement !== "string")) {
-      this.entityMap.elements.push({ 
+      this.entityMap.entities.push({ 
         props: node.dmo.ecElement,
       });
-    }
-
-    if (((node instanceof RelationshipNode) || (node instanceof RelatedElementNode)) && (typeof node.dmo.ecRelationship !== "string")) {
+    } else if ((node instanceof ElementAspectNode) && (typeof node.dmo.ecElementAspect !== "string")) {
+      this.entityMap.entities.push({ 
+        props: node.dmo.ecElementAspect,
+      });
+    } else if ((node instanceof RelationshipNode) && (typeof node.dmo.ecRelationship !== "string")) {
+      this.entityMap.relationships.push({ 
+        props: node.dmo.ecRelationship,
+      });
+    } else if ((node instanceof RelatedElementNode) && (typeof node.dmo.ecRelationship !== "string")) {
       this.entityMap.relationships.push({ 
         props: node.dmo.ecRelationship,
       });
@@ -363,7 +371,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       userLabel: instance.userLabel,
       jsonProperties: instance.data,
     } as RepositoryLinkProps;
-    const res = this.pc.updateEntity(repoLinkProps, instance);
+    const res = this.pc.syncElement(repoLinkProps, instance);
     this.pc.elementCache[instance.key] = res.entityId;
     this.pc.seenIdSet.add(res.entityId);
     return res;
@@ -449,7 +457,7 @@ export class ElementNode extends Node implements ElementNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const res = this.pc.updateEntity(props, instance);
+      const res = this.pc.syncElement(props, instance);
       resList.push(res);
       this.pc.elementCache[instance.key] = res.entityId;
       this.pc.seenIdSet.add(res.entityId);
@@ -464,6 +472,71 @@ export class ElementNode extends Node implements ElementNodeProps {
 
   public toJSON(): any {
     return { key: this.key, dmo: this.dmo, cateogoryNode: this.category ? this.category.key : "" };
+  }
+}
+
+export interface ElementAspectNodeProps extends NodeProps {
+
+  /*
+   * Allows multiple EC Elements to be populated by a single ElementNode
+   */
+  dmo: ElementAspectDMO;
+
+  /*
+   * References a Subject Node defined in the same context
+   */
+  subject: SubjectNode;
+}
+
+/*
+ * ElementAspectNode Represents a regular ElementAspect in iModel
+ *
+ * It populates multiple ElementAspect instances based on DMO
+ */
+export class ElementAspectNode extends Node implements ElementAspectNodeProps {
+
+  public dmo: ElementAspectDMO;
+  public subject: SubjectNode;
+
+  constructor(pc: PConnector, props: ElementAspectNodeProps) {
+    super(pc, props);
+    this.dmo = props.dmo;
+    this.subject = props.subject;
+    this.pc.tree.insert<ElementAspectNode>(this);
+  }
+
+  protected async _update() {
+    const resList: UpdateResult[] = [];
+    const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
+
+    for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
+      const { ecElementAspect } = this.dmo;
+      const classFullName = typeof ecElementAspect === "string" ? ecElementAspect : `${this.pc.dynamicSchemaName}:${ecElementAspect.name}`;
+
+      const props: ElementAspectProps = {
+        element: { id: "" },
+        classFullName,
+      };
+
+      if (typeof this.dmo.modifyProps === "function")
+        await this.dmo.modifyProps(this.pc, props, instance);
+
+      const res = this.pc.syncElementAspect(props, instance);
+      resList.push(res);
+      // this.pc.aspectCache[instance.key] = res.entityId;
+      // this.pc.seenIdSet.add(res.entityId);
+    }
+    return resList;
+  }
+
+  public toJSON(): any {
+    return { key: this.key, dmo: this.dmo };
   }
 }
 

@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps } from "@itwin/core-common";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps, ElementAspectProps } from "@itwin/core-common";
 import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
@@ -236,7 +236,7 @@ export abstract class PConnector {
 
   protected async _updateDynamicSchema(): Promise<any> {
     const { entityMap: dynamicEntityMap } = this.tree;
-    const shouldGenerateSchema = dynamicEntityMap.elements.length + dynamicEntityMap.relationships.length > 0;
+    const shouldGenerateSchema = dynamicEntityMap.entities.length + dynamicEntityMap.relationships.length > 0;
     if (shouldGenerateSchema) {
       if (!this.config.dynamicSchema)
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
@@ -350,34 +350,31 @@ export abstract class PConnector {
 
   // For Nodes
 
-  public updateEntity(props: any, instance: pcf.IRInstance): pcf.UpdateResult {
-    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
-    const entity = this.db.elements.createElement(props);
-    if (existingElement)
-      props.id = existingElement.id;
-
-    const identifier = props.code.value;
+  public syncElement(props: ElementProps, instance: pcf.IRInstance): pcf.UpdateResult {
+    const identifier = props.code.value ?? instance.key;
     const version = instance.version;
     const checksum = instance.checksum;
+    const kind = instance.entityKey;
 
-    const { aspectId } = ExternalSourceAspect.findBySource(this.db, props.model, instance.entityKey, identifier);
+    const existingElement = this.db.elements.tryGetElement(new Code(props.code));
+    if (!existingElement) {
+      const newElementId = this.db.elements.insertElement(props);
+      props.id = newElementId;
+    } else {
+      props.id = existingElement.id; 
+    }
+
+    const { aspectId } = ExternalSourceAspect.findBySource(this.db, props.model, kind, identifier);
     if (!aspectId) {
-      if (entity instanceof ElementAspect) {
-        this.db.elements.insertAspect(props);
-      } else {
-        const newElementId = this.db.elements.insertElement(props);
-        props.id = newElementId;
-        this.db.elements.insertAspect({
-          classFullName: ExternalSourceAspect.classFullName,
-          element: { id: props.id },
-          scope: { id: props.model },
-          identifier,
-          kind: instance.entityKey,
-          checksum,
-          version,
-        } as ExternalSourceAspectProps);
-      }
-
+      this.db.elements.insertAspect({
+        classFullName: ExternalSourceAspect.classFullName,
+        element: { id: props.id },
+        scope: { id: props.model },
+        identifier,
+        kind: instance.entityKey,
+        checksum,
+        version,
+      } as ExternalSourceAspectProps);
       return { entityId: props.id, state: pcf.ItemState.New, comment: "" };
     }
 
@@ -390,13 +387,14 @@ export abstract class PConnector {
     xsa.version = version;
     xsa.checksum = checksum;
 
-    if (entity instanceof ElementAspect)
-      this.db.elements.updateAspect(props);
-    else
-      this.db.elements.updateElement(props);
-
+    this.db.elements.updateElement(props);
     this.db.elements.updateAspect(xsa as ElementAspect);
     return { entityId: props.id, state: pcf.ItemState.Changed, comment: "" };
+  }
+
+  public syncElementAspect(props: ElementAspectProps, instance: pcf.IRInstance): pcf.UpdateResult {
+    this.db.elements.insertAspect(props);
+    return { entityId: "", state: pcf.ItemState.New, comment: "" };
   }
 
   public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {

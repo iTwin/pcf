@@ -5,15 +5,15 @@
 import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
 import { DOMParser, XMLSerializer } from "xmldom";
-import { ClassRegistry, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
+import { ClassRegistry, ElementAspect, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
 
 export interface DynamicEntityMap {
-  elements: {
-    props: pcf.ECDynamicElementClassProps,
-    registeredClass?: typeof Element,
+  entities: {
+    props: pcf.ECDynamicEntityClassProps,
+    registeredClass?: typeof Element | typeof ElementAspect,
   }[],
   relationships: {
     props: pcf.ECDynamicRelationshipClassProps,
@@ -81,10 +81,10 @@ export async function syncDynamicSchema(
 
 function registerDynamicSchema(props: DynamicSchemaProps) {
 
-  const elementsModule: any = {};
-  for (const element of props.dynamicEntityMap.elements) {
-    if (element.registeredClass) {
-      elementsModule[element.registeredClass.className] = element.registeredClass;
+  const entitiesModule: any = {};
+  for (const entity of props.dynamicEntityMap.entities) {
+    if (entity.registeredClass) {
+      entitiesModule[entity.registeredClass.className] = entity.registeredClass;
     }
   }
 
@@ -103,7 +103,7 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
       if (this !== Schemas.getRegisteredSchema(this.schemaName)) {
         Schemas.unregisterSchema(this.schemaName);
         Schemas.registerSchema(this);
-        ClassRegistry.registerModule(elementsModule, this);
+        ClassRegistry.registerModule(entitiesModule, this);
         ClassRegistry.registerModule(relationshipsModule, this);
       }
     }
@@ -123,14 +123,14 @@ async function createDynamicSchema(
   const context = new SchemaContext();
   const editor = new SchemaContextEditor(context);
 
-  const createElementClass = async (schema: MetaSchema) => {
-    for (const element of map.elements) {
-      const entityResult = await editor.entities.createFromProps(schema.schemaKey, element.props);
+  const createEntityClass = async (schema: MetaSchema) => {
+    for (const entity of map.entities) {
+      const entityResult = await editor.entities.createFromProps(schema.schemaKey, entity.props);
       if (!entityResult.itemKey)
         throw new Error(`Failed to create EC Entity Class - ${entityResult.errorMessage}`);
 
-      if (element.props.properties) {
-        for (const prop of element.props.properties) {
+      if (entity.props.properties) {
+        for (const prop of entity.props.properties) {
           const propResult = await editor.entities.createPrimitiveProperty(entityResult.itemKey, prop.name, prop.type as any);
           if (!propResult.itemKey)
             throw new Error(`Failed to create EC Property - ${propResult.errorMessage}`);
@@ -162,7 +162,7 @@ async function createDynamicSchema(
     await (newSchema as MutableSchema).addReference(schema);
   }
 
-  await createElementClass(newSchema);
+  await createEntityClass(newSchema);
   await createRelClasses(newSchema);
 
   return newSchema;
