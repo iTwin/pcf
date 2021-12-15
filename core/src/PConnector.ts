@@ -322,7 +322,11 @@ export abstract class PConnector {
       }
     }
 
-    const elementEcsql = `SELECT xsa.ECInstanceId[xsaId], xsa.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} xsa WHERE xsa.Kind !='DocumentWithBeGuid'`;
+    const elementEcsql = `
+      SELECT xsa.ECInstanceId[xsaId], xsa.Element.Id[elementId]
+      FROM ${ExternalSourceAspect.classFullName} xsa
+      WHERE xsa.Kind !='DocumentWithBeGuid' and xsa.Source.Id == ${this.jobSubjectId}
+    `;
     const rows = await util.getRows(this.db, elementEcsql);
 
     const elementIds: Id64String[] = [];

@@ -356,7 +356,12 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: this.loader.version,
-          data: { nodeKey: this.key, mtimeMs: stats.mtimeMs.toString(), ...this.loader.toJSON() },
+          data: {
+            nodeKey: this.key,
+            mtimeMs: stats.mtimeMs.toString(),
+            connection: con,
+            ...this.loader.toJSON(),
+          },
         });
         break;
       case "pcf_api_connection":
@@ -364,7 +369,11 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: this.loader.version,
-          data: { nodeKey: this.key, ...this.loader.toJSON() },
+          data: {
+            nodeKey: this.key,
+            connection: con,
+            ...this.loader.toJSON(),
+          },
         });
         break;
     }
