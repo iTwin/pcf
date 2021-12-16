@@ -83,6 +83,8 @@ export abstract class PConnector {
   protected _modelCache: { [modelNodeKey: string]: Id64String };
   protected _elementCache: { [instanceKey: string]: Id64String };
   protected _aspectCache: { [instanceKey: string]: Id64String };
+
+  // Two sets are needed because ElementAspect has same ECInstanceId as its attached Element
   protected _seenElementIdSet: Set<Id64String>;
   protected _seenAspectIdSet: Set<Id64String>;
 
@@ -99,11 +101,11 @@ export abstract class PConnector {
   public abstract form(): Promise<void>;
 
   constructor() {
+    this.tree = new RepoTree();
     this._subjectCache = {};
     this._modelCache = {};
     this._elementCache = {};
     this._aspectCache = {};
-    this.tree = new RepoTree();
     this._seenElementIdSet = new Set<Id64String>();
     this._seenAspectIdSet = new Set<Id64String>();
   }
@@ -303,7 +305,7 @@ export abstract class PConnector {
 
   protected async _deleteData() {
     if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Deletion is disabled. Skip deletion.");
+      Logger.logWarning(LogCategory.PCF, "Deletion is disabled. Skip it.");
       return;
     }
 
@@ -546,9 +548,5 @@ export abstract class PConnector {
       throw new Error("Default CodeSpec is not in iModel");
     const codeSpec: CodeSpec = this.db.codeSpecs.getByName(PConnector.CodeSpecName);
     return codeSpec;
-  }
-
-  public subjectOwnsEcInstanceId() {
-
   }
 }

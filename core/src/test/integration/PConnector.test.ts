@@ -21,8 +21,9 @@ describe("Integration Tests", () => {
 
   const testCases = [
     {
-      title: "Synchronize BriefcaseDb with one Subject",
+      title: "Synchronize iModel",
       jobs: [
+        // Start from an empty iModel
         {
           sourceFile: "v1.json",
           connectorFile: "JSONConnector.js",
@@ -33,6 +34,7 @@ describe("Integration Tests", () => {
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
           }
         },
+        // Update an iModel
         {
           sourceFile: "v2.json",
           connectorFile: "JSONConnectorV2.js",
@@ -43,6 +45,7 @@ describe("Integration Tests", () => {
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
           }
         },
+        // Reuse Code
         {
           sourceFile: "v3.json",
           connectorFile: "JSONConnectorV2.js",
@@ -53,6 +56,7 @@ describe("Integration Tests", () => {
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
           }
         },
+        // ElementAspect deletion
         {
           sourceFile: "v4.json",
           connectorFile: "JSONConnectorV2.js",
@@ -63,6 +67,7 @@ describe("Integration Tests", () => {
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
           }
         },
+        // Working in a new Subject
         {
           sourceFile: "v5.json",
           connectorFile: "JSONConnectorV2.js",
