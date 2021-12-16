@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
-import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
+import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
 import { ItemState, ModelNode, SubjectNode, SyncResult, IRInstance, IRInstanceKey, IRModel, JobArgs, LoaderNode, RelatedElementNode, RelationshipNode, RepoTree, SyncArg, syncDynamicSchema, tryGetSchema } from "./pcf";
 import { LockQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
@@ -322,12 +322,13 @@ export abstract class PConnector {
       }
     }
 
-    const elementEcsql = `
+    const ecsql = `
       SELECT xsa.ECInstanceId[xsaId], xsa.Element.Id[elementId]
       FROM ${ExternalSourceAspect.classFullName} xsa
-      WHERE xsa.Kind !='DocumentWithBeGuid' and xsa.Source.Id == ${this.jobSubjectId}
+        INNER JOIN ${SubjectOwnsPartitionElements.classFullName} owns on xsa.Scope.Id=owns.TargetECInstanceId
+      WHERE xsa.Kind!='DocumentWithBeGuid' and owns.SourceECInstanceId=${this.jobSubjectId}
     `;
-    const rows = await util.getRows(this.db, elementEcsql);
+    const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
     const defElementIds: Id64String[] = [];
@@ -415,7 +416,6 @@ export abstract class PConnector {
       this.db.elements.insertAspect({
         classFullName: ExternalSourceAspect.classFullName,
         element: { id: props.id },
-        source: { id: this.jobSubjectId },
         scope: { id: scope },
         identifier,
         kind,

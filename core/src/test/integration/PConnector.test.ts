@@ -43,7 +43,6 @@ describe("Integration Tests", () => {
             filepath: path.join(KnownTestLocations.testOutputDir, "tempSrcFile.json")
           }
         },
-        /*
         {
           sourceFile: "v3.json",
           connectorFile: "JSONConnectorV2.js",
@@ -74,7 +73,6 @@ describe("Integration Tests", () => {
             baseUrl: "test.com",
           }
         },
-        */
       ]
     },
   ];

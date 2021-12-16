@@ -380,6 +380,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
 
     const modelId = this.pc.modelCache[this.model.key];
     const code = RepositoryLink.createCode(this.pc.db, modelId, this.key);
+
     const loaderProps = this.loader.toJSON();
     const repoLinkProps = {
       classFullName: RepositoryLink.classFullName,
