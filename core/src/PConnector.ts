@@ -322,6 +322,9 @@ export abstract class PConnector {
       }
     }
 
+    // Assume: 1. Subjects (created by PCF) are not nested. 2. Scope.ID = Model ID
+    // This query grabs all of the ExternalSourceAspects scoped under the current job Subject.
+    // Kind='DocumentWithBeGuid' indicates an ExternalSourceAspect for RepositoryLink which we do not erase.
     const ecsql = `
       SELECT xsa.ECInstanceId[xsaId], xsa.Element.Id[elementId]
       FROM ${ExternalSourceAspect.classFullName} xsa
