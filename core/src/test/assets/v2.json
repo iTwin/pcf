@@ -46,11 +46,20 @@
       "id": "1"
     }
   ],
-  "ExtElementAspect": [
+  "ExtElementAspectA": [
     {
       "id": "1",
-      "Name": "aspect-a",
-      "Type": "aspect-type-a",
+      "Name": "a-name",
+      "Type": "a-type",
+      "BriefcaseExistingElementId": "0x20000000010",
+      "StandaloneExistingElementId": "0x20"
+    }
+  ],
+  "ExtElementAspectB": [
+    {
+      "id": "1",
+      "Name": "b-name",
+      "Type": "b-type",
       "BriefcaseExistingElementId": "0x20000000010",
       "StandaloneExistingElementId": "0x20"
     }

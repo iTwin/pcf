@@ -3,11 +3,12 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, ElementProps, ElementAspectProps } from "@itwin/core-common";
-import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ExternalSourceAspect, IModelDb, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
+import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
+import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
+import { ItemState, ModelNode, SubjectNode, SyncResult, IRInstance, IRInstanceKey, IRModel, JobArgs, LoaderNode, RelatedElementNode, RelationshipNode, RepoTree, SyncArg, syncDynamicSchema, tryGetSchema } from "./pcf";
+import { LockQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
-import * as pcf from "./pcf";
 import * as path from "path";
 
 export interface PConnectorConfigProps {
@@ -76,21 +77,23 @@ export class PConnectorConfig implements PConnectorConfigProps {
 export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
+  public readonly tree: RepoTree;
 
-  public subjectCache: { [subjectNodeKey: string]: Id64String };
-  public modelCache: { [modelNodeKey: string]: Id64String };
-  public elementCache: { [instanceKey: string]: Id64String };
-  public aspectCache: { [instanceKey: string]: Id64String };
-  public seenIdSet: Set<Id64String>;
+  protected _subjectCache: { [subjectNodeKey: string]: Id64String };
+  protected _modelCache: { [modelNodeKey: string]: Id64String };
+  protected _elementCache: { [instanceKey: string]: Id64String };
+  protected _aspectCache: { [instanceKey: string]: Id64String };
 
-  public readonly tree: pcf.RepoTree;
+  // Two sets are needed because ElementAspect has same ECInstanceId as its attached Element
+  protected _seenElementIdSet: Set<Id64String>;
+  protected _seenAspectIdSet: Set<Id64String>;
 
   protected _config?: PConnectorConfig;
   protected _db?: IModelDb;
-  protected _jobArgs?: pcf.JobArgs;
-  protected _irModel?: pcf.IRModel;
+  protected _jobArgs?: JobArgs;
+  protected _irModel?: IRModel;
   protected _jobSubjectId?: Id64String;
-  protected _srcState?: pcf.ItemState;
+  protected _srcState?: ItemState;
 
   /*
    * Define construct instances in this function.
@@ -98,13 +101,19 @@ export abstract class PConnector {
   public abstract form(): Promise<void>;
 
   constructor() {
-    this.subjectCache = {};
-    this.modelCache = {};
-    this.elementCache = {};
-    this.aspectCache = {};
-    this.tree = new pcf.RepoTree();
-    this.seenIdSet = new Set<Id64String>();
+    this.tree = new RepoTree();
+    this._subjectCache = {};
+    this._modelCache = {};
+    this._elementCache = {};
+    this._aspectCache = {};
+    this._seenElementIdSet = new Set<Id64String>();
+    this._seenAspectIdSet = new Set<Id64String>();
   }
+
+  public get subjectCache() { return this._subjectCache; }
+  public get modelCache() { return this._modelCache; }
+  public get elementCache() { return this._elementCache; }
+  public get aspectCache() { return this._aspectCache; }
 
   public get config() {
     if (!this._config)
@@ -152,11 +161,33 @@ export abstract class PConnector {
     return this.config.dynamicSchema.schemaName;
   }
 
-  public async runJobUnsafe(db: IModelDb, jobArgs: pcf.JobArgs): Promise<void> {
-    this.modelCache = {};
-    this.elementCache = {};
-    this.aspectCache = {};
-    this.seenIdSet = new Set<Id64String>();
+  public onSyncSubject(result: SyncResult, node: SubjectNode) {
+    this._subjectCache[node.key] = result.entityId;
+    const subject = this.db.elements.getElement(result.entityId);
+  }
+
+  public onSyncModel(result: SyncResult, node: ModelNode) {
+    this._modelCache[node.key] = result.entityId;
+  }
+
+  public onSyncElement(result: SyncResult, instance: IRInstance) {
+    this._elementCache[instance.key] = result.entityId;
+    this._seenElementIdSet.add(result.entityId);
+  }
+
+  public onSyncAspect(result: SyncResult, instance: IRInstance) {
+    this._aspectCache[instance.key] = result.entityId;
+    this._seenAspectIdSet.add(result.entityId);
+  }
+
+  public onSyncRelatedElement(result: SyncResult, instance: IRInstance) {}
+  public onSyncRelationship(result: SyncResult, instance: IRInstance) {}
+
+  public async runJobUnsafe(db: IModelDb, jobArgs: JobArgs): Promise<void> {
+    this._modelCache = {};
+    this._elementCache = {};
+    this._aspectCache = {};
+    this._seenElementIdSet = new Set<Id64String>();
 
     this._db = db;
     Logger.logInfo(LogCategory.PCF, `Used local iModel at ${this.db.pathName}`);
@@ -191,7 +222,7 @@ export abstract class PConnector {
     await this.acquireLock(this.jobSubjectId);
     await this._updateLoader();
 
-    if (this.srcState !== pcf.ItemState.Unchanged) {
+    if (this.srcState !== ItemState.Unchanged) {
       this._updateCodeSpecs();
 
       await this._loadIRModel();
@@ -199,7 +230,7 @@ export abstract class PConnector {
       await this._updateData();
       await this.irModel.clear();
 
-      await this._updateDeletedElements();
+      await this._deleteData();
       await this._updateProjectExtents();
     } else {
       Logger.logInfo(LogCategory.PCF, "Source data has not changed. Skip data update.");
@@ -211,21 +242,21 @@ export abstract class PConnector {
     Logger.logInfo(LogCategory.PCF, "Your Connector Job has completed");
   }
 
-  protected async _updateLoader(): Promise<pcf.SyncResult> {
-    const loaderNode = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
+  protected async _updateLoader(): Promise<SyncResult> {
+    const loaderNode = this.tree.find<LoaderNode>(this.jobArgs.connection.loaderNodeKey, LoaderNode);
     await loaderNode.model.sync();
-    const result = await loaderNode.sync() as pcf.SyncResult;
-    Logger.logInfo(LogCategory.PCF, `Loader State = ${pcf.ItemState[result.state]}`);
+    const result = await loaderNode.sync() as SyncResult;
+    Logger.logInfo(LogCategory.PCF, `Loader State = ${ItemState[result.state]}`);
     this._srcState = result.state;
     return result;
   }
 
-  protected async _updateSubject(): Promise<pcf.SyncResult> {
-    const subjectNode = this.tree.find<pcf.SubjectNode>(this.jobArgs.subjectNodeKey, pcf.SubjectNode);
-    const result = await subjectNode.sync() as pcf.SyncResult;
-    Logger.logInfo(LogCategory.PCF, `Subject State = ${pcf.ItemState[result.state]}`);
+  protected async _updateSubject(): Promise<SyncResult> {
+    const subjectNode = this.tree.find<SubjectNode>(this.jobArgs.subjectNodeKey, SubjectNode);
+    const result = await subjectNode.sync() as SyncResult;
+    Logger.logInfo(LogCategory.PCF, `Subject State = ${ItemState[result.state]}`);
     this._jobSubjectId = result.entityId;
-    this.elementCache[subjectNode.key] = this.jobSubjectId;
+    this._elementCache[subjectNode.key] = this.jobSubjectId;
     return result;
   }
 
@@ -243,42 +274,66 @@ export abstract class PConnector {
         throw new Error("dynamic schema setting is missing to generate a dynamic schema.");
       const { schemaName, schemaAlias } = this.config.dynamicSchema;
       const domainSchemaNames = this.config.domainSchemaPaths.map((filePath: any) => path.basename(filePath, ".ecschema.xml"));
-      const schemaState = await pcf.syncDynamicSchema(this.db, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
-      Logger.logInfo(LogCategory.PCF, `Dynamic Schema State: ${pcf.ItemState[schemaState]}`);
-      const generatedSchema = await pcf.tryGetSchema(this.db, schemaName);
+      const schemaState = await syncDynamicSchema(this.db, domainSchemaNames, { schemaName, schemaAlias, dynamicEntityMap });
+      Logger.logInfo(LogCategory.PCF, `Dynamic Schema State: ${ItemState[schemaState]}`);
+      const generatedSchema = await tryGetSchema(this.db, schemaName);
       if (!generatedSchema)
         throw new Error("Failed to find dynamically generated schema.");
     }
   }
 
   protected async _loadIRModel() {
-    const node = this.tree.find<pcf.LoaderNode>(this.jobArgs.connection.loaderNodeKey, pcf.LoaderNode);
+    const node = this.tree.find<LoaderNode>(this.jobArgs.connection.loaderNodeKey, LoaderNode);
     const loader = node.loader;
-    this._irModel = new pcf.IRModel(loader, this.jobArgs.connection);
+    this._irModel = new IRModel(loader, this.jobArgs.connection);
   }
 
   protected async _updateData() {
-    let n = 0;
+    let nUpdated = 0;
     const nodes = this.tree.getNodes(this.jobArgs.subjectNodeKey);
     for (const node of nodes) {
       if (!node.isSynced) {
         const result = await node.sync();
         if (Array.isArray(result))
-          n += result.filter((r: pcf.SyncResult) => r.state !== pcf.ItemState.Unchanged).length;
+          nUpdated += result.filter((r: SyncResult) => r.state !== ItemState.Unchanged).length;
         else
-          n += 1;
+          nUpdated += 1;
       }
     }
-    Logger.logInfo(LogCategory.PCF, `Number of updated EC Entity Instances: ${n}`);
+    Logger.logInfo(LogCategory.PCF, `Number of updated EC Entity Instances: ${nUpdated}`);
   }
 
-  protected async _updateDeletedElements() {
+  protected async _deleteData() {
     if (!this.jobArgs.enableDelete) {
-      Logger.logWarning(LogCategory.PCF, "Element deletion is disabled. Skip element deletion.");
+      Logger.logWarning(LogCategory.PCF, "Deletion is disabled. Skip it.");
       return;
     }
 
-    const ecsql = `SELECT aspect.Element.Id[elementId] FROM ${ExternalSourceAspect.classFullName} aspect WHERE aspect.Kind !='DocumentWithBeGuid'`;
+    let nDeleted = 0;
+
+    const deleteElementUniqueAspect = (elementId: string) => {
+      const aspects = this.db.elements.getAspects(elementId, ElementUniqueAspect.classFullName);
+      for (const aspect of aspects) {
+        if (this._seenAspectIdSet.has(aspect.id))
+          continue;
+        try {
+          this.db.elements.deleteAspect(aspect.id);
+          nDeleted += 1;
+        } catch (err) {
+          Logger.logWarning(LogCategory.PCF, (err as IModelError).message);
+        }
+      }
+    }
+
+    // Assume: 1. Subjects (created by PCF) are not nested. 2. Scope.ID = Model ID
+    // This query grabs all of the ExternalSourceAspects scoped under the current job Subject.
+    // Kind='DocumentWithBeGuid' indicates an ExternalSourceAspect for RepositoryLink which we do not erase.
+    const ecsql = `
+      SELECT xsa.ECInstanceId[xsaId], xsa.Element.Id[elementId]
+      FROM ${ExternalSourceAspect.classFullName} xsa
+        INNER JOIN ${SubjectOwnsPartitionElements.classFullName} owns on xsa.Scope.Id=owns.TargetECInstanceId
+      WHERE xsa.Kind!='DocumentWithBeGuid' and owns.SourceECInstanceId=${this.jobSubjectId}
+    `;
     const rows = await util.getRows(this.db, ecsql);
 
     const elementIds: Id64String[] = [];
@@ -286,7 +341,8 @@ export abstract class PConnector {
 
     for (const row of rows) {
       const elementId = row.elementId;
-      if (this.seenIdSet.has(elementId))
+      deleteElementUniqueAspect(elementId);
+      if (this._seenElementIdSet.has(elementId))
         continue;
       const element = this.db.elements.getElement(elementId);
       if (element instanceof DefinitionElement)
@@ -296,16 +352,19 @@ export abstract class PConnector {
     }
 
     for (const elementId of elementIds) {
-      if (this.db.elements.tryGetElement(elementId))
+      if (this.db.elements.tryGetElement(elementId)) {
         this.db.elements.deleteElement(elementId);
+        nDeleted += 1;
+      }
     }
 
     for (const elementId of defElementIds) {
-      if (this.db.elements.tryGetElement(elementId))
+      if (this.db.elements.tryGetElement(elementId)) {
         this.db.elements.deleteDefinitionElements([elementId]);
+        nDeleted += 1;
+      }
     }
 
-    const nDeleted = elementIds.length + defElementIds.length;
     Logger.logInfo(LogCategory.PCF, `Number of deleted EC Entity Instances: ${nDeleted}`);
   }
 
@@ -337,6 +396,12 @@ export abstract class PConnector {
     }
   }
 
+  public async queryLocks(query: LockQuery) {
+    const token = await IModelHost.getAccessToken();
+    const locks = await (IModelHost.hubAccess as any).iModelClient.locks.get(token, this.db.iModelId, query);
+    return locks;
+  }
+
   public async acquireLock(rootId: Id64String) {
     if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
       return;
@@ -349,8 +414,9 @@ export abstract class PConnector {
     await this.db.locks.releaseAllLocks();
   }
 
-  public syncProvenance(arg: pcf.SyncArg): pcf.ItemState {
+  public syncProvenance(arg: SyncArg): ItemState {
     const { props, version, checksum, scope, kind, identifier } = arg;
+
     const { aspectId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
     if (!aspectId) {
       this.db.elements.insertAspect({
@@ -362,22 +428,22 @@ export abstract class PConnector {
         checksum,
         version,
       } as ExternalSourceAspectProps);
-      return pcf.ItemState.New;
+      return ItemState.New;
     }
 
     const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
-      return pcf.ItemState.Unchanged;
+      return ItemState.Unchanged;
 
     xsa.version = version;
     xsa.checksum = checksum;
     this.db.elements.updateAspect(xsa as ElementAspect);
-    return pcf.ItemState.Changed;
+    return ItemState.Changed;
   }
 
-  public syncElement(arg: pcf.SyncArg): pcf.SyncResult {
+  public syncElement(arg: SyncArg): SyncResult {
     const { props } = arg;
     const existingElement = this.db.elements.tryGetElement(new Code(props.code));
     if (!existingElement) {
@@ -388,50 +454,55 @@ export abstract class PConnector {
     }
 
     const state = this.syncProvenance(arg);
-    if (state === pcf.ItemState.Changed)
+    if (state === ItemState.Changed)
       this.db.elements.updateElement(props);
 
     return { entityId: props.id, state, comment: "" };
   }
 
   // Not supported yet.
-  // public syncElementMultiAspect(arg: pcf.SyncArg): pcf.SyncResult {}
+  // public syncElementMultiAspect(arg: SyncArg): SyncResult {}
 
-  public syncElementUniqueAspect(arg: pcf.SyncArg): pcf.SyncResult {
+  public syncElementUniqueAspect(arg: SyncArg): SyncResult {
     const { props } = arg;
     const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
+
+    let state: ItemState;
+
     if (!existingAspect) {
       this.db.elements.insertAspect(props);
 
       // store provenance on the element that the aspect attaches to
       // this is ok because ExternalSourceAspect (provenance) is a ElementMultiAspect
-      props.id = props.element.id;
+      state = this.syncProvenance({ ...arg, props: { ...props, id: props.element.id} });
+      const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
+      props.id = newAspect.id;
     } else {
       props.id = existingAspect.id;
+      state = this.syncProvenance({ ...arg, props });
     }
 
-    const state = this.syncProvenance(arg);
-    if (state === pcf.ItemState.Changed)
+    if (state === ItemState.Changed)
       this.db.elements.updateAspect(props);
 
     return { entityId: props.id, state, comment: "" };
   }
 
-  public async getSourceTargetIdPair(node: pcf.RelatedElementNode | pcf.RelationshipNode, instance: pcf.IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {
+  public async getSourceTargetIdPair(node: RelatedElementNode | RelationshipNode, instance: IRInstance): Promise<{ sourceId: string, targetId: string } | undefined> {
     if (!node.dmo.fromAttr || !node.dmo.toAttr)
       return;
 
     let sourceId: Id64String | undefined;
     if (node.source && node.dmo.fromType === "IREntity") {
-      const sourceModelId = this.modelCache[node.source.model.key];
+      const sourceModelId = this._modelCache[node.source.model.key];
       const sourceValue = instance.get(node.dmo.fromAttr);
       if (!sourceValue)
         return undefined;
       const sourceCode = this.getCode(node.source.dmo.irEntity, sourceModelId, sourceValue);
       sourceId = this.db.elements.queryElementIdByCode(sourceCode);
     } else if (node.dmo.fromType === "ECEntity") {
-      const result = await pcf.locateElement(this.db, instance.data[node.dmo.fromAttr]) as pcf.LocateResult;
+      const result = await util.locateElement(this.db, instance.data[node.dmo.fromAttr]) as util.LocateResult;
       if (result.error) {
         Logger.logWarning(LogCategory.PCF, `Could not find the source EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return undefined;
@@ -441,14 +512,14 @@ export abstract class PConnector {
 
     let targetId: Id64String | undefined;
     if (node.target && node.dmo.toType === "IREntity") {
-      const targetModelId = this.modelCache[node.target.model.key];
+      const targetModelId = this._modelCache[node.target.model.key];
       const targetValue = instance.get(node.dmo.toAttr);
       if (!targetValue)
         return undefined;
       const targetCode = this.getCode(node.target.dmo.irEntity, targetModelId, targetValue);
       targetId = this.db.elements.queryElementIdByCode(targetCode);
     } else if (node.dmo.toType === "ECEntity") {
-      const result = await pcf.locateElement(this.db, instance.data[node.dmo.toAttr]) as pcf.LocateResult;
+      const result = await util.locateElement(this.db, instance.data[node.dmo.toAttr]) as util.LocateResult;
       if (result.error) {
         Logger.logWarning(LogCategory.PCF, `Could not find the target EC entity for relationship instance = ${instance.key}: ${result.error}`);
         return undefined;
@@ -469,7 +540,7 @@ export abstract class PConnector {
   }
 
   public getCode(entityKey: string, modelId: Id64String, value: string): Code {
-    const codeValue = `${entityKey}-${value}` as pcf.IRInstanceKey;
+    const codeValue = `${entityKey}-${value}` as IRInstanceKey;
     return new Code({spec: this.defaultCodeSpec.id, scope: modelId, value: codeValue});
   }
 

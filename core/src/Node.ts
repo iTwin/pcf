@@ -214,7 +214,7 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       result.comment = `Inserted a new subject - ${this.key}`;
     }
 
-    this.pc.subjectCache[this.key] = result.entityId;
+    this.pc.onSyncSubject(result, this);
     return result;
   }
 
@@ -298,7 +298,7 @@ export class ModelNode extends Node implements ModelNodeProps {
       result.comment = `Inserted a new Model - ${this.key}`;
     }
 
-    this.pc.modelCache[this.key] = result.entityId;
+    this.pc.onSyncModel(result, this);
     return result;
   }
 
@@ -356,7 +356,12 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: this.loader.version,
-          data: { nodeKey: this.key, mtimeMs: stats.mtimeMs.toString(), ...this.loader.toJSON() },
+          data: {
+            nodeKey: this.key,
+            mtimeMs: stats.mtimeMs.toString(),
+            connection: con,
+            ...this.loader.toJSON(),
+          },
         });
         break;
       case "pcf_api_connection":
@@ -364,13 +369,18 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: this.loader.version,
-          data: { nodeKey: this.key, ...this.loader.toJSON() },
+          data: {
+            nodeKey: this.key,
+            connection: con,
+            ...this.loader.toJSON(),
+          },
         });
         break;
     }
 
     const modelId = this.pc.modelCache[this.model.key];
     const code = RepositoryLink.createCode(this.pc.db, modelId, this.key);
+
     const loaderProps = this.loader.toJSON();
     const repoLinkProps = {
       classFullName: RepositoryLink.classFullName,
@@ -390,8 +400,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       identifier: code.value,
     });
 
-    this.pc.elementCache[instance.key] = result.entityId;
-    this.pc.seenIdSet.add(result.entityId);
+    this.pc.onSyncElement(result, instance);
     return result;
   }
 
@@ -485,8 +494,7 @@ export class ElementNode extends Node implements ElementNodeProps {
       });
 
       results.push(result);
-      this.pc.elementCache[instance.key] = result.entityId;
-      this.pc.seenIdSet.add(result.entityId);
+      this.pc.onSyncElement(result, instance);
 
       // Add custom handlers (WIP)
       // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
@@ -552,6 +560,9 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
 
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
+      
+      if (!props.element || !props.element.id)
+        throw new Error("You must attach \"props.element = { ... } as RelatedElementProps\" in ElementAspectDMO.modifyProps()");
 
       const result = this.pc.syncElementUniqueAspect({
         props: props,
@@ -563,8 +574,7 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
       });
 
       results.push(result);
-      this.pc.aspectCache[instance.key] = result.entityId;
-      this.pc.seenIdSet.add(result.entityId);
+      this.pc.onSyncAspect(result, instance);
     }
     return results;
   }

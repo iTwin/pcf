@@ -2,10 +2,10 @@ import { BriefcaseDb, ElementUniqueAspect, StandaloneDb } from "@itwin/core-back
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 import { IRInstance, ElementAspectDMO, PConnector } from "../../../pcf";
 
-export const ExtElementAspect: ElementAspectDMO = {
-  irEntity: "ExtElementAspect",
+export const ExtElementAspectA: ElementAspectDMO = {
+  irEntity: "ExtElementAspectA",
   ecElementAspect: {
-    name: "ExtElementAspect",
+    name: "ExtElementAspectA",
     baseClass: ElementUniqueAspect.classFullName,
     properties: [
       {
@@ -23,6 +23,20 @@ export const ExtElementAspect: ElementAspectDMO = {
     props.type = instance.get("Type");
 
     // ID has different values in StandaloneDb & BriefcaseDb
+    if (pc.db instanceof StandaloneDb)
+      props.element = { id: instance.get("StandaloneExistingElementId") };
+    else if (pc.db instanceof BriefcaseDb)
+      props.element = { id: instance.get("BriefcaseExistingElementId") };
+  },
+};
+
+export const ExtElementAspectB: ElementAspectDMO = {
+  irEntity: "ExtElementAspectB",
+  ecElementAspect: {
+    name: "ExtElementAspectB",
+    baseClass: ElementUniqueAspect.classFullName,
+  },
+  modifyProps(pc: PConnector, props: any, instance: IRInstance) {
     if (pc.db instanceof StandaloneDb)
       props.element = { id: instance.get("StandaloneExistingElementId") };
     else if (pc.db instanceof BriefcaseDb)
