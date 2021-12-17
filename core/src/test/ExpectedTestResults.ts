@@ -62,9 +62,10 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from TestSchema:ExtGroupInformationElement": 1,         // -1 (from v1)
     "select * from TestSchema:ExtPhysicalElementAssemblesElements": 1,
     // Element Aspect
-    "select * from TestSchema:ExtElementAspect": 1,
-    "select * from TestSchema:ExtElementAspect where Name=\'aspect-a\'": 1,
-    "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspect-1\'": 1, // provenance of ExtElementAspect
+    "select * from TestSchema:ExtElementAspectA": 1,
+    "select * from TestSchema:ExtElementAspectB": 1,
+    "select * from TestSchema:ExtElementAspectA where Name=\'a-name\'": 1,
+    "select * from BisCore:ExternalSourceAspect where identifier=\'ExtElementAspectA-1\'": 1, // provenance of ExtElementAspect
     // Relationship
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)
@@ -78,12 +79,14 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from BisCore:Subject": 2,
     "select * from TestSchema:ExtGroupInformationElement": 2, // +1 (from v2)
     // Element Aspect
-    "select * from TestSchema:ExtElementAspect": 1,
-    "select * from TestSchema:ExtElementAspect where Name=\'aspect-b\'": 1, // attribute update
+    "select * from TestSchema:ExtElementAspectA": 1,
+    "select * from TestSchema:ExtElementAspectB": 1,
+    "select * from TestSchema:ExtElementAspectA where Name=\'a-new-name\'": 1, // attribute update
   },
   "v4.json": {
     // Element Aspect
-    "select * from TestSchema:ExtElementAspect": 0, // -1 (from v3)
+    "select * from TestSchema:ExtElementAspectA": 0, // -1 (from v3)
+    "select * from TestSchema:ExtElementAspectB": 0, // -1 (from v3)
   },
   "v5.json": { // introduce a new Subject
     "select * from BisCore:Subject": 3,

@@ -313,14 +313,15 @@ export abstract class PConnector {
 
     const deleteElementUniqueAspect = (elementId: string) => {
       const aspects = this.db.elements.getAspects(elementId, ElementUniqueAspect.classFullName);
-      const aspect = aspects[0];
-      if (!aspect || this._seenAspectIdSet.has(aspect.id))
-        return;
-      try {
-        this.db.elements.deleteAspect(aspect.id);
-        nDeleted += 1;
-      } catch (err) {
-        Logger.logWarning(LogCategory.PCF, (err as IModelError).message);
+      for (const aspect of aspects) {
+        if (this._seenAspectIdSet.has(aspect.id))
+          continue;
+        try {
+          this.db.elements.deleteAspect(aspect.id);
+          nDeleted += 1;
+        } catch (err) {
+          Logger.logWarning(LogCategory.PCF, (err as IModelError).message);
+        }
       }
     }
 
