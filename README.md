@@ -71,6 +71,8 @@ You will be using a set of constructs to build your connector.
 
 # Tutorial
 
+**You may have difficulty understanding this tutorial without a basic understanding of [BIS](https://www.itwinjs.org/bis/).**
+
 It's important to first see an overall picture of what a Connector does:
 1. Read source data 
 2. Define mappings (and transform geometries)
