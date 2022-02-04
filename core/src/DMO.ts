@@ -19,7 +19,8 @@ export type Locator = string;
  */
 export type ECDomainClassFullName = string;
 
-export type ECDynamicElementClassProps = (EntityClassProps & { name: string, baseClass: string });
+export type ECDynamicEntityClassProps = (EntityClassProps & { name: string, baseClass: string });
+export type ECDynamicElementAspectClassProps = (EntityClassProps & { name: string, baseClass: string });
 export type ECDynamicRelationshipClassProps = RelationshipClassProps;
 
 /*
@@ -57,7 +58,7 @@ export interface ElementDMO extends DMO {
    * 1. include its domain class full name 
    * 2. create a dynamic element class by defining it here
    */
-  readonly ecElement: ECDomainClassFullName | ECDynamicElementClassProps;
+  readonly ecElement: ECDomainClassFullName | ECDynamicEntityClassProps;
 
   /*
    * References the attribute name used to identify the EC Category Element
@@ -74,6 +75,15 @@ export interface ElementDMO extends DMO {
    * An example: class Component extends PhysicalElement { ... }
    */
   // readonly registeredClass?: typeof BisElement;
+}
+
+export interface ElementAspectDMO extends DMO {
+  /*
+   * References an EC Element Aspect Class by one of the following options:
+   * 1. include its domain class full name 
+   * 2. create a dynamic element class by defining it here
+   */
+  readonly ecElementAspect: ECDomainClassFullName | ECDynamicEntityClassProps;
 }
 
 /*

@@ -4,9 +4,9 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String } from "@itwin/core-bentley";
 import { InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
-import { Code, CodeSpec, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
+import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, PackedFeatureTable, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
 import { JobArgs } from "./BaseApp";
-import { ElementDMO, RelationshipDMO, RelatedElementDMO } from "./DMO";
+import { ElementDMO, RelationshipDMO, RelatedElementDMO, ElementAspectDMO } from "./DMO";
 import { IRInstance } from "./IRModel";
 import { PConnector } from "./PConnector";
 import { Loader } from "./loaders";
@@ -24,7 +24,7 @@ export class RepoTree {
   public nodeMap: Map<string, Node>;
 
   constructor() {
-    this.entityMap = { elements: [], relationships: [] };
+    this.entityMap = { entities: [], relationships: [] };
     this.nodeMap = new Map<string, Node>();
   }
 
@@ -42,6 +42,8 @@ export class RepoTree {
         nodes.push(node);
       else if (node instanceof ElementNode && node.model.subject.key === subjectNodeKey)
         nodes.push(node);
+      else if (node instanceof ElementAspectNode && node.subject.key === subjectNodeKey)
+        nodes.push(node);
       else if (node instanceof RelationshipNode && node.subject.key === subjectNodeKey)
         nodes.push(node);
       else if (node instanceof RelatedElementNode && node.subject.key === subjectNodeKey)
@@ -57,12 +59,18 @@ export class RepoTree {
     this.nodeMap.set(node.key, node);
 
     if ((node instanceof ElementNode) && (typeof node.dmo.ecElement !== "string")) {
-      this.entityMap.elements.push({ 
+      this.entityMap.entities.push({ 
         props: node.dmo.ecElement,
       });
-    }
-
-    if (((node instanceof RelationshipNode) || (node instanceof RelatedElementNode)) && (typeof node.dmo.ecRelationship !== "string")) {
+    } else if ((node instanceof ElementAspectNode) && (typeof node.dmo.ecElementAspect !== "string")) {
+      this.entityMap.entities.push({ 
+        props: node.dmo.ecElementAspect,
+      });
+    } else if ((node instanceof RelationshipNode) && (typeof node.dmo.ecRelationship !== "string")) {
+      this.entityMap.relationships.push({ 
+        props: node.dmo.ecRelationship,
+      });
+    } else if ((node instanceof RelatedElementNode) && (typeof node.dmo.ecRelationship !== "string")) {
       this.entityMap.relationships.push({ 
         props: node.dmo.ecRelationship,
       });
@@ -96,7 +104,16 @@ export enum ItemState {
   Changed,
 }
 
-export interface UpdateResult {
+export interface SyncArg {
+  props: any;
+  version: string;
+  checksum: string;
+  scope: string;
+  kind: string;
+  identifier: string;
+}
+
+export interface SyncResult {
   entityId: Id64String;
   state: ItemState;
   comment: string;
@@ -109,7 +126,7 @@ export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
-  protected _hasUpdated: boolean = false;
+  protected _isSynced: boolean = false;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
@@ -117,24 +134,24 @@ export abstract class Node implements NodeProps {
   }
 
   /*
-   * Returns true if this.update() has been called.
+   * Returns true if this.sync() has been called.
    */
-  public get hasUpdated() {
-    return this._hasUpdated;
+  public get isSynced() {
+    return this._isSynced;
   }
 
   /*
    * Synchronize Element(s) without commiting
    */
-  public async update(): Promise<UpdateResult | UpdateResult[]> {
-    this._hasUpdated = true;
-    return this._update();
+  public async sync(): Promise<SyncResult | SyncResult[]> {
+    this._isSynced = true;
+    return this._sync();
   };
 
   /*
    * Must be implemented by subclass Nodes
    */
-  protected abstract _update(): Promise<UpdateResult | UpdateResult[]>;
+  protected abstract _sync(): Promise<SyncResult | SyncResult[]>;
 
   /*
    * Serialize current Node to JSON
@@ -159,15 +176,15 @@ export class SubjectNode extends Node implements SubjectNodeProps {
     this.pc.tree.insert<SubjectNode>(this);
   }
 
-  protected async _update() {
-    const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
+  protected async _sync() {
+    const result = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const code = Subject.createCode(this.pc.db, IModel.rootSubjectId, this.key);
     const existingSubId = this.pc.db.elements.queryElementIdByCode(code);
     if (existingSubId) {
       const existingSub = this.pc.db.elements.getElement<Subject>(existingSubId);
-      res.entityId = existingSub.id;
-      res.state = ItemState.Unchanged;
-      res.comment = `Use an existing subject - ${this.key}`;
+      result.entityId = existingSub.id;
+      result.state = ItemState.Unchanged;
+      result.comment = `Use an existing subject - ${this.key}`;
     } else {
       const { appVersion, connectorName } = this.pc.config;
       const jsonProperties = {
@@ -192,13 +209,13 @@ export class SubjectNode extends Node implements SubjectNodeProps {
       };
 
       const newSubId = this.pc.db.elements.insertElement(subProps);
-      res.entityId = newSubId;
-      res.state = ItemState.New;
-      res.comment = `Inserted a new subject - ${this.key}`;
+      result.entityId = newSubId;
+      result.state = ItemState.New;
+      result.comment = `Inserted a new subject - ${this.key}`;
     }
 
-    this.pc.subjectCache[this.key] = res.entityId;
-    return res;
+    this.pc.onSyncSubject(result, this);
+    return result;
   }
 
   public toJSON(): any {
@@ -248,8 +265,8 @@ export class ModelNode extends Node implements ModelNodeProps {
     this.pc.tree.insert<ModelNode>(this);
   }
 
-  protected async _update() {
-    const res = { entityId: "", state: ItemState.Unchanged, comment: "" };
+  protected async _sync() {
+    const result = { entityId: "", state: ItemState.Unchanged, comment: "" };
     const subjectId = this.pc.jobSubjectId;
     const codeValue = this.key;
     const code = this.partitionClass.createCode(this.pc.db, subjectId, codeValue);
@@ -266,9 +283,9 @@ export class ModelNode extends Node implements ModelNodeProps {
     const existingPartitionId = this.pc.db.elements.queryElementIdByCode(code);
 
     if (existingPartitionId) {
-      res.entityId = existingPartitionId;
-      res.state = ItemState.Unchanged;
-      res.comment = `Use an existing Model - ${this.key}`;
+      result.entityId = existingPartitionId;
+      result.state = ItemState.Unchanged;
+      result.comment = `Use an existing Model - ${this.key}`;
     } else {
       const partitionId = this.pc.db.elements.insertElement(partitionProps);
       const modelProps: ModelProps = {
@@ -276,13 +293,13 @@ export class ModelNode extends Node implements ModelNodeProps {
         modeledElement: { id: partitionId },
         name: this.key,
       };
-      res.entityId = this.pc.db.models.insertModel(modelProps);
-      res.state = ItemState.New;
-      res.comment = `Inserted a new Model - ${this.key}`;
+      result.entityId = this.pc.db.models.insertModel(modelProps);
+      result.state = ItemState.New;
+      result.comment = `Inserted a new Model - ${this.key}`;
     }
 
-    this.pc.modelCache[this.key] = res.entityId;
-    return res;
+    this.pc.onSyncModel(result, this);
+    return result;
   }
 
   public toJSON(): any {
@@ -327,7 +344,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     this.pc.tree.insert<LoaderNode>(this);
   }
 
-  protected async _update() {
+  protected async _sync() {
     let instance: IRInstance | undefined = undefined;
     const con = this.pc.jobArgs.connection;
     switch(con.kind) {
@@ -339,7 +356,12 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: this.loader.version,
-          data: { nodeKey: this.key, mtimeMs: stats.mtimeMs.toString(), ...this.loader.toJSON() },
+          data: {
+            nodeKey: this.key,
+            mtimeMs: stats.mtimeMs.toString(),
+            connection: con,
+            ...this.loader.toJSON(),
+          },
         });
         break;
       case "pcf_api_connection":
@@ -347,13 +369,18 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
           version: this.loader.version,
-          data: { nodeKey: this.key, ...this.loader.toJSON() },
+          data: {
+            nodeKey: this.key,
+            connection: con,
+            ...this.loader.toJSON(),
+          },
         });
         break;
     }
 
     const modelId = this.pc.modelCache[this.model.key];
     const code = RepositoryLink.createCode(this.pc.db, modelId, this.key);
+
     const loaderProps = this.loader.toJSON();
     const repoLinkProps = {
       classFullName: RepositoryLink.classFullName,
@@ -363,17 +390,24 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       userLabel: instance.userLabel,
       jsonProperties: instance.data,
     } as RepositoryLinkProps;
-    const res = this.pc.updateElement(repoLinkProps, instance);
-    this.pc.elementCache[instance.key] = res.entityId;
-    this.pc.seenIdSet.add(res.entityId);
-    return res;
+
+    const result = this.pc.syncElement({
+      props: repoLinkProps,
+      version: instance.version,
+      checksum: instance.checksum,
+      scope: modelId,
+      kind: instance.entityKey,
+      identifier: code.value,
+    });
+
+    this.pc.onSyncElement(result, instance);
+    return result;
   }
 
   public toJSON() {
     return { loader: this.loader.toJSON() };
   }
 }
-
 
 export interface ElementNodeProps extends NodeProps {
 
@@ -414,8 +448,8 @@ export class ElementNode extends Node implements ElementNodeProps {
     this.pc.tree.insert<ElementNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -450,21 +484,103 @@ export class ElementNode extends Node implements ElementNodeProps {
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      const res = this.pc.updateElement(props, instance);
-      resList.push(res);
-      this.pc.elementCache[instance.key] = res.entityId;
-      this.pc.seenIdSet.add(res.entityId);
+      const result = this.pc.syncElement({
+        props: props,
+        version: instance.version,
+        checksum: instance.checksum,
+        scope: modelId,
+        kind: instance.entityKey,
+        identifier: code.value,
+      });
+
+      results.push(result);
+      this.pc.onSyncElement(result, instance);
 
       // Add custom handlers (WIP)
       // const classRef = bk.ClassRegistry.getClass(props.classFullName, this.pc.db);
       // (classRef as any).onInsert = (args: bk.OnElementPropsArg) => console.log("hello");
       // console.log(classRef);
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {
     return { key: this.key, dmo: this.dmo, cateogoryNode: this.category ? this.category.key : "" };
+  }
+}
+
+export interface ElementAspectNodeProps extends NodeProps {
+
+  /*
+   * Allows multiple EC Elements to be populated by a single ElementNode
+   */
+  dmo: ElementAspectDMO;
+
+  /*
+   * References a Subject Node defined in the same context
+   */
+  subject: SubjectNode;
+}
+
+/*
+ * ElementAspectNode Represents a regular ElementAspect in iModel
+ *
+ * It populates multiple ElementAspect instances based on DMO
+ */
+export class ElementAspectNode extends Node implements ElementAspectNodeProps {
+
+  public dmo: ElementAspectDMO;
+  public subject: SubjectNode;
+
+  constructor(pc: PConnector, props: ElementAspectNodeProps) {
+    super(pc, props);
+    this.dmo = props.dmo;
+    this.subject = props.subject;
+    this.pc.tree.insert<ElementAspectNode>(this);
+  }
+
+  protected async _sync() {
+    const results: SyncResult[] = [];
+    const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
+
+    for (const instance of instances) {
+      if (typeof this.dmo.doSyncInstance === "function") {
+        const doSyncInstance = await this.dmo.doSyncInstance(instance);
+        if (!doSyncInstance)
+          continue;
+      }
+
+      const { ecElementAspect } = this.dmo;
+      const classFullName = typeof ecElementAspect === "string" ? ecElementAspect : `${this.pc.dynamicSchemaName}:${ecElementAspect.name}`;
+
+      const props: ElementAspectProps = {
+        element: { id: "" },
+        classFullName,
+      };
+
+      if (typeof this.dmo.modifyProps === "function")
+        await this.dmo.modifyProps(this.pc, props, instance);
+      
+      if (!props.element || !props.element.id)
+        throw new Error("You must attach \"props.element = { ... } as RelatedElementProps\" in ElementAspectDMO.modifyProps()");
+
+      const result = this.pc.syncElementUniqueAspect({
+        props: props,
+        version: instance.version,
+        checksum: instance.checksum,
+        scope: this.pc.jobSubjectId,
+        kind: instance.entityKey,
+        identifier: instance.key,
+      });
+
+      results.push(result);
+      this.pc.onSyncAspect(result, instance);
+    }
+    return results;
+  }
+
+  public toJSON(): any {
+    return { key: this.key, dmo: this.dmo };
   }
 }
 
@@ -519,8 +635,8 @@ export class RelationshipNode extends Node {
     this.pc.tree.insert<RelationshipNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -540,7 +656,7 @@ export class RelationshipNode extends Node {
       const { sourceId, targetId } = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing) {
-        resList.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
+        results.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
         continue;
       }
 
@@ -549,9 +665,9 @@ export class RelationshipNode extends Node {
         await this.dmo.modifyProps(this.pc, props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
-      resList.push({ entityId: relId, state: ItemState.New, comment: "" })
+      results.push({ entityId: relId, state: ItemState.New, comment: "" })
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {
@@ -607,8 +723,8 @@ export class RelatedElementNode extends Node {
     this.pc.tree.insert<RelatedElementNode>(this);
   }
 
-  protected async _update() {
-    const resList: UpdateResult[] = [];
+  protected async _sync() {
+    const results: SyncResult[] = [];
     const instances = await this.pc.irModel.getRelationshipInstances(this.dmo.irEntity);
 
     for (const instance of instances) {
@@ -638,9 +754,9 @@ export class RelatedElementNode extends Node {
 
       (targetElement as any)[this.dmo.ecProperty] = relatedElement;
       targetElement.update();
-      resList.push({ entityId: relatedElement.id, state: ItemState.New, comment: "" });
+      results.push({ entityId: relatedElement.id, state: ItemState.New, comment: "" });
     }
-    return resList;
+    return results;
   }
 
   public toJSON(): any {

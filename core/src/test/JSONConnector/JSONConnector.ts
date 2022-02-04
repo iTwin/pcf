@@ -5,6 +5,7 @@
 import { LinkModel, LinkPartition, DefinitionModel, DefinitionPartition, PhysicalModel, PhysicalPartition, GroupModel, GroupInformationPartition, SpatialLocationModel, SpatialLocationPartition } from "@itwin/core-backend";
 import * as path from "path";
 import * as elements from "./dmos/Elements";
+import * as aspects from "./dmos/ElementAspects";
 import * as relationships from "./dmos/Relationships";
 import * as relatedElements from "./dmos/RelatedElements";
 import * as pcf from "../../pcf";
@@ -44,7 +45,7 @@ export class JSONConnector extends pcf.PConnector {
       model: lnkModel1, 
       loader: new pcf.JSONLoader({
         format: "json",
-        entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
+        entities: ["ExtPhysicalElement", "ExtElementAspectA", "ExtElementAspectB", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
         relationships: ["ExtPhysicalElement", "ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtExistingElementRefersToElements", "ExtElementGroupsMembers"],
         defaultPrimaryKey: "id",
       }), 
@@ -61,8 +62,12 @@ export class JSONConnector extends pcf.PConnector {
       }), 
     });
 
+    const aspectA = new pcf.ElementAspectNode(this, { key: "ExtElementAspectA", subject: subject1, dmo: aspects.ExtElementAspectA });
+    const aspectB = new pcf.ElementAspectNode(this, { key: "ExtElementAspectB", subject: subject1, dmo: aspects.ExtElementAspectB });
+
     const sptCategory = new pcf.ElementNode(this, { key: "SpatialCategory1", model: defModel, dmo: elements.ExtSpatialCategory });
     const extPhysicalType = new pcf.ElementNode(this, { key: "ExtPhysicalType", model: defModel, dmo: elements.ExtPhysicalType });
+
     const space = new pcf.ElementNode(this, { key: "ExtSpace", model: sptModel, dmo: elements.ExtSpace, category: sptCategory });
     const extPhysicalElement = new pcf.ElementNode(this, { key: "ExtPhysicalElement", model: phyModel, dmo: elements.ExtPhysicalElement, category: sptCategory });
     const extGroupInformationElement = new pcf.ElementNode(this, { key: "ExtGroupInformationElement", model: grpModel, dmo: elements.ExtGroupInformationElement });

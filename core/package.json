@@ -1,6 +1,6 @@
 {
   "name": "@itwin/pcf",
-  "version": "0.1.2",
+  "version": "0.2.0-2",
   "description": "Define your digital twin as code with iTwin PCF (Parametric Connector Framework).",
   "main": "lib/pcf.js",
   "typings": "lib/pcf",
@@ -24,8 +24,8 @@
     "clean": "rimraf lib",
     "lint": "tslint --project .",
     "test": "npm run test:unit",
-    "test:unit": "mocha lib/test/unit --timeout 60000",
-    "test:integration": "mocha lib/test/integration --timeout 60000",
+    "test:unit": "mocha lib/test/unit --timeout 120000",
+    "test:integration": "mocha lib/test/integration --timeout 120000",
     "copyFiles": "babel src --out-dir lib --copy-files",
     "deploy": "git push && npm run clean && npm run build && npm publish",
     "docs": "betools docs",
