@@ -3,11 +3,13 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@itwin/core-bentley";
-import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
-import { LocalBriefcaseProps, OpenBriefcaseProps, NativeAppAuthorizationConfiguration } from "@itwin/core-common";
-import { ElectronAuthorizationBackend } from "@itwin/core-electron/lib/cjs/backend/ElectronAuthorizationBackend";
-import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
-import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
+import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, BackendHubAccess } from "@itwin/core-backend";
+import {ElectronMainAuthorization} from "@itwin/electron-authorization/lib/cjs/ElectronMain";
+import { LocalBriefcaseProps, OpenBriefcaseProps} from "@itwin/core-common";
+//import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
+import {NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration} from "@itwin/node-cli-authorization";
+import { IModelsClient } from "@itwin/imodels-client-authoring";
+import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
 import { AccessToken } from "@itwin/core-bentley";
 import { PConnector, DataConnection, LogCategory } from "./pcf";
 import * as fs from "fs";
@@ -110,7 +112,8 @@ export interface HubArgsProps {
   /*
    * You may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
-  clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+
+  clientConfig: NodeCliAuthorizationConfiguration;
 
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
@@ -122,7 +125,7 @@ export class HubArgs implements HubArgsProps {
 
   public projectId: Id64String;
   public iModelId: Id64String;
-  public clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+  public clientConfig: NodeCliAuthorizationConfiguration;
   public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -160,9 +163,8 @@ export class BaseApp {
 
     const envStr = String(this.hubArgs.urlPrefix);
     process.env["IMJS_URL_PREFIX"] = envStr;
-
-    const hubAccess = new IModelHubBackend();
-    IModelHost.setHubAccess(hubAccess);
+    const iModelClient = new IModelsClient({ api: { baseUrl: `https://${process.env.IMJS_URL_PREFIX ?? ""}api.bentley.com/imodels`}});
+    IModelHost.setHubAccess(new BackendIModelsAccess(iModelClient));
 
     this.initLogging(logLevel);
   }
@@ -231,11 +233,9 @@ export class BaseApp {
    */
   public async signin(): Promise<AccessToken> {
     let token: AccessToken;
-    const hasClientSecret = (this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration).clientSecret;
-    if (hasClientSecret)
-      token = await this.nonInteractiveSignin();
-    else
-      token = await this.interactiveSignin();
+
+    token = await this.nonInteractiveSignin();
+
     return token;
   }
 
@@ -247,15 +247,18 @@ export class BaseApp {
     if (this._token)
       return this._token;
 
-    const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
-    if (!config.issuerUrl)
-      config.issuerUrl = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+    // const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
+    // NEEDSWORK PORT
+    const config = this.hubArgs.clientConfig;
+    //if (!config.authority)
+    //  config.authority = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
 
-    const client = new ElectronAuthorizationBackend(config);
-    await client.initialize(config);
-    IModelHost.authorizationClient = client;
-    const token = await client.signInComplete();
-    this._token = token;
+    ElectronMainAuthorization.defaultRedirectUri = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+    const client = ElectronMainAuthorization.create(config);
+    IModelHost.authorizationClient = await client;
+    (await client).signIn();
+    const token = (await client).getAccessToken();
+    this._token = await token;
     return token;
   }
 
@@ -266,11 +269,9 @@ export class BaseApp {
     if (this._token)
       return this._token;
 
-    const config = this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration;
-    if (!config.authority)
-      (config as any).authority = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
+    const config = this.hubArgs.clientConfig as NodeCliAuthorizationConfiguration;
 
-    const client = new ServiceAuthorizationClient(config);
+    const client = new NodeCliAuthorizationClient(config);
     const token = await client.getAccessToken();
     IModelHost.authorizationClient = client;
     this._token = token;

@@ -21,9 +21,8 @@ export async function main() {
     iModelId: "e3da2033-d815-4970-aed0-80b0d3d1050b",
     clientConfig: { 
       clientId: process.env.imjs_test_client_id as string,
-      clientSecret: process.env.imjs_test_client_secret as string,
-      redirectUri: "http://localhost:3000/signin-callback",
-      scope: "itwinjs",
+      redirectUri: "http://localhost:3000",
+      scope: "imodels:modify imodels:read"
     },
     urlPrefix: pcf.ReqURLPrefix.QA,
   });

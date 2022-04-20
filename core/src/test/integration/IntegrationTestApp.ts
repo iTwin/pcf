@@ -1,7 +1,8 @@
 import { GuidString, LogLevel } from "@itwin/core-bentley";
 import { AccessToken } from "@itwin/core-bentley";
 import { BriefcaseDb, BriefcaseManager, IModelHost } from "@itwin/core-backend";
-import { TestUserCredentials, TestUtility, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
+//import { TestUserCredentials, TestUtility, TestBrowserAuthorizationClientConfiguration } from "@itwin/oidc-signin-tool";
+import {NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration} from "@itwin/node-cli-authorization";
 import { BaseApp, HubArgs, ReqURLPrefix } from "../../pcf";
 
 /*
@@ -14,17 +15,20 @@ export class IntegrationTestApp extends BaseApp {
   constructor() {
     const projectId = process.env.imjs_test_project_id;
     const clientId = process.env.imjs_test_client_id;
+    const iModelId = process.env.imjs_test_imodel_id;
     if (!projectId)
       throw new Error("environment variable 'imjs_test_project_id' is not defined");
+    if (!iModelId)
+      throw new Error("environment variable 'imjs_test_imodel_id' is not defined");
     if (!clientId)
       throw new Error("environment variable 'imjs_test_client_id' is not defined");
     const testHubArgs = new HubArgs({
       projectId,
-      iModelId: "not used",
+      iModelId,
       clientConfig: {
         clientId,
-        redirectUri: "http://localhost:3000/signin-callback",
-        scope: "openid profile organization email itwinjs",
+        redirectUri: "http://localhost:3000",
+        scope: "imodels:modify imodels:read"
       },
       urlPrefix: ReqURLPrefix.QA,
     });
@@ -43,10 +47,11 @@ export class IntegrationTestApp extends BaseApp {
     if (!password)
       throw new Error("environment variable 'imjs_test_regular_user_password' is not defined for silent signin");
 
-    const cred: TestUserCredentials = { email, password };
-    const client = await TestUtility.getAuthorizationClient(cred, this.hubArgs.clientConfig as TestBrowserAuthorizationClientConfiguration);
-    const token = await client.getAccessToken();
-    IModelHost.authorizationClient = client;
+
+    const authClient = new NodeCliAuthorizationClient(this.hubArgs.clientConfig);
+    await authClient.signIn();
+    const token = await authClient.getAccessToken();
+    IModelHost.authorizationClient = authClient;
 
     if (!token)
       throw new Error("Failed to get test access token");
@@ -71,13 +76,13 @@ export class IntegrationTestApp extends BaseApp {
   public async createTestBriefcaseDb(name: string): Promise<GuidString> {
     const testIModelName = `${name}-${process.platform}`;
     const existingIModelId = await IModelHost.hubAccess.queryIModelByName({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName });
-    if (existingIModelId) {
-      await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
-    }
+      if (existingIModelId) {
+        await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: existingIModelId, accessToken: this.token });
+      }
     const testIModelId = await IModelHost.hubAccess.createNewIModel({ accessToken: this.token, iTwinId: this.hubArgs.projectId, iModelName: testIModelName, description: `Description for ${testIModelName}` });
-    this.hubArgs.iModelId = testIModelId;
-    return testIModelId;
-  }
+      this.hubArgs.iModelId = testIModelId;
+     return testIModelId;
+   }
 
   public async purgeTestBriefcaseDb(): Promise<void> {
     await IModelHost.hubAccess.deleteIModel({ iTwinId: this.hubArgs.projectId, iModelId: this.hubArgs.iModelId, accessToken: this.token });
