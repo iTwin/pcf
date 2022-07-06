@@ -272,6 +272,7 @@ export class BaseApp {
     const config = this.hubArgs.clientConfig as NodeCliAuthorizationConfiguration;
 
     const client = new NodeCliAuthorizationClient(config);
+    await client.signIn();
     const token = await client.getAccessToken();
     IModelHost.authorizationClient = client;
     this._token = token;
