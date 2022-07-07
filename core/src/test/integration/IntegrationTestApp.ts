@@ -16,18 +16,23 @@ export class IntegrationTestApp extends BaseApp {
     const projectId = process.env.imjs_test_project_id;
     const clientId = process.env.imjs_test_client_id;
     const iModelId = process.env.imjs_test_imodel_id;
+    const redirectUri = process.env.imjs_test_redirect_uri;
     if (!projectId)
       throw new Error("environment variable 'imjs_test_project_id' is not defined");
     if (!iModelId)
       throw new Error("environment variable 'imjs_test_imodel_id' is not defined");
     if (!clientId)
       throw new Error("environment variable 'imjs_test_client_id' is not defined");
+    if (!redirectUri)
+      throw new Error("environment variable 'imjs_test_redirect_uri' is not defined");
+
+
     const testHubArgs = new HubArgs({
       projectId,
       iModelId,
       clientConfig: {
         clientId,
-        redirectUri: "http://localhost:3000",
+        redirectUri: redirectUri,
         scope: "imodels:modify imodels:read"
       },
       urlPrefix: ReqURLPrefix.QA,
