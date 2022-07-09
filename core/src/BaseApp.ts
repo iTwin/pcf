@@ -6,7 +6,7 @@ import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@it
 import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, BackendHubAccess } from "@itwin/core-backend";
 import {ElectronMainAuthorization} from "@itwin/electron-authorization/lib/cjs/ElectronMain";
 import { LocalBriefcaseProps, OpenBriefcaseProps} from "@itwin/core-common";
-//import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
+import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
 import {NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration} from "@itwin/node-cli-authorization";
 import { IModelsClient } from "@itwin/imodels-client-authoring";
 import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
@@ -113,7 +113,7 @@ export interface HubArgsProps {
    * You may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
 
-  clientConfig: NodeCliAuthorizationConfiguration;
+  clientConfig: NodeCliAuthorizationConfiguration|ServiceAuthorizationClientConfiguration;
 
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
@@ -125,7 +125,7 @@ export class HubArgs implements HubArgsProps {
 
   public projectId: Id64String;
   public iModelId: Id64String;
-  public clientConfig: NodeCliAuthorizationConfiguration;
+  public clientConfig: NodeCliAuthorizationConfiguration|ServiceAuthorizationClientConfiguration;
   public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -233,8 +233,11 @@ export class BaseApp {
    */
   public async signin(): Promise<AccessToken> {
     let token: AccessToken;
-
-    token = await this.nonInteractiveSignin();
+    const hasClientSecret = (this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration).clientSecret;
+    if (hasClientSecret)
+      token = await this.nonInteractiveSignin();
+    else
+      token = await this.interactiveSignin();
 
     return token;
   }
@@ -247,19 +250,16 @@ export class BaseApp {
     if (this._token)
       return this._token;
 
-    // const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
-    // NEEDSWORK PORT
-    const config = this.hubArgs.clientConfig;
-    //if (!config.authority)
-    //  config.authority = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
 
-    ElectronMainAuthorization.defaultRedirectUri = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
-    const client = ElectronMainAuthorization.create(config);
-    IModelHost.authorizationClient = await client;
-    (await client).signIn();
-    const token = (await client).getAccessToken();
-    this._token = await token;
-    return token;
+    const authClient = new NodeCliAuthorizationClient(this.hubArgs.clientConfig);
+    await authClient.signIn();
+    const token = await authClient.getAccessToken();
+    IModelHost.authorizationClient = authClient;
+
+    if (!token)
+      throw new Error("Failed to get test access token");
+    this._token = token;
+    return this._token; 
   }
 
   /*
@@ -269,10 +269,7 @@ export class BaseApp {
     if (this._token)
       return this._token;
 
-    const config = this.hubArgs.clientConfig as NodeCliAuthorizationConfiguration;
-
-    const client = new NodeCliAuthorizationClient(config);
-    await client.signIn();
+    const client = new ServiceAuthorizationClient(this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration);
     const token = await client.getAccessToken();
     IModelHost.authorizationClient = client;
     this._token = token;
