@@ -85,8 +85,8 @@ export class JobArgs implements JobArgsProps {
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
   public revisionHeader: string = "iTwin.PCF";
-  public supressHostStartupOnRun: boolean = true;
-  public supressSigninOnRun: boolean = true;
+  public supressHostStartupOnRun: boolean = false;
+  public supressSigninOnRun: boolean = false;
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
@@ -230,7 +230,7 @@ export class BaseApp {
         //   await this.briefcaseDb.locks.releaseAllLocks();
         this.briefcaseDb.close();
       }
-      
+
       // only shut down IModelHost if we started!!!
       if (!jobArgs.supressHostStartupOnRun)
         await IModelHost.shutdown();
