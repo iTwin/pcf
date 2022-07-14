@@ -60,6 +60,20 @@ export interface JobArgsProps {
    * Header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
   revisionHeader?: string;
+
+   /*
+   * if false or undefined IModelHost.startup() will be called by runConnectorJob.
+   * in the case of scheduled repeated multiple runs or orchestration, may want to set this to true
+   * startup host beforehand, then run
+   */
+    supressHostStartupOnRun?: boolean;
+
+   /*
+   * if false or undefined BaseApp.signin() will be called by runConnectorJob .
+   * in the case of scheduled repeated multiple runs or orchestration, may want to set this to true
+   * signin and get token once beforehand, then run
+   */
+   supressSigninOnRun?: boolean;
 }
 
 export class JobArgs implements JobArgsProps {
@@ -71,6 +85,8 @@ export class JobArgs implements JobArgsProps {
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
   public revisionHeader: string = "iTwin.PCF";
+  public supressHostStartupOnRun: boolean = true;
+  public supressSigninOnRun: boolean = true;
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
@@ -87,6 +103,10 @@ export class JobArgs implements JobArgsProps {
       this.enableDelete = props.enableDelete;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
+    if (props.supressHostStartupOnRun !== undefined)
+      this.supressHostStartupOnRun = props.supressHostStartupOnRun;
+    if (props.supressSigninOnRun !== undefined)
+      this.supressSigninOnRun = props.supressSigninOnRun;
 
     this.validate();
   }
@@ -187,8 +207,11 @@ export class BaseApp {
   public async runConnectorJob(jobArgs: JobArgs): Promise<boolean> {
     let success = false;
     try {
-      await IModelHost.startup();
-      await this.signin();
+      if (!jobArgs.supressHostStartupOnRun)
+        await IModelHost.startup();
+
+      if (!jobArgs.supressSigninOnRun)
+        await this.signin();
 
       this.briefcaseDb = await this.openBriefcaseDb();
 
@@ -203,11 +226,14 @@ export class BaseApp {
     } finally {
       if (this.briefcaseDb) {
         this.briefcaseDb.abandonChanges();
-        if (this.briefcaseDb.isBriefcaseDb())
-          await this.briefcaseDb.locks.releaseAllLocks();
+        // if (this.briefcaseDb.isBriefcaseDb())
+        //   await this.briefcaseDb.locks.releaseAllLocks();
         this.briefcaseDb.close();
       }
-      await IModelHost.shutdown();
+      
+      // only shut down IModelHost if we started!!!
+      if (!jobArgs.supressHostStartupOnRun)
+        await IModelHost.shutdown();
     }
 
     return success;
