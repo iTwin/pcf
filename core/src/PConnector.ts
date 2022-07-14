@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
-import { Code, CodeScopeSpec, CodeSpec, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
+import { Code, CodeScopeSpec, CodeSpec, ElementAspectProps, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
 import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
 import { ItemState, ModelNode, SubjectNode, SyncResult, IRInstance, IRInstanceKey, IRModel, JobArgs, LoaderNode, RelatedElementNode, RelationshipNode, RepoTree, SyncArg, syncDynamicSchema, tryGetSchema } from "./pcf";
 import { LockQuery } from "@bentley/imodelhub-client";
@@ -405,7 +405,8 @@ export abstract class PConnector {
   public async acquireLock(rootId: Id64String) {
     if (this.db instanceof StandaloneDb || this.db instanceof SnapshotDb)
       return;
-    await this.db.locks.acquireExclusiveLock(rootId);
+
+        await this.db.locks.acquireLocks({exclusive: rootId});
   }
 
   public async releaseAllLocks() {
@@ -439,7 +440,7 @@ export abstract class PConnector {
 
     xsa.version = version;
     xsa.checksum = checksum;
-    this.db.elements.updateAspect(xsa as ElementAspect);
+    this.db.elements.updateAspect(xsa as unknown as ElementAspectProps);
     return ItemState.Changed;
   }
 
