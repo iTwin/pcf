@@ -82,6 +82,7 @@ stages:
           imjs_test_project_id: $(test_project_id)
           imjs_test_imodel_id: $(test_imodel_id)
           imjs_test_client_id: $(test_client_id)
+          imjs_test_client_secret: $(test_client_secret)
           imjs_test_redirect_uri: $(test_redirect_uri)
           imjs_test_regular_user_name: $(test_user_name)
           imjs_test_regular_user_password: $(test_user_password)
