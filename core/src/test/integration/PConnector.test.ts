@@ -116,8 +116,8 @@ describe("Integration Tests", () => {
           connectorPath,
           connection,
           interactiveSignin: false,
-          supressHostStartupOnRun: true,
-          supressSigninOnRun: true,
+          suppressHostStartupOnRun: true,
+          suppressSigninOnRun: true,
         } as pcf.JobArgsProps);
 
         const success = await app.runConnectorJob(jobArgs);
