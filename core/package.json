@@ -52,7 +52,7 @@
     "@itwin/webgl-compatibility": "^3.0.0",
     "@itwin/imodels-access-backend": "^1.0.1",
     "@itwin/imodels-client-authoring": "^1.0.1",
-    "electron": "^14.0.0",
+    "electron": "^15.5.5",
     "sqlite": "^4.0.12",
     "sqlite3": "^5.0.0",
     "xlsx": "^0.16.9",
