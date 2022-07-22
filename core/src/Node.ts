@@ -399,6 +399,9 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       kind: instance.entityKey,
       identifier: code.value,
     });
+    
+    if (con.kind === "pcf_api_connection")
+      result.state = ItemState.Changed;
 
     this.pc.onSyncElement(result, instance);
     return result;
