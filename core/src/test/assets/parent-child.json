@@ -1,0 +1,52 @@
+{
+    "folder": [
+        {
+            "key": "folder",
+            "description:": "A folder containing my bookmarks"
+        }
+    ],
+    "hyperlink": [
+        {
+            "key": "reddit",
+            "userLabel": "Reddit",
+            "description": "Bulletin boards as far as the eye can see",
+            "url": "https://reddit.com"
+        },
+        {
+            "key": "natgeo",
+            "userLabel": "National Geographic",
+            "description": "A dashing emu on the cover",
+            "url": "https://natgeo.com"
+        },
+        {
+            "key": "nyt",
+            "userLabel": "The New York Times",
+            "description": "Home of the crossword",
+            "url": "https://nyt.com"
+        }
+    ],
+    "repository": [
+        {
+            "key": "repository",
+            "parent": "folder",
+            "userLabel": "somewhere over the rainbow"
+        }
+    ],
+    "folder-owns-hyperlinks": [
+        {
+            "key": "folder-owns-reddit-hyperlink",
+            "from": "folder",
+            "to": "reddit"
+        },
+        {
+            "key": "folder-owns-natgeo-hyperlink",
+            "from": "folder",
+            "to": "natgeo"
+        },
+        {
+            "key": "folder-owns-nyt-hyperlink",
+            "from": "folder",
+            "to": "nyt"
+        }
+    ]
+}

@@ -2,8 +2,18 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { PhysicalElement, PhysicalElementAssemblesElements } from "@itwin/core-backend";
-import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@itwin/ecschema-metadata";
+import {
+    PhysicalElement,
+    PhysicalElementAssemblesElements
+} from "@itwin/core-backend";
+
+import {
+    StrengthDirection,
+    StrengthType,
+    strengthDirectionToString,
+    strengthToString
+} from "@itwin/ecschema-metadata";
+
 import { RelatedElementDMO } from "../../../DMO";
 
 export const ExtPhysicalElementAssemblesElements: RelatedElementDMO = {

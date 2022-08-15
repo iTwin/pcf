@@ -180,8 +180,8 @@ export abstract class Loader {
   public getPKey(entityKey: string): string {
     if (this._primaryKeyMap && entityKey in this._primaryKeyMap)
       return this._primaryKeyMap[entityKey];
-    return this._defaultPrimaryKey
-  };
+    return this._defaultPrimaryKey;
+  }
 
   public toJSON(): LoaderProps {
     return {

@@ -107,7 +107,7 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
         ClassRegistry.registerModule(relationshipsModule, this);
       }
     }
-  }
+  };
   dynamicSchemaClass.registerSchema();
 }
 

@@ -35,6 +35,13 @@
       "id": "1"
     }
   ],
+  "ExtSpatialSubcategory": [
+    {
+      "id": "1",
+      "description": "Whoa look at me! I've moved to the first subcategory! o:",
+      "parent": "1"
+    }
+  ],
   "ExtSpace": [
     {
       "id": "1",

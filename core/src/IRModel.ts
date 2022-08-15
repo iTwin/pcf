@@ -3,7 +3,7 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as hash from "object-hash";
-import { LogCategory, DataConnection } from "./pcf";
+import { DataConnection, LogCategory } from "./pcf";
 import { Loader } from "./loaders/Loader";
 import { Logger } from "@itwin/core-bentley";
 
@@ -44,7 +44,7 @@ export class IRModel {
     if (entity.instances)
       entity.instances = IRModel.normalized(entity.instances);
   }
-  
+
   public addRelationship(rel: IRRelationship) {
     if (rel.key in this._relMap) {
       Logger.logWarning(LogCategory.PCF, `IR Relationship Entity ${rel.key} already exists in IR Model.`);
@@ -62,7 +62,7 @@ export class IRModel {
     }
     delete this._entityMap[entity.key];
   }
-  
+
   public deleteRelationship(rel: IRRelationship) {
     if (!(rel.key in this._relMap)) {
       Logger.logWarning(LogCategory.PCF, `IR Relationship Entity ${rel.key} does not exist in IR Model.`);
@@ -145,7 +145,7 @@ export class IRModel {
     const relMapB = modelB._relMap;
     if (JSON.stringify(relMapA) !== JSON.stringify(relMapB))
       return false;
-    
+
     return true;
   }
 }
@@ -165,8 +165,8 @@ export interface IREntityProps {
 
 /*
  * Represents an external object class
- * 
- * An IR Entity corresponds to an EC Entity 
+ *
+ * An IR Entity corresponds to an EC Entity
  */
 export class IREntity {
 
@@ -179,7 +179,7 @@ export class IREntity {
   }
 }
 
-export interface IRRelationshipProps extends IREntityProps {}
+export type IRRelationshipProps = IREntityProps
 
 /*
  * Represents an external object class that describes relationships. (e.g. link tables)
@@ -232,7 +232,7 @@ export type IRInstanceKey = `${IREntityKey}-${PrimaryKeyValue}`;
 
 /*
  * Represents an external object / instance of an external object class.
- * 
+ *
  * An IR Instance corresponds to an EC Instance
  */
 export class IRInstance implements IRInstanceProps {

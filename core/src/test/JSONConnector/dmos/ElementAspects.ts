@@ -1,6 +1,19 @@
-import { BriefcaseDb, ElementUniqueAspect, StandaloneDb } from "@itwin/core-backend";
-import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
-import { IRInstance, ElementAspectDMO, PConnector } from "../../../pcf";
+import {
+  BriefcaseDb,
+  ElementUniqueAspect,
+  StandaloneDb
+} from "@itwin/core-backend";
+
+import {
+  ElementAspectDMO,
+  IRInstance,
+  PConnector
+} from "../../../pcf";
+
+import {
+  PrimitiveType,
+  primitiveTypeToString
+} from "@itwin/ecschema-metadata";
 
 export const ExtElementAspectA: ElementAspectDMO = {
   irEntity: "ExtElementAspectA",

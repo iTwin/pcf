@@ -2,18 +2,49 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String } from "@itwin/core-bentley";
-import { InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
-import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, PackedFeatureTable, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
-import { JobArgs } from "./BaseApp";
-import { ElementDMO, RelationshipDMO, RelatedElementDMO, ElementAspectDMO } from "./DMO";
-import { IRInstance } from "./IRModel";
-import { PConnector } from "./PConnector";
-import { Loader } from "./loaders";
-import { DynamicEntityMap } from "./DynamicSchema";
+
 import * as fs from "fs";
 
-/* 
+import {
+  Code,
+  CodeSpec,
+  ElementAspectProps,
+  ElementProps,
+  IModel,
+  InformationPartitionElementProps,
+  ModelProps,
+  RelatedElement,
+  RelatedElementProps,
+  RelationshipProps,
+  RepositoryLinkProps,
+  SubjectProps
+} from "@itwin/core-common";
+
+import {
+  ElementAspectDMO,
+  ElementDMO,
+  RelatedElementDMO,
+  RelationshipDMO
+} from "./DMO";
+
+import {
+  InformationPartitionElement,
+  Model,
+  RepositoryLink,
+  Subject,
+  SubjectOwnsPartitionElements,
+  SubjectOwnsSubjects
+} from "@itwin/core-backend";
+
+import { DynamicEntityMap } from "./DynamicSchema";
+import { IRInstance } from "./IRModel";
+
+import { Id64String } from "@itwin/core-bentley";
+import { JobArgs } from "./BaseApp";
+import { Loader } from "./loaders";
+import { PConnector } from "./PConnector";
+
+/*
  * Represents the Repository Model (the root of an iModel).
  *
  * It is made of Nodes with hierarchical structure.
@@ -59,19 +90,19 @@ export class RepoTree {
     this.nodeMap.set(node.key, node);
 
     if ((node instanceof ElementNode) && (typeof node.dmo.ecElement !== "string")) {
-      this.entityMap.entities.push({ 
+      this.entityMap.entities.push({
         props: node.dmo.ecElement,
       });
     } else if ((node instanceof ElementAspectNode) && (typeof node.dmo.ecElementAspect !== "string")) {
-      this.entityMap.entities.push({ 
+      this.entityMap.entities.push({
         props: node.dmo.ecElementAspect,
       });
     } else if ((node instanceof RelationshipNode) && (typeof node.dmo.ecRelationship !== "string")) {
-      this.entityMap.relationships.push({ 
+      this.entityMap.relationships.push({
         props: node.dmo.ecRelationship,
       });
     } else if ((node instanceof RelatedElementNode) && (typeof node.dmo.ecRelationship !== "string")) {
-      this.entityMap.relationships.push({ 
+      this.entityMap.relationships.push({
         props: node.dmo.ecRelationship,
       });
     }
@@ -126,7 +157,7 @@ export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
-  protected _isSynced: boolean = false;
+  protected _isSynced = false;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
@@ -146,7 +177,7 @@ export abstract class Node implements NodeProps {
   public async sync(): Promise<SyncResult | SyncResult[]> {
     this._isSynced = true;
     return this._sync();
-  };
+  }
 
   /*
    * Must be implemented by subclass Nodes
@@ -159,7 +190,7 @@ export abstract class Node implements NodeProps {
   public abstract toJSON(): any;
 }
 
-export interface SubjectNodeProps extends NodeProps {}
+export type SubjectNodeProps = NodeProps
 
 /*
  * SubjectNode represents a Subject Element (with parent Subject = root Subject) in iModel.
@@ -230,9 +261,9 @@ export interface ModelNodeProps extends NodeProps {
    * It must have the same type as partitionClass
    */
   modelClass: typeof Model;
-  
+
   /*
-   * References an EC Partition Element class 
+   * References an EC Partition Element class
    * It must have the same type as modelClass
    */
   partitionClass: typeof InformationPartitionElement;
@@ -399,7 +430,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
       kind: instance.entityKey,
       identifier: code.value,
     });
-    
+
     if (con.kind === "pcf_api_connection")
       result.state = ItemState.Changed;
 
@@ -429,6 +460,12 @@ export interface ElementNodeProps extends NodeProps {
    * References a Category Node defined by user
    */
   category?: ElementNode;
+
+  /*
+   * A parent navigation property. The second type in the union is equivalent to
+   * [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops).
+   */
+  parent?: ElementNode | { parent: ElementNode, relationship: string };
 }
 
 /*
@@ -440,12 +477,14 @@ export class ElementNode extends Node implements ElementNodeProps {
 
   public dmo: ElementDMO;
   public model: ModelNode;
-  public category?: ElementNode | undefined;
+  public category?: ElementNode;
+  public parent?: ElementNode | { parent: ElementNode, relationship: string };
 
   constructor(pc: PConnector, props: ElementNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.category = props.category;
+    this.parent = props.parent;
     this.model = props.model;
     this.model.elements.push(this);
     this.pc.tree.insert<ElementNode>(this);
@@ -478,10 +517,29 @@ export class ElementNode extends Node implements ElementNodeProps {
         jsonProperties: instance.data,
       };
 
+      // First hack to evade mandatory navigation properties.
+
       if (this.category && this.dmo.categoryAttr) {
         const instanceKey = IRInstance.createKey(this.category.dmo.irEntity, instance.get(this.dmo.categoryAttr));
         const categoryId = this.pc.elementCache[instanceKey];
         (props as any).category = categoryId;
+      }
+
+      // Another hack to evade mandatory navigation properties, i.e., those where the source
+      // multiplicity is exactly 1, and the target multiplicity (1..*). This is true of
+      // bis:SubCategory's parent navigation property, except that the backend enforces this
+      // constraint and not the navigation property bis:CategoryOwnsSubcategories.
+
+      if (this.parent && this.dmo.parentAttr) {
+        const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
+        const instanceKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(this.dmo.parentAttr));
+        const parentId = this.pc.elementCache[instanceKey];
+        const navigation = (
+          "relationship" in this.parent
+          ? { id: parentId, relClassName: this.parent.relationship}
+          : { id: parentId }
+        );
+        (props as any).parent = navigation;
       }
 
       if (typeof this.dmo.modifyProps === "function")
@@ -563,7 +621,7 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
 
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
-      
+
       if (!props.element || !props.element.id)
         throw new Error("You must attach \"props.element = { ... } as RelatedElementProps\" in ElementAspectDMO.modifyProps()");
 
@@ -659,7 +717,7 @@ export class RelationshipNode extends Node {
       const { sourceId, targetId } = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing) {
-        results.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
+        results.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" });
         continue;
       }
 
@@ -668,7 +726,7 @@ export class RelationshipNode extends Node {
         await this.dmo.modifyProps(this.pc, props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
-      results.push({ entityId: relId, state: ItemState.New, comment: "" })
+      results.push({ entityId: relId, state: ItemState.New, comment: "" });
     }
     return results;
   }
@@ -695,7 +753,7 @@ export interface RelatedElementNodeProps extends NodeProps {
    * References the source element in the relationship
    */
   source: ElementNode;
-  
+
   /*
    * References the target element in the relationship
    * This is not defined if dmo points to an EC Entity with Locator

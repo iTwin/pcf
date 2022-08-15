@@ -3,8 +3,9 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
-import { GroupInformationElement, PhysicalElement, PhysicalType } from "@itwin/core-backend";
-import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
+import { GroupInformationElement, PhysicalElement, PhysicalType, SubCategory } from "@itwin/core-backend";
+import { Id64 } from "@itwin/core-bentley";
+import { ElementDMO, IRInstance, PConnector } from "../../../pcf";
 
 export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",
@@ -68,3 +69,11 @@ export const ExtSpatialCategory: ElementDMO = {
   ecElement: "BisCore:SpatialCategory",
 };
 
+export const ExtSpatialSubcategory: ElementDMO = {
+  irEntity: "ExtSpatialSubcategory",
+  ecElement: SubCategory.classFullName,
+  modifyProps: (connector: PConnector, props: { [property: string]: unknown }, instance: IRInstance): void => {
+    props.description = instance.get("description");
+  },
+  parentAttr: "parent",
+};

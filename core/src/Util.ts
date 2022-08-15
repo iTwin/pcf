@@ -59,7 +59,7 @@ export async function locateElement(db: IModelDb, locator: string): Promise<Loca
     return `0x${hexnum.toString(16)}` === hexstr.toLowerCase();
   }
 
-  let searchObj: {[ecProperty: string]: string | number} = {};
+  const searchObj: {[ecProperty: string]: string | number} = {};
   try {
     const obj = JSON.parse(locator);
     for (const k of Object.keys(obj)) {

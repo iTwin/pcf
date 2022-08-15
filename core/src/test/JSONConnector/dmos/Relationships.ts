@@ -2,8 +2,20 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { ElementGroupsMembers, ElementRefersToElements, GroupInformationElement, PhysicalElement } from "@itwin/core-backend";
-import { StrengthDirection, strengthDirectionToString, strengthToString, StrengthType } from "@itwin/ecschema-metadata";
+import {
+    ElementGroupsMembers,
+    ElementRefersToElements,
+    GroupInformationElement,
+    PhysicalElement
+} from "@itwin/core-backend";
+
+import {
+    StrengthDirection,
+    StrengthType,
+    strengthDirectionToString,
+    strengthToString
+} from "@itwin/ecschema-metadata";
+
 import { RelationshipDMO } from "../../../DMO";
 
 export const ExtElementRefersToElements: RelationshipDMO = {
@@ -117,4 +129,3 @@ export const ExtElementGroupsMembers: RelationshipDMO = {
         },
     },
 };
-

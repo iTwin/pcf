@@ -2,12 +2,21 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Logger, LogLevel } from "@itwin/core-bentley";
-import { IModelHost, StandaloneDb } from "@itwin/core-backend";
 import * as chai from "chai";
-import * as path from "path";
 import * as fs from "fs";
+import * as path from "path";
 import * as pcf from "../../pcf";
+
+import {
+  IModelHost,
+  StandaloneDb
+} from "@itwin/core-backend";
+
+import {
+  LogLevel,
+  Logger
+} from "@itwin/core-bentley";
+
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 
@@ -39,9 +48,19 @@ describe("Unit Tests", () => {
             filepath: tempSrcPath,
           }
         },
+        {
+          sourceFile: "parent-child.json",
+          connectorFile: "parent-child.js",
+          subjectNodeKey: "bookmarks-node",
+          connection: {
+            loaderNodeKey: "parent-child-modeling-loader-node",
+            kind: "pcf_file_connection",
+            filepath: tempSrcPath,
+          }
+        }
       ]
     },
-  ]
+  ];
 
   const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath, path.extname(tempSrcPath))}.bim`);
 
@@ -116,7 +135,7 @@ describe("Unit Tests", () => {
 
     const jsonLoader = new pcf.JSONLoader(props);
     const jsonConnection = { kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json") };
-    const modelFromJSON = new pcf.IRModel(jsonLoader, jsonConnection as pcf.DataConnection)
+    const modelFromJSON = new pcf.IRModel(jsonLoader, jsonConnection as pcf.DataConnection);
     await modelFromJSON.load();
 
     const sqliteLoader = new pcf.SQLiteLoader(props);
@@ -131,4 +150,3 @@ describe("Unit Tests", () => {
     await modelFromSQLite.clear();
   });
 });
-

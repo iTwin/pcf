@@ -24,9 +24,11 @@ package-deps.json
 
 # build
 lib
+coverage
+.nyc_output
 .vscode
 
 # integration test
+.env
 secret.sh
 secret.bat
-

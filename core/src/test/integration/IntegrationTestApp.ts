@@ -19,7 +19,7 @@ export class IntegrationTestApp extends BaseApp {
     const iModelId = process.env.imjs_test_imodel_id;
     const redirectUri = process.env.imjs_test_redirect_uri;
     const clientSecret = process.env.imjs_test_client_secret;
-    const scope : string = "imodels:modify imodels:read";
+    const scope  = "imodels:modify imodels:read";
 
     if (!projectId)
       throw new Error("environment variable 'imjs_test_project_id' is not defined");

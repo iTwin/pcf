@@ -2,8 +2,8 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@itwin/core-bentley";
-import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, BackendHubAccess } from "@itwin/core-backend";
+import { BentleyError, IModelHubStatus, Id64String, LogLevel, Logger } from "@itwin/core-bentley";
+import { BackendHubAccess, BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
 import {ElectronMainAuthorization} from "@itwin/electron-authorization/lib/cjs/ElectronMain";
 import { LocalBriefcaseProps, OpenBriefcaseProps} from "@itwin/core-common";
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
@@ -11,7 +11,7 @@ import {NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration} from "@it
 import { IModelsClient } from "@itwin/imodels-client-authoring";
 import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
 import { AccessToken } from "@itwin/core-bentley";
-import { PConnector, DataConnection, LogCategory } from "./pcf";
+import { DataConnection, LogCategory, PConnector } from "./pcf";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -83,10 +83,10 @@ export class JobArgs implements JobArgsProps {
   public subjectNodeKey: string;
   public outputDir: string = path.join(__dirname, "output");
   public logLevel: LogLevel = LogLevel.None;
-  public enableDelete: boolean = true;
-  public revisionHeader: string = "iTwin.PCF";
-  public suppressHostStartupOnRun: boolean = false;
-  public suppressSigninOnRun: boolean = false;
+  public enableDelete = true;
+  public revisionHeader = "iTwin.PCF";
+  public suppressHostStartupOnRun = false;
+  public suppressSigninOnRun = false;
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
@@ -147,8 +147,8 @@ export class HubArgs implements HubArgsProps {
   public iModelId: Id64String;
   public clientConfig: NodeCliAuthorizationConfiguration|ServiceAuthorizationClientConfiguration;
   public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
-  public updateDbProfile: boolean = false;
-  public updateDomainSchemas: boolean = false;
+  public updateDbProfile = false;
+  public updateDomainSchemas = false;
 
   constructor(props: HubArgsProps) {
     this.projectId = props.projectId;
@@ -222,7 +222,7 @@ export class BaseApp {
       Logger.logError(LogCategory.PCF, (err as any).message);
       Logger.logTrace(LogCategory.PCF, (err as any).stack);
       await this.handleError(err);
-      success = false
+      success = false;
     } finally {
       if (this.briefcaseDb) {
         this.briefcaseDb.abandonChanges();
@@ -305,7 +305,7 @@ export class BaseApp {
   /*
    * Open a previously downloaded BriefcaseDb on disk if present.
    */
-  public async openCachedBriefcaseDb(readonlyMode: boolean = true): Promise<BriefcaseDb | undefined> {
+  public async openCachedBriefcaseDb(readonlyMode = true): Promise<BriefcaseDb | undefined> {
     const bcPropsList: LocalBriefcaseProps[] = BriefcaseManager.getCachedBriefcases(this.hubArgs.iModelId);
     if (bcPropsList.length == 0)
       return undefined;
@@ -325,7 +325,7 @@ export class BaseApp {
   /*
    * Downloads and opens a most-recent BriefcaseDb from iModel Hub if not in cache.
    */
-  public async openBriefcaseDb(ignoreCache: boolean = false): Promise<BriefcaseDb> {
+  public async openBriefcaseDb(ignoreCache = false): Promise<BriefcaseDb> {
     if (!ignoreCache) {
       const cachedDb = await this.openCachedBriefcaseDb(false);
       if (cachedDb)

@@ -9,18 +9,18 @@ function sizeof(obj) {
   function sizeOf(obj) {
     if(obj !== null && obj !== undefined) {
       switch(typeof obj) {
-        case 'number':
+        case "number":
           bytes += 8;
           break;
-        case 'string':
+        case "string":
           bytes += obj.length * 2;
           break;
-        case 'boolean':
+        case "boolean":
           bytes += 4;
           break;
-        case 'object':
+        case "object":
           var objClass = Object.prototype.toString.call(obj).slice(8, -1);
-          if (objClass === 'Object' || objClass === 'Array') {
+          if (objClass === "Object" || objClass === "Array") {
             for (var key in obj) {
               if (!obj.hasOwnProperty(key))
                 continue;
@@ -33,7 +33,7 @@ function sizeof(obj) {
       }
     }
     return bytes;
-  };
+  }
 
   function formatByteSize(bytes) {
     if (bytes < 1024)
@@ -44,10 +44,10 @@ function sizeof(obj) {
       return (bytes / 1048576).toFixed(3) + " MiB";
     else
       return(bytes / 1073741824).toFixed(3) + " GiB";
-  };
+  }
 
   return formatByteSize(sizeOf(obj));
-};
+}
 
 
 const file = "blob.json";
