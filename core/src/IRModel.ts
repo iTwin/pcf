@@ -3,7 +3,12 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as hash from "object-hash";
-import { DataConnection, LogCategory } from "./pcf";
+
+import {
+  DataConnection,
+  LogCategory
+} from "./pcf";
+
 import { Loader } from "./loaders/Loader";
 import { Logger } from "@itwin/core-bentley";
 
@@ -113,7 +118,7 @@ export class IRModel {
 
     const entities = await this._loader.getEntities();
     let relationships: IRRelationship[] = [];
-    if (typeof this._loader.getRelationships === "function")
+    // if (typeof this._loader.getRelationships === "function") ???
       relationships = await this._loader.getRelationships();
 
     for (const entity of entities) {
@@ -133,20 +138,6 @@ export class IRModel {
     this._relMap = {};
     if (this._lazyMode)
       await this._loader.close();
-  }
-
-  public static compare(modelA: IRModel, modelB: IRModel): boolean {
-    const entityMapA = modelA._entityMap;
-    const entityMapB = modelB._entityMap;
-    if (JSON.stringify(entityMapA) !== JSON.stringify(entityMapB))
-      return false;
-
-    const relMapA = modelA._relMap;
-    const relMapB = modelB._relMap;
-    if (JSON.stringify(relMapA) !== JSON.stringify(relMapB))
-      return false;
-
-    return true;
   }
 }
 

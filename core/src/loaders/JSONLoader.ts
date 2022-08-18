@@ -2,18 +2,27 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { FileConnection, Loader } from "./Loader";
 import * as fs from "fs";
 
-/* 
+import {
+  FileConnection,
+  Loader
+} from "./Loader";
+
+import {
+  IREntity,
+  IRInstance,
+  IRRelationship
+} from "../IRModel";
+
+/*
  * JSON => IR Model Mappings:
  *
  * Your json body should be formatted like this.
  * where each key on the first level should contain an array of objects
- * 
+ *
  * {
- *      <IR Entity>: [ 
+ *      <IR Entity>: [
  *          // IR Instances
  *          {
  * .            <default primary key>: ...

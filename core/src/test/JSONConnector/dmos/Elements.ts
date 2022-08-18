@@ -31,6 +31,7 @@ export const ExtPhysicalElement: ElementDMO = {
     return instance.get("id") === "0" ? false : true;
   },
   categoryAttr: "category",
+  parentAttr: "parent",
 };
 
 export const ExtSpace: ElementDMO = {
@@ -69,8 +70,8 @@ export const ExtSpatialCategory: ElementDMO = {
   ecElement: "BisCore:SpatialCategory",
 };
 
-export const ExtSpatialSubcategory: ElementDMO = {
-  irEntity: "ExtSpatialSubcategory",
+export const SpatialSubcategory: ElementDMO = {
+  irEntity: "SpatialSubcategory",
   ecElement: SubCategory.classFullName,
   modifyProps: (connector: PConnector, props: { [property: string]: unknown }, instance: IRInstance): void => {
     props.description = instance.get("description");

@@ -2,17 +2,26 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import * as sqlite3 from "sqlite3";
 import * as sqlite from "sqlite";
-import { IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { FileConnection, Loader } from "./Loader";
+import * as sqlite3 from "sqlite3";
 
-/* 
+import {
+  FileConnection,
+  Loader
+} from "./Loader";
+
+import {
+  IREntity,
+  IRInstance,
+  IRRelationship
+} from "../IRModel";
+
+/*
  * SQLite => IR Model Mappings:
- * 
+ *
  * Each database table = IR Entity
  * Each row of a table = IR Instance
- * 
+ *
  */
 export class SQLiteLoader extends Loader {
 
@@ -60,4 +69,3 @@ export class SQLiteLoader extends Loader {
     return instances;
   }
 }
-

@@ -51,11 +51,10 @@ export class JSONConnector extends pcf.PConnector {
           "ExtPhysicalElement",
           "ExtPhysicalType",
           "ExtSpace",
-          "ExtSpatialCategory", "ExtSpatialSubcategory",
+          "ExtSpatialCategory", "SpatialSubcategory",
         ],
         relationships: [
           "ExtElementGroupsMembers",
-          "ExtElementOwnsChildElements",
           "ExtElementRefersToElements",
           "ExtElementRefersToExistingElements",
           "ExtExistingElementRefersToElements",
@@ -95,10 +94,13 @@ export class JSONConnector extends pcf.PConnector {
     });
 
     new pcf.ElementNode(this, {
-      key: "ExtSpatialSubcategory",
+      key: "SpatialSubcategory",
       model: defModel,
-      parent: { parent: sptCategory, relationship: CategoryOwnsSubCategories.classFullName },
-      dmo: elements.ExtSpatialSubcategory,
+      parent: {
+        parent: sptCategory,
+        relationship: CategoryOwnsSubCategories.classFullName
+      },
+      dmo: elements.SpatialSubcategory,
     });
 
     new pcf.ElementNode(this, {

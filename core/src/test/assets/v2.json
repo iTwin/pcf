@@ -35,10 +35,10 @@
       "id": "1"
     }
   ],
-  "ExtSpatialSubcategory": [
+  "SpatialSubcategory": [
     {
       "id": "1",
-      "description": "Whoa look at me! I've moved to the first subcategory! o:",
+      "description": "Whoa look at me! I've moved to the first category.",
       "parent": "1"
     }
   ],
