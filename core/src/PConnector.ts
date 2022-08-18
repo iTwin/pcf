@@ -697,7 +697,7 @@ export abstract class PConnector {
  */
 export function modelOf(imodel: IModelDb, modeled: Id64String): Id64String | null
 {
-    const query = "select ECInstanceId from bis:Model where ModeledElement.id= ? ";
+    const query = "select ECInstanceId from bis:Model where ModeledElement.id = ? ";
 
     return imodel.withPreparedStatement(query, (statement) => {
         statement.bindId(1, modeled);
@@ -722,7 +722,7 @@ export function modelOf(imodel: IModelDb, modeled: Id64String): Id64String | nul
  */
 export function childrenOfModel(imodel: IModelDb, model: Id64String): Id64String[]
 {
-  const query = "select ECInstanceId from bis:Element where Model.id=? and Parent is NULL";
+  const query = "select ECInstanceId from bis:Element where Model.id = ? and Parent is null";
 
     return imodel.withPreparedStatement(query, (statement) => {
         const elements: Id64String[] = [];
