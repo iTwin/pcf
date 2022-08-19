@@ -23,11 +23,13 @@ import {
 import {
   ElementAspectDMO,
   ElementDMO,
+  ElementInSubModelDMO,
   RelatedElementDMO,
   RelationshipDMO
 } from "./DMO";
 
 import {
+  IModelDb,
   InformationPartitionElement,
   Model,
   RepositoryLink,
@@ -38,7 +40,6 @@ import {
 
 import { DynamicEntityMap } from "./DynamicSchema";
 import { IRInstance } from "./IRModel";
-
 import { Id64String } from "@itwin/core-bentley";
 import { JobArgs } from "./BaseApp";
 import { Loader } from "./loaders";
@@ -62,8 +63,8 @@ export class RepoTree {
   /*
    * Grabs all the Nodes under a SubjectNode with their ordering preserved
    */
-  public getNodes<T extends Node>(subjectNodeKey: string): Array<T> {
-    const nodes: any[] = [];
+  public getNodes(subjectNodeKey: string): Node[] {
+    const nodes: Node[] = [];
     for (const node of this.nodeMap.values()) {
       if (node instanceof SubjectNode && node.key === subjectNodeKey)
         nodes.push(node);
@@ -122,7 +123,6 @@ export class RepoTree {
 }
 
 export interface NodeProps {
-
   /*
    * The unique identifier of a Node
    */
@@ -443,50 +443,65 @@ export class LoaderNode extends Node implements LoaderNodeProps {
   }
 }
 
-export interface ElementNodeProps extends NodeProps {
-
+export type ElementNodeProps = NodeProps & {
+  /*
+   * References a Category Node defined by user
+   */
+  category?: ElementNode,
+} & ({
   /*
    * Allows multiple EC Elements to be populated by a single ElementNode
    */
-  dmo: ElementDMO;
+  dmo: ElementDMO,
 
   /*
    * References a Model Node defined by user
    * All the elements populated by the dmo will be contained by this model
    */
-  model: ModelNode;
-
-  /*
-   * References a Category Node defined by user
-   */
-  category?: ElementNode;
+  model: ModelNode,
 
   /*
    * A parent navigation property. The second type in the union is equivalent to
    * [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops).
    */
   parent?: ElementNode | { parent: ElementNode, relationship: string };
-}
+} | {
+  /*
+   * Parent is mandatory.
+   */
+  dmo: ElementInSubModelDMO,
+
+  /*
+   * The element is a modeled element, so it can't have a parent.
+   */
+  parent: ModeledElementNode;
+});
 
 /*
  * ElementNode Represents a regular Element in iModel
  *
  * It populates multiple Element instances based on DMO
  */
-export class ElementNode extends Node implements ElementNodeProps {
+export class ElementNode extends Node {
 
-  public dmo: ElementDMO;
-  public model: ModelNode;
+  public dmo: ElementDMO | Exclude<ElementDMO, "parentAttr"> & { parentAttr: string };
+  public model: ModelNode | ModeledElementNode;
   public category?: ElementNode;
   public parent?: ElementNode | { parent: ElementNode, relationship: string };
 
   constructor(pc: PConnector, props: ElementNodeProps) {
     super(pc, props);
+
     this.dmo = props.dmo;
     this.category = props.category;
-    this.parent = props.parent;
-    this.model = props.model;
-    this.model.elements.push(this);
+
+    if ("model" in props) {
+      this.model = props.model;
+      this.parent = props.parent;
+    } else {
+      this.model = props.parent;
+    }
+
     this.pc.tree.insert<ElementNode>(this);
   }
 
@@ -501,14 +516,23 @@ export class ElementNode extends Node implements ElementNodeProps {
           continue;
       }
 
-      const modelId = this.pc.modelCache[this.model.key];
+      let modelId;
+      if (this.model instanceof ModeledElementNode) {
+        // We know that if the model of this ElementNode is a ModeledElementNode, then the
+        // parentAttr of this element must be defined in its DMO.
+        const modelKey = IRInstance.createKey(this.model.dmo.irEntity, instance.get(this.dmo.parentAttr as string));
+        modelId = this.pc.modelCache[modelKey];
+      } else {
+        modelId = this.pc.modelCache[this.model.key];
+      }
+
       const codeSpec: CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
       const { ecElement } = this.dmo;
       const classFullName = typeof ecElement === "string" ? ecElement : `${this.pc.dynamicSchemaName}:${ecElement.name}`;
 
-      const props: ElementProps = {
+      const props: ElementProps & { category?: Id64String } = {
         code,
         federationGuid: instance.key,
         userLabel: instance.userLabel,
@@ -522,7 +546,7 @@ export class ElementNode extends Node implements ElementNodeProps {
       if (this.category && this.dmo.categoryAttr) {
         const instanceKey = IRInstance.createKey(this.category.dmo.irEntity, instance.get(this.dmo.categoryAttr));
         const categoryId = this.pc.elementCache[instanceKey];
-        (props as any).category = categoryId;
+        props.category = categoryId;
       }
 
       // Another hack to evade mandatory navigation properties, i.e., those where the source
@@ -530,20 +554,25 @@ export class ElementNode extends Node implements ElementNodeProps {
       // bis:SubCategory's parent navigation property, except that the backend enforces this
       // constraint and not the navigation property bis:CategoryOwnsSubcategories.
 
+      // PCF makes modeling as simple as possible. A ModelNode is an abstraction of a model and its
+      // partition. A ModeledElementNode is an abstraction of a model and its modeled element. When
+      // an element is made a child of a ModeledElementNode, it is placed in its model. The
+      // interface is identical to parent-child modeling for elements. The model can be forgotten.
+
       if (this.parent && this.dmo.parentAttr) {
         const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
-        const instanceKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(this.dmo.parentAttr));
-        const parentId = this.pc.elementCache[instanceKey];
-        const navigation = (
+        const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(this.dmo.parentAttr));
+        const parentId = this.pc.elementCache[parentKey];
+        props.parent = (
           "relationship" in this.parent
           ? { id: parentId, relClassName: this.parent.relationship}
           : { id: parentId }
         );
-        (props as any).parent = navigation;
       }
 
-      if (typeof this.dmo.modifyProps === "function")
+      if (typeof this.dmo.modifyProps === "function") {
         await this.dmo.modifyProps(this.pc, props, instance);
+      }
 
       const result = this.pc.syncElement({
         props: props,
@@ -567,6 +596,80 @@ export class ElementNode extends Node implements ElementNodeProps {
 
   public toJSON(): any {
     return { key: this.key, dmo: this.dmo, cateogoryNode: this.category ? this.category.key : "" };
+  }
+}
+
+export type ModeledElementNodeProps = ElementNodeProps & {
+  /*
+   * The subject that contains the elements in the model.
+   */
+  subject: SubjectNode;
+
+  /*
+   * The kind of model this element "breaks down" into.
+   */
+  modelClass: typeof Model;
+}
+
+/*
+ * A node that represents a modeled element in BIS.
+ */
+export class ModeledElementNode extends ElementNode {
+  subject: SubjectNode;
+  modelClass: typeof Model;
+
+  constructor(connector: PConnector, props: ModeledElementNodeProps) {
+    super(connector, props);
+    this.subject = props.subject;
+    this.modelClass = props.modelClass;
+  }
+
+  protected override async _sync(): Promise<SyncResult[]> {
+    const changes = await super._sync();
+
+    const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
+    for (const instance of instances) {
+      const modeledElement = this.pc.elementCache[instance.key];
+      const parentModel = this.pc.modelCache[this.model.key];
+
+      // Currently, PCF doesn't support properties on a model, like JSON properties. If the model
+      // doesn't exist, it is inserted. Otherwise it is retrieved. Models are never updated.
+
+      const model = modelOf(this.pc.db, modeledElement);
+
+      if (model === null) {
+        const props: ModelProps = {
+          classFullName: this.modelClass.classFullName,
+          modeledElement: { id: modeledElement },
+          parentModel,
+        };
+
+        // onSyncModeledElement is responsible only for the model part of the ModeledElementNode,
+        // because onSyncElement takes care of the ElementNode part. The IR instance's key is used
+        // as the key for both the connector's element cache and model cache. That way we can
+        // reference both a ModeledElementNode's element and model with just an IR instance and
+        // the node's DMO, which holds the IR entity.
+
+        // These comments and sync state are currently unused, but they may be useful for debugging.
+        // I'm not sure what Zach had in mind for them, but I'll try to be consistent with the
+        // rest of the nodes, especially ElementNode.
+
+        this.pc.onSyncModeledElement({
+          state: ItemState.New,
+          entityId: this.pc.db.models.insertModel(props),
+          comment: `Inserted a new Model - ${this.key}`,
+        }, instance);
+      } else {
+        this.pc.onSyncModeledElement({
+          state: ItemState.Unchanged,
+          entityId: model,
+          comment: `Use an existing Model - ${this.key}`,
+        }, instance);
+      }
+    }
+
+    // Just return the changes from syncing the element part of the modeled element.
+    return changes;
   }
 }
 
@@ -823,4 +926,29 @@ export class RelatedElementNode extends Node {
   public toJSON(): any {
     return { key: this.key, subjectNode: this.subject.key, dmo: this.dmo, sourceNode: this.source.key, targetNode: this.target ? this.target.key : "" };
   }
+}
+
+/**
+ * Return the iModel ID of the model of an element if it is modeled.
+ * @param imodel
+ * @param modeled An element that may be modeled.
+ * @returns The iModel ID of the model.
+ */
+function modelOf(imodel: IModelDb, modeled: Id64String): Id64String | null
+{
+    const query = "select ECInstanceId from bis:Model where ModeledElement.id = ? ";
+
+    return imodel.withPreparedStatement(query, (statement) => {
+        statement.bindId(1, modeled);
+        statement.step();
+
+        // TODO: what does this do if it fails? When the resulting table is empty, for example.
+        const modelId = statement.getValue(0);
+
+        if (modelId.isNull) {
+            return null;
+        }
+
+        return modelId.getId();
+    });
 }

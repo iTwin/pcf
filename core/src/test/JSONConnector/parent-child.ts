@@ -15,8 +15,70 @@ import {
     UrlLink,
 } from "@itwin/core-backend";
 
+/*
+ *                                o - repository model
+ *                               / \
+ *                     folder - o   o - repository (pcf's loader)
+ *                             /|\
+ * ElementOwnsChildElements - / | \ - FolderContainsRepositories
+ *              hyperlinks - o  o  o - modeled repository
+ *                             /   |
+ *                  repository     o - submodel
+ *                                / \
+ *                               o   o - more hyperlinks
+ */
+
 export class BookmarkConnector extends pcf.PConnector {
   public async form(): Promise<void> {
+    const folderDMO: pcf.ElementDMO = {
+      ecElement: FolderLink.classFullName,
+      irEntity: "folder",
+      modifyProps: (
+        connector: pcf.PConnector,
+        props: { [property: string]: unknown}, instance: pcf.IRInstance
+      ): void => {
+        props.description = instance.get("description");
+      },
+    };
+
+    const hyperlinkDMO = (label: string) => ({
+      ecElement: UrlLink.classFullName,
+      irEntity: label,
+      modifyProps: (
+        connector: pcf.PConnector,
+        props: { [property: string]: unknown}, instance: pcf.IRInstance
+      ): void => {
+        props.userLabel = instance.get("userLabel");
+        props.description = instance.get("description");
+        props.url = instance.get("url");
+      },
+      parentAttr: "parent",
+    });
+
+    const repositoryDMO = (label: string): pcf.ElementDMO => ({
+      ecElement: RepositoryLink.classFullName,
+      irEntity: label,
+      modifyProps: (
+        connector: pcf.PConnector,
+        props: { [property: string]: unknown}, instance: pcf.IRInstance
+      ): void => {
+        props.userLabel = instance.get("userLabel");
+        props.description = instance.get("description");
+        props.url = instance.get("url");
+      },
+      parentAttr: "parent",
+    });
+
+    const folderOwnsHyperlinkDMO: pcf.RelatedElementDMO = {
+      irEntity: "folder-owns-hyperlinks",
+      ecRelationship: ElementOwnsChildElements.classFullName,
+      ecProperty: "parent",
+      fromAttr: "from",
+      toAttr: "to",
+      fromType: "IREntity",
+      toType: "IREntity",
+    };
+
     new pcf.PConnectorConfig(this, {
       connectorName: "bookmarks-connector",
       appId: "bookmarks-connector",
@@ -40,7 +102,10 @@ export class BookmarkConnector extends pcf.PConnector {
       loader: new pcf.JSONLoader({
         format: "json",
         entities: [
-          "folder", "hyperlink", "repository"
+          "folder", "repository",
+          "hyperlink",
+          "modeled-repository",
+          "child-of-modeled-repository",
         ],
         relationships: [
           "folder-owns-hyperlinks",
@@ -48,52 +113,6 @@ export class BookmarkConnector extends pcf.PConnector {
         defaultPrimaryKey: "key",
       }),
     });
-
-    const folderDMO: pcf.ElementDMO = {
-      ecElement: FolderLink.classFullName,
-      irEntity: "folder",
-      modifyProps: (
-        connector: pcf.PConnector,
-        props: { [property: string]: unknown}, instance: pcf.IRInstance
-      ): void => {
-        props.description = instance.get("description");
-      },
-    };
-
-    const hyperlinkDMO: pcf.ElementDMO = {
-      ecElement: UrlLink.classFullName,
-      irEntity: "hyperlink",
-      modifyProps: (
-        connector: pcf.PConnector,
-        props: { [property: string]: unknown}, instance: pcf.IRInstance
-      ): void => {
-        props.userLabel = instance.get("userLabel");
-        props.description = instance.get("description");
-        props.url = instance.get("url");
-      },
-    };
-
-    const repositoryDMO: pcf.ElementDMO = {
-      ecElement: RepositoryLink.classFullName,
-      irEntity: "repository",
-      modifyProps: (
-        connector: pcf.PConnector,
-        props: { [property: string]: unknown}, instance: pcf.IRInstance
-      ): void => {
-        props.userLabel = instance.get("userLabel");
-      },
-      parentAttr: "parent",
-    };
-
-    const folderOwnsHyperlinkDMO: pcf.RelatedElementDMO = {
-      irEntity: "folder-owns-hyperlinks",
-      ecRelationship: ElementOwnsChildElements.classFullName,
-      ecProperty: "parent",
-      fromAttr: "from",
-      toAttr: "to",
-      fromType: "IREntity",
-      toType: "IREntity",
-    };
 
     const folder = new pcf.ElementNode(this, {
       model,
@@ -108,13 +127,31 @@ export class BookmarkConnector extends pcf.PConnector {
         relationship: FolderContainsRepositories.classFullName,
       },
       key: "repository-node",
-      dmo: repositoryDMO,
+      dmo: repositoryDMO("repository"),
     });
 
     const hyperlink = new pcf.ElementNode(this, {
       model,
-      key: "hyperlink",
-      dmo: hyperlinkDMO,
+      key: "hyperlink-node",
+      dmo: hyperlinkDMO("hyperlink"),
+    });
+
+    const modeledRepository = new pcf.ModeledElementNode(this, {
+      subject,
+      model,
+      parent: {
+        parent: folder,
+        relationship: FolderContainsRepositories.classFullName,
+      },
+      modelClass: LinkModel,
+      key: "modeled-repository-node",
+      dmo: repositoryDMO("modeled-repository"),
+    });
+
+    new pcf.ElementNode(this, {
+      parent: modeledRepository,
+      key: "child-of-modeled-repository-node",
+      dmo: hyperlinkDMO("child-of-modeled-repository"),
     });
 
     new pcf.RelatedElementNode(this, {

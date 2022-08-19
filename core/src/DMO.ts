@@ -82,6 +82,9 @@ export interface ElementDMO extends DMO {
   // readonly registeredClass?: typeof BisElement;
 }
 
+export type ElementInSubModelDMO = Omit<ElementDMO, "parentAttr">
+  & { parentAttr: NonNullable<ElementDMO["parentAttr"]> };
+
 export interface ElementAspectDMO extends DMO {
   /*
    * References an EC Element Aspect Class by one of the following options:

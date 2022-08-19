@@ -10,7 +10,6 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from BisCore:Subject": 2,
     "select * from BisCore:Subject where codeValue='Subject1'": 1,
     // RepoLink
-    "select * from BisCore:RepositoryLink": 1,
     "select * from BisCore:RepositoryLink where codeValue='json-loader-1'": 1,
     "select * from BisCore:ExternalSourceAspect where identifier='json-loader-1'": 1,
     // Partition
@@ -21,7 +20,7 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from BisCore:DefinitionModel": 3,
     "select * from BisCore:PhysicalModel": 2,
     "select * from BisCore:GroupInformationModel": 1,
-    "select * from BisCore:LinkModel": 2,
+    "select * from BisCore:LinkModel": 6,
     // Element
     "select * from BisCore:SpatialCategory": 2,
     "select * from bis:SubCategory where Description is not null": 1,
@@ -40,6 +39,12 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     // Domain Class
     "select * from BuildingSpatial:Space": 1,
     "select * from BuildingSpatial:Space where FootprintArea=10": 1,
+    // Nested models
+    "select * from bis:RepositoryLink where UserLabel in ('reference documents', 'large clients', 'backlog', 'pro bono projects')": 4,
+    "select * from bis:UrlLink where UserLabel in ('high-rise floor plans', 'steeple drawing', 'interior design sketches')": 3,
+    "select * from bis:LinkModel as models inner join bis:RepositoryLink as repositories on repositories.Model.id = models.ECInstanceId where repositories.UserLabel like '%reference%'": 1,
+    "select distinct models.ECInstanceId from bis:LinkModel as models inner join bis:RepositoryLink as repositories on repositories.Model.id = models.ECInstanceId where repositories.UserLabel in ('large clients', 'backlog', 'pro bono projects')": 1,
+    "select distinct models.ECInstanceId from bis:LinkModel as models inner join bis:UrlLink as links on links.Model.id = models.ECInstanceId where links.UserLabel in ('high-rise floor plans', 'steeple drawing', 'interior design sketches')": 2,
   },
   "v2.json": {
     // Subject
@@ -103,10 +108,21 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
   },
   "parent-child.json": {
     "select * from bis:FolderLink": 1,
+    // The child repositories.
     "select * from bis:RepositoryLink where UserLabel = 'somewhere over the rainbow'": 1,
-    "select * from bis:UrlLink where userLabel in ('Reddit', 'National Geographic', 'The New York Times')": 3,
-    "select folders.ECInstanceId from only bis:ElementOwnsChildElements as relationships inner join bis:FolderLink as folders on relationships.SourceECInstanceId = folders.ECInstanceId": 3,
-    "select * from bis:FolderContainsRepositories": 1,
+    "select * from bis:RepositoryLink where UserLabel = 'Reddit'": 1,
+    "select * from bis:FolderContainsRepositories": 2,
+    // The child URLs.
+    "select * from bis:UrlLink where userLabel in ('National Geographic', 'The New York Times')": 2,
+    "select * from only bis:ElementOwnsChildElements as relationships inner join bis:FolderLink as folders on relationships.SourceECInstanceId = folders.ECInstanceId": 2,
+    // The submodel.
+    "select * from bis:UrlLink where userLabel in ('Cozy Places', 'Aww', 'Pics')": 3,
+    // The Reddit repository is a modeled element that contains 3 subreddits; the outer model does not contain them.
+    "select * from bis:ModelContainsElements as relationships inner join bis:UrlLink as links on relationships.TargetECInstanceId = links.ECInstanceId where links.Url like '%reddit.com/r%'": 3,
+    "select * from bis:ModelModelsElement as relationships inner join bis:RepositoryLink as links on relationships.TargetECInstanceId = links.ECInstanceId": 1,
+    // There's a default link model 0xe. I don't know why. Then 2 are mine, and 1 for the loader.
+    "select * from bis:LinkModel": 4,
+    "select * from bis:ModelOwnsSubModel as relationships inner join bis:LinkModel as models on relationships.TargetECInstanceId = models.ECInstanceId": 4,
   }
 };
 

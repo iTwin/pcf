@@ -7,12 +7,6 @@
     ],
     "hyperlink": [
         {
-            "key": "reddit",
-            "userLabel": "Reddit",
-            "description": "Bulletin boards as far as the eye can see",
-            "url": "https://reddit.com"
-        },
-        {
             "key": "natgeo",
             "userLabel": "National Geographic",
             "description": "A dashing emu on the cover",
@@ -25,6 +19,38 @@
             "url": "https://nyt.com"
         }
     ],
+    "modeled-repository": [
+        {
+            "key": "reddit",
+            "parent": "folder",
+            "userLabel": "Reddit",
+            "description": "Bulletin boards as far as the eye can see",
+            "url": "https://reddit.com"
+        }
+    ],
+    "child-of-modeled-repository": [
+        {
+            "key": "r/cozyplaces",
+            "userLabel": "Cozy Places",
+            "description": "Curl up on a bearskin rug and read a book",
+            "url": "https://reddit.com/r/cozyplaces",
+            "parent": "reddit"
+        },
+        {
+            "key": "r/aww",
+            "userLabel": "Aww",
+            "description": "Eye bleach",
+            "url": "https://reddit.com/r/aww",
+            "parent": "reddit"
+        },
+        {
+            "key": "r/pics",
+            "userLabel": "Pics",
+            "description": "Everyone has a camera",
+            "url": "https://reddit.com/r/pics",
+            "parent": "reddit"
+        }
+    ],
     "repository": [
         {
             "key": "repository",
@@ -33,11 +59,6 @@
         }
     ],
     "folder-owns-hyperlinks": [
-        {
-            "key": "folder-owns-reddit-hyperlink",
-            "from": "folder",
-            "to": "reddit"
-        },
         {
             "key": "folder-owns-natgeo-hyperlink",
             "from": "folder",

@@ -36,6 +36,7 @@ import {
   JobArgs,
   LoaderNode,
   ModelNode,
+  ModeledElementNode,
   RelatedElementNode,
   RelationshipNode,
   RepoTree,
@@ -216,6 +217,10 @@ export abstract class PConnector {
 
   public onSyncModel(result: SyncResult, node: ModelNode) {
     this._modelCache[node.key] = result.entityId;
+  }
+
+  public onSyncModeledElement(result: SyncResult, instance: IRInstance) {
+    this._modelCache[instance.key] = result.entityId;
   }
 
   public onSyncElement(result: SyncResult, instance: IRInstance) {
@@ -690,37 +695,12 @@ export abstract class PConnector {
 }
 
 /**
- * Return the iModel ID of the model of an element if it is modeled.
- * @param imodel
- * @param modeled An element that may be modeled.
- * @returns The iModel ID of the model.
- */
-export function modelOf(imodel: IModelDb, modeled: Id64String): Id64String | null
-{
-    const query = "select ECInstanceId from bis:Model where ModeledElement.id = ? ";
-
-    return imodel.withPreparedStatement(query, (statement) => {
-        statement.bindId(1, modeled);
-        statement.step();
-
-        // TODO: what does this do if it fails? When the resulting table is empty, for example.
-        const modelId = statement.getValue(0);
-
-        if (modelId.isNull) {
-            return null;
-        }
-
-        return modelId.getId();
-    });
-}
-
-/**
  * Return the iModel IDs of the immediate children of a model.
  * @param imodel
  * @param model The model containing the desired children.
  * @returns A list of iModel IDs of the immediate children.
  */
-export function childrenOfModel(imodel: IModelDb, model: Id64String): Id64String[]
+function childrenOfModel(imodel: IModelDb, model: Id64String): Id64String[]
 {
   const query = "select ECInstanceId from bis:Element where Model.id = ? and Parent is null";
 
@@ -742,7 +722,7 @@ export function childrenOfModel(imodel: IModelDb, model: Id64String): Id64String
  * @param element The element that owns the desired children.
  * @returns A list of iModel IDs of the immediate children.
  */
-export function childrenOfElement(imodel: IModelDb, element: Id64String): Id64String[]
+function childrenOfElement(imodel: IModelDb, element: Id64String): Id64String[]
 {
     const query = "select ECInstanceId from bis:Element where Parent.id = ?";
 
@@ -765,8 +745,9 @@ export function childrenOfElement(imodel: IModelDb, element: Id64String): Id64St
  * @param imodel
  * @param element The element to inspect.
  * @returns Does the element have at least one external source aspect?
+ *
  */
-export function isManaged(imodel: IModelDb, element: Id64String): boolean
+function isManaged(imodel: IModelDb, element: Id64String): boolean
 {
     const query = "select count(*) from bis:ExternalSourceAspect where Element.id = ?";
 
