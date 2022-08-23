@@ -6,47 +6,11 @@
 import * as path from "path";
 import * as util from "./Util";
 
-import {
-  BriefcaseDb,
-  Category,
-  ComputeProjectExtentsOptions,
-  DefinitionElement,
-  ExternalSourceAspect,
-  IModelDb,
-  IModelHost,
-  PushChangesArgs,
-  SnapshotDb,
-  StandaloneDb
-} from "@itwin/core-backend";
-
-import {
-  Code,
-  CodeScopeSpec,
-  CodeSpec,
-  ElementAspectProps,
-  ExternalSourceAspectProps,
-  IModel
-} from "@itwin/core-common";
-
-import {
-  IRInstance,
-  IRInstanceKey,
-  IRModel,
-  ItemState,
-  JobArgs,
-  LoaderNode,
-  ModelNode,
-  RelatedElementNode,
-  RelationshipNode,
-  RepoTree,
-  SubjectNode,
-  SyncArg,
-  SyncResult,
-  syncDynamicSchema,
-  tryGetSchema,
-} from "./pcf";
-
+import { BriefcaseDb, Category, ComputeProjectExtentsOptions, DefinitionElement, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb } from "@itwin/core-backend";
+import { Code, CodeScopeSpec, CodeSpec, ElementAspectProps, ExternalSourceAspectProps, IModel } from "@itwin/core-common";
+import { IRInstance, IRInstanceKey, IRModel, ItemState, JobArgs, LoaderNode, ModelNode, RelatedElementNode, RelationshipNode, RepoTree, SubjectNode, SyncArg, SyncResult, syncDynamicSchema, tryGetSchema } from "./pcf";
 import { Id64String, Logger } from "@itwin/core-bentley";
+
 import { LockQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 

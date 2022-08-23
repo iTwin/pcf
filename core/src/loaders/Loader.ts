@@ -2,10 +2,12 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Logger } from "@itwin/core-bentley";
+
 import { IREntity, IRInstance, IRRelationship } from "../IRModel";
-import { PConnector } from "../PConnector";
+
 import { LogCategory } from "../LogCategory";
+import { Logger } from "@itwin/core-bentley";
+import { PConnector } from "../PConnector";
 
 export interface BaseConnection {
   /*

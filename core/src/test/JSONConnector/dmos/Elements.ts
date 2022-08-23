@@ -3,26 +3,9 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-import {
-  ElementDMO,
-  ElementInSubModelDMO,
-  IRInstance,
-  PConnector
-} from "../../../pcf";
-
-import {
-  GroupInformationElement,
-  PhysicalElement,
-  PhysicalType,
-  RepositoryLink,
-  SubCategory,
-  UrlLink
-} from "@itwin/core-backend";
-
-import {
-  PrimitiveType,
-  primitiveTypeToString
-} from "@itwin/ecschema-metadata";
+import { ElementDMO, ElementInSubModelDMO, IRInstance, PConnector } from "../../../pcf";
+import { GroupInformationElement, PhysicalElement, PhysicalType, RepositoryLink, SubCategory, UrlLink } from "@itwin/core-backend";
+import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 
 export const ExtPhysicalElement: ElementDMO = {
   irEntity: "ExtPhysicalElement",

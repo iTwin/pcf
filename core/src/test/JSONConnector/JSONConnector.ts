@@ -10,19 +10,7 @@ import * as pcf from "../../pcf";
 import * as relatedElements from "./dmos/RelatedElements";
 import * as relationships from "./dmos/Relationships";
 
-import {
-  CategoryOwnsSubCategories,
-  DefinitionModel,
-  DefinitionPartition,
-  GroupInformationPartition,
-  GroupModel,
-  LinkModel,
-  LinkPartition,
-  PhysicalModel,
-  PhysicalPartition,
-  SpatialLocationModel,
-  SpatialLocationPartition
-} from "@itwin/core-backend";
+import { CategoryOwnsSubCategories, DefinitionModel, DefinitionPartition, GroupInformationPartition, GroupModel, LinkModel, LinkPartition, PhysicalModel, PhysicalPartition, SpatialLocationModel, SpatialLocationPartition } from "@itwin/core-backend";
 
 import { TestAPILoader } from "./APITestLoader";
 
@@ -128,6 +116,8 @@ export class JSONConnector extends pcf.PConnector {
           "ExtPhysicalElement",
           "ExtPhysicalType",
           "ExtSpace",
+          // The right literal is prefixed 'Spatial--' because the DMO of the node the subcategory
+          // attaches to makes SpatialCategory elements.
           "ExtSpatialCategory", "SpatialSubcategory",
           "ModeledRepository", "NestedModeledRepository", "NestedLink"
         ],

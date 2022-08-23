@@ -2,18 +2,20 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { BentleyError, IModelHubStatus, Id64String, LogLevel, Logger } from "@itwin/core-bentley";
-import { BackendHubAccess, BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
-import {ElectronMainAuthorization} from "@itwin/electron-authorization/lib/cjs/ElectronMain";
-import { LocalBriefcaseProps, OpenBriefcaseProps} from "@itwin/core-common";
-import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
-import {NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration} from "@itwin/node-cli-authorization";
-import { IModelsClient } from "@itwin/imodels-client-authoring";
-import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
-import { AccessToken } from "@itwin/core-bentley";
-import { DataConnection, LogCategory, PConnector } from "./pcf";
+
 import * as fs from "fs";
 import * as path from "path";
+
+import { BentleyError, IModelHubStatus, Id64String, LogLevel, Logger } from "@itwin/core-bentley";
+import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
+import { DataConnection, LogCategory, PConnector } from "./pcf";
+import { LocalBriefcaseProps, OpenBriefcaseProps } from "@itwin/core-common";
+import { NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration } from "@itwin/node-cli-authorization";
+import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
+
+import { AccessToken } from "@itwin/core-bentley";
+import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
+import { IModelsClient } from "@itwin/imodels-client-authoring";
 
 export enum ReqURLPrefix {
   Prod = "",
@@ -23,19 +25,19 @@ export enum ReqURLPrefix {
 
 export interface JobArgsProps {
 
-  /* 
+  /*
    * Absolute path to compiler connector module (.js)
    */
-  connectorPath: string; 
+  connectorPath: string;
 
-  /* 
+  /*
    * Info needed to connect to source data
    */
   connection: DataConnection;
 
   /*
-   * subjectNodeKey references an existing subject node defined in your connector and uniquely identifies 
-   * a subject element in an iModel. pcf will synchronize all the data stored under this subject 
+   * subjectNodeKey references an existing subject node defined in your connector and uniquely identifies
+   * a subject element in an iModel. pcf will synchronize all the data stored under this subject
    * with source file.
    */
   subjectNodeKey: string;
@@ -50,8 +52,8 @@ export interface JobArgsProps {
    */
   logLevel?: LogLevel;
 
-  /* 
-   * Allows elements to be deleted if they no longer exist in the source file. 
+  /*
+   * Allows elements to be deleted if they no longer exist in the source file.
    * For a BriefcaseDb, only elements in the current subject channel can be deleted.
    */
   enableDelete?: boolean;
@@ -285,7 +287,7 @@ export class BaseApp {
     if (!token)
       throw new Error("Failed to get test access token");
     this._token = token;
-    return this._token; 
+    return this._token;
   }
 
   /*
@@ -382,4 +384,3 @@ export class BaseApp {
   }
   */
 }
-

@@ -4,16 +4,8 @@
 *--------------------------------------------------------------------------------------------*/
 import * as fs from "fs";
 
-import {
-  FileConnection,
-  Loader
-} from "./Loader";
-
-import {
-  IREntity,
-  IRInstance,
-  IRRelationship
-} from "../IRModel";
+import { FileConnection, Loader } from "./Loader";
+import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 
 /*
  * JSON => IR Model Mappings:

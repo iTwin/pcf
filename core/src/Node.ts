@@ -5,38 +5,9 @@
 
 import * as fs from "fs";
 
-import {
-  Code,
-  CodeSpec,
-  ElementAspectProps,
-  ElementProps,
-  IModel,
-  InformationPartitionElementProps,
-  ModelProps,
-  RelatedElement,
-  RelatedElementProps,
-  RelationshipProps,
-  RepositoryLinkProps,
-  SubjectProps
-} from "@itwin/core-common";
-
-import {
-  ElementAspectDMO,
-  ElementDMO,
-  ElementInSubModelDMO,
-  RelatedElementDMO,
-  RelationshipDMO
-} from "./DMO";
-
-import {
-  IModelDb,
-  InformationPartitionElement,
-  Model,
-  RepositoryLink,
-  Subject,
-  SubjectOwnsPartitionElements,
-  SubjectOwnsSubjects
-} from "@itwin/core-backend";
+import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
+import { ElementAspectDMO, ElementDMO, ElementInSubModelDMO, RelatedElementDMO, RelationshipDMO } from "./DMO";
+import { IModelDb, InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
 
 import { DynamicEntityMap } from "./DynamicSchema";
 import { IRInstance } from "./IRModel";
@@ -495,6 +466,10 @@ export class ElementNode extends Node {
     this.dmo = props.dmo;
     this.category = props.category;
 
+    // Here we translate from PCF's language to iModel language. Every element has a model, and we
+    // have to extract the element node's model node. Elements contained in the model of a modeled
+    // element aren't really children of that element.
+
     if ("model" in props) {
       this.model = props.model;
       this.parent = props.parent;
@@ -515,6 +490,13 @@ export class ElementNode extends Node {
         if (!doSyncInstance)
           continue;
       }
+
+      // Locate the ECInstanceId of the model. Either we have a ModelNode, for which there is
+      // exactly one model and partition in the iModel, or we have a ModeledElementNode. We use the
+      // ElementNode part of the ModeledElementNode to obtain its code value, which we use to
+      // identify the model in the model cache. Remember that PCF uses JavaScript identifiers to
+      // relate nodes, so we always know a model will be inserted before its elements and exist in
+      // the cache.
 
       let modelId;
       if (this.model instanceof ModeledElementNode) {

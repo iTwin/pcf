@@ -2,13 +2,16 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
-import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
-import { DOMParser, XMLSerializer } from "xmldom";
-import { ClassRegistry, ElementAspect, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
-import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
-import { Element} from "@itwin/core-backend";
+
 import * as pcf from "./pcf";
+
+import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
+import { ClassRegistry, ElementAspect, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
+import { DOMParser, XMLSerializer } from "xmldom";
+import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
+
+import { Element } from "@itwin/core-backend";
+import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 
 export interface DynamicEntityMap {
   entities: {
@@ -40,7 +43,7 @@ export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<Me
 }
 
 export async function syncDynamicSchema(
-  db: IModelDb, 
+  db: IModelDb,
   domainSchemaNames: string[],
   props: DynamicSchemaProps
   ): Promise<pcf.ItemState> {
@@ -113,8 +116,8 @@ function registerDynamicSchema(props: DynamicSchemaProps) {
 
 // Generates an in-memory [Dynamic EC Schema](https://www.itwinjs.org/bis/intro/schema-customization/) from user-defined DMO.
 async function createDynamicSchema(
-  db: IModelDb, 
-  version: SchemaVersion, 
+  db: IModelDb,
+  version: SchemaVersion,
   domainSchemaNames: string[],
   props: DynamicSchemaProps
   ): Promise<MetaSchema> {

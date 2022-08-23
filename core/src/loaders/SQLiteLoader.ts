@@ -2,19 +2,12 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
 import * as sqlite from "sqlite";
 import * as sqlite3 from "sqlite3";
 
-import {
-  FileConnection,
-  Loader
-} from "./Loader";
-
-import {
-  IREntity,
-  IRInstance,
-  IRRelationship
-} from "../IRModel";
+import { FileConnection, Loader } from "./Loader";
+import { IREntity, IRInstance, IRRelationship } from "../IRModel";
 
 /*
  * SQLite => IR Model Mappings:

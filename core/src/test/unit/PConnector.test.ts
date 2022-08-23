@@ -2,20 +2,14 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
 import * as chai from "chai";
 import * as fs from "fs";
 import * as path from "path";
 import * as pcf from "../../pcf";
 
-import {
-  IModelHost,
-  StandaloneDb
-} from "@itwin/core-backend";
-
-import {
-  LogLevel,
-  Logger
-} from "@itwin/core-bentley";
+import { IModelHost, StandaloneDb } from "@itwin/core-backend";
+import { LogLevel, Logger } from "@itwin/core-bentley";
 
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";

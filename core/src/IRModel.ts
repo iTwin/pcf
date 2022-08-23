@@ -2,12 +2,10 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
 import * as hash from "object-hash";
 
-import {
-  DataConnection,
-  LogCategory
-} from "./pcf";
+import { DataConnection, LogCategory } from "./pcf";
 
 import { Loader } from "./loaders/Loader";
 import { Logger } from "@itwin/core-bentley";

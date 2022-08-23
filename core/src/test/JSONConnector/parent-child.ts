@@ -5,15 +5,7 @@
 
 import * as pcf from "../../pcf";
 
-import {
-    ElementOwnsChildElements,
-    FolderContainsRepositories,
-    FolderLink,
-    LinkModel,
-    LinkPartition,
-    RepositoryLink,
-    UrlLink,
-} from "@itwin/core-backend";
+import { ElementOwnsChildElements, FolderContainsRepositories, FolderLink, LinkModel, LinkPartition, RepositoryLink, UrlLink } from "@itwin/core-backend";
 
 /*
  *                                o - repository model

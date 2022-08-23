@@ -2,16 +2,18 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { JSONLoader } from "./JSONLoader";
-import { FileConnection } from "./Loader";
+
 import * as xlsx from "xlsx";
 
-/* 
+import { FileConnection } from "./Loader";
+import { JSONLoader } from "./JSONLoader";
+
+/*
  * XLSX (Excel) => IR Model Mappings:
- * 
+ *
  * Each Excel Sheet    = IR Entity
  * Each row of a sheet = IR Instance
- * 
+ *
  */
 export class XLSXLoader extends JSONLoader {
   protected override async _open(con: FileConnection) {
@@ -22,4 +24,3 @@ export class XLSXLoader extends JSONLoader {
     }
   }
 }
-
