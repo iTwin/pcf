@@ -19,7 +19,6 @@ import {
 
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import { assert } from "console";
 
 describe("Unit Tests", () => {
 
@@ -48,7 +47,12 @@ describe("Unit Tests", () => {
             kind: "pcf_file_connection",
             filepath: tempSrcPath,
           }
-        },
+        }
+      ]
+    },
+    {
+      title: "Parent-child and element-model modeling",
+      jobs: [
         {
           sourceFile: "parent-child.json",
           connectorFile: "parent-child.js",
@@ -58,7 +62,7 @@ describe("Unit Tests", () => {
             kind: "pcf_file_connection",
             filepath: tempSrcPath,
           }
-        }
+        },
       ]
     },
   ];
@@ -127,6 +131,7 @@ describe("Unit Tests", () => {
   }
 
   it("Loader Tests", async () => {
+    // TODO: I haven't added all of the new entities to this test.
     const props: pcf.LoaderProps = {
       format: "json",
       entities: [

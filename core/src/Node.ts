@@ -484,7 +484,7 @@ export type ElementNodeProps = NodeProps & {
  */
 export class ElementNode extends Node {
 
-  public dmo: ElementDMO | Exclude<ElementDMO, "parentAttr"> & { parentAttr: string };
+  public dmo: ElementDMO | ElementInSubModelDMO;
   public model: ModelNode | ModeledElementNode;
   public category?: ElementNode;
   public parent?: ElementNode | { parent: ElementNode, relationship: string };

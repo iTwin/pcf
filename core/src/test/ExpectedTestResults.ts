@@ -51,7 +51,8 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from BisCore:Subject": 2,
     "select * from BisCore:Subject where codeValue='Subject1'": 1,
     // RepoLink
-    "select * from BisCore:RepositoryLink": 1,
+    "select * from BisCore:RepositoryLink where codeValue='json-loader-1'": 1,
+    "select * from BisCore:ExternalSourceAspect where identifier='json-loader-1'": 1,
     // Partition
     "select * from BisCore:DefinitionPartition": 2,
     "select * from BisCore:GroupInformationPartition": 1,
@@ -60,7 +61,7 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from BisCore:DefinitionModel": 3,
     "select * from BisCore:PhysicalModel": 2,
     "select * from BisCore:GroupInformationModel": 1,
-    "select * from BisCore:LinkModel": 2,
+    "select * from BisCore:LinkModel": 5,                             // -1 (from v1)
     // Element
     "select * from BisCore:SpatialCategory": 1,                       // -1 (from v1)
     "select * from BisCore:SubCategory where Description is not null": 1,
@@ -83,6 +84,14 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from bis:SubCategory where Description like '%moved%'": 1,
     // Domain Class
     "select * from BuildingSpatial:Space": 1,
+    // Nested models, pro bono projects deleted and sushi project added to backlog
+    "select * from bis:RepositoryLink where UserLabel in ('pro bono projects')": 0,
+    "select * from bis:RepositoryLink where UserLabel in ('reference documents', 'large clients', 'backlog')": 3,
+    "select * from bis:UrlLink where UserLabel in ('steeple drawing', 'interior design sketches')": 0,
+    "select * from bis:UrlLink where UserLabel in ('high-rise floor plans', 'sushi restaurant flooring')": 2,
+    "select * from bis:LinkModel as models inner join bis:RepositoryLink as repositories on repositories.Model.id = models.ECInstanceId where repositories.UserLabel like '%reference%'": 1,
+    "select distinct models.ECInstanceId from bis:LinkModel as models inner join bis:RepositoryLink as repositories on repositories.Model.id = models.ECInstanceId where repositories.UserLabel in ('large clients', 'backlog')": 1,
+    "select distinct models.ECInstanceId from bis:LinkModel as models inner join bis:UrlLink as links on links.Model.id = models.ECInstanceId where links.UserLabel in ('high-rise floor plans', 'sushi restaurant flooring')": 2,
   },
   "v3.json": { // add a new element with the same code as a previously deleted element.
     // Subject
@@ -92,6 +101,8 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from TestSchema:ExtElementAspectA": 1,
     "select * from TestSchema:ExtElementAspectB": 1,
     "select * from TestSchema:ExtElementAspectA where Name='a-new-name'": 1, // attribute update
+    // Nested models, everything deleted; 1 default, 1 for the loader
+    "select * from bis:LinkModel": 2,
   },
   "v4.json": {
     // Element Aspect
@@ -120,9 +131,9 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     // The Reddit repository is a modeled element that contains 3 subreddits; the outer model does not contain them.
     "select * from bis:ModelContainsElements as relationships inner join bis:UrlLink as links on relationships.TargetECInstanceId = links.ECInstanceId where links.Url like '%reddit.com/r%'": 3,
     "select * from bis:ModelModelsElement as relationships inner join bis:RepositoryLink as links on relationships.TargetECInstanceId = links.ECInstanceId": 1,
-    // There's a default link model 0xe. I don't know why. Then 2 are mine, and 1 for the loader.
-    "select * from bis:LinkModel": 4,
-    "select * from bis:ModelOwnsSubModel as relationships inner join bis:LinkModel as models on relationships.TargetECInstanceId = models.ECInstanceId": 4,
+    // There's a default link model 0xe. I don't know why. Then 1 is mine, and 1 for the loader.
+    "select * from bis:LinkModel": 3,
+    "select * from bis:ModelOwnsSubModel as relationships inner join bis:LinkModel as models on relationships.TargetECInstanceId = models.ECInstanceId": 3,
   }
 };
 

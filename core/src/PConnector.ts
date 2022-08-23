@@ -36,7 +36,6 @@ import {
   JobArgs,
   LoaderNode,
   ModelNode,
-  ModeledElementNode,
   RelatedElementNode,
   RelationshipNode,
   RepoTree,

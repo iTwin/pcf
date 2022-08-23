@@ -41,7 +41,7 @@ export class BookmarkConnector extends pcf.PConnector {
       },
     };
 
-    const hyperlinkDMO = (label: string) => ({
+    const hyperlinkDMO = (label: string): pcf.ElementInSubModelDMO => ({
       ecElement: UrlLink.classFullName,
       irEntity: label,
       modifyProps: (
