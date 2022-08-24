@@ -67,11 +67,6 @@ export interface ElementDMO extends DMO {
   readonly categoryAttr?: string;
 
   /*
-   * The attribute name used to identify the parent navigation property.
-   */
-  readonly parentAttr?: string;
-
-  /*
    * References the attribute name used to identify the EC RelatedElement
    */
   // readonly relatedElementAttr?: string;
@@ -83,8 +78,7 @@ export interface ElementDMO extends DMO {
   // readonly registeredClass?: typeof BisElement;
 }
 
-export type ElementInSubModelDMO = Omit<ElementDMO, "parentAttr">
-  & { parentAttr: NonNullable<ElementDMO["parentAttr"]> };
+export type ElementWithParentDMO = ElementDMO & { parentAttr: string };
 
 export interface ElementAspectDMO extends DMO {
   /*

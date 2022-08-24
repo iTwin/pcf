@@ -18,6 +18,8 @@ import { ElementOwnsChildElements, FolderContainsRepositories, FolderLink, LinkM
  *                  repository     o - submodel
  *                                / \
  *                               o   o - more hyperlinks
+ *                                  / \
+ *                                 o   o - children hyperlinks in submodel
  */
 
 export class BookmarkConnector extends pcf.PConnector {
@@ -33,7 +35,7 @@ export class BookmarkConnector extends pcf.PConnector {
       },
     };
 
-    const hyperlinkDMO = (label: string): pcf.ElementInSubModelDMO => ({
+    const hyperlinkDMO = (label: string): pcf.ElementWithParentDMO => ({
       ecElement: UrlLink.classFullName,
       irEntity: label,
       modifyProps: (
@@ -47,7 +49,7 @@ export class BookmarkConnector extends pcf.PConnector {
       parentAttr: "parent",
     });
 
-    const repositoryDMO = (label: string): pcf.ElementDMO => ({
+    const repositoryDMO = (label: string): pcf.ElementWithParentDMO => ({
       ecElement: RepositoryLink.classFullName,
       irEntity: label,
       modifyProps: (
@@ -98,6 +100,7 @@ export class BookmarkConnector extends pcf.PConnector {
           "hyperlink",
           "modeled-repository",
           "child-of-modeled-repository",
+          "child-of-child-of-modeled-repository"
         ],
         relationships: [
           "folder-owns-hyperlinks",
@@ -113,7 +116,6 @@ export class BookmarkConnector extends pcf.PConnector {
     });
 
     new pcf.ElementNode(this, {
-      model,
       parent: {
         parent: folder,
         relationship: FolderContainsRepositories.classFullName,
@@ -122,6 +124,9 @@ export class BookmarkConnector extends pcf.PConnector {
       dmo: repositoryDMO("repository"),
     });
 
+    // Note that we're using the hyperlink DMO, which specifies parentAttr. But it's not in the JSON
+    // of the IR instances of the IR entity 'hyperlink'. So the property is undefined, which is a
+    // no-op in the iTwin API.
     const hyperlink = new pcf.ElementNode(this, {
       model,
       key: "hyperlink-node",
@@ -130,7 +135,6 @@ export class BookmarkConnector extends pcf.PConnector {
 
     const modeledRepository = new pcf.ModeledElementNode(this, {
       subject,
-      model,
       parent: {
         parent: folder,
         relationship: FolderContainsRepositories.classFullName,
@@ -140,10 +144,19 @@ export class BookmarkConnector extends pcf.PConnector {
       dmo: repositoryDMO("modeled-repository"),
     });
 
-    new pcf.ElementNode(this, {
+    const childOfModeledRepository = new pcf.ElementNode(this, {
       parent: modeledRepository,
       key: "child-of-modeled-repository-node",
       dmo: hyperlinkDMO("child-of-modeled-repository"),
+    });
+
+    new pcf.ElementNode(this, {
+      parent: {
+        parent: childOfModeledRepository,
+        relationship: ElementOwnsChildElements.classFullName,
+      },
+      key: "child-of-child-of-modeled-repository-node",
+      dmo: hyperlinkDMO("child-of-child-of-modeled-repository")
     });
 
     new pcf.RelatedElementNode(this, {

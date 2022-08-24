@@ -51,6 +51,20 @@
             "parent": "reddit"
         }
     ],
+    "child-of-child-of-modeled-repository": [
+        {
+            "key": "lakeside-cabin",
+            "description": "This little lakeside cabin in Castle Danger, Minnesota",
+            "url": "https://www.reddit.com/r/CozyPlaces/comments/wwjebw/this_little_lakeside_cabin_in_castle_danger",
+            "parent": "r/cozyplaces"
+        },
+        {
+            "key": "reading-corner",
+            "description": "My new reading corner",
+            "url": "https://www.reddit.com/r/CozyPlaces/comments/ww522i/my_new_reading_corner",
+            "parent": "r/cozyplaces"
+        }
+    ],
     "repository": [
         {
             "key": "repository",

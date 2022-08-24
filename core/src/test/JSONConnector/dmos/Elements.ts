@@ -3,11 +3,11 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-import { ElementDMO, ElementInSubModelDMO, IRInstance, PConnector } from "../../../pcf";
+import { ElementDMO, ElementWithParentDMO, IRInstance, PConnector } from "../../../pcf";
 import { GroupInformationElement, PhysicalElement, PhysicalType, RepositoryLink, SubCategory, UrlLink } from "@itwin/core-backend";
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 
-export const ExtPhysicalElement: ElementDMO = {
+export const ExtPhysicalElement: ElementWithParentDMO = {
   irEntity: "ExtPhysicalElement",
   ecElement: {
     name: "ExtPhysicalElement",
@@ -70,7 +70,7 @@ export const ExtSpatialCategory: ElementDMO = {
   ecElement: "BisCore:SpatialCategory",
 };
 
-export const SpatialSubcategory: ElementDMO = {
+export const SpatialSubcategory: ElementWithParentDMO = {
   irEntity: "SpatialSubcategory",
   ecElement: SubCategory.classFullName,
   modifyProps: (
@@ -95,7 +95,7 @@ export const ModeledRepository: ElementDMO = {
   }
 };
 
-export const NestedModeledRepository: ElementInSubModelDMO = {
+export const NestedModeledRepository: ElementWithParentDMO = {
   irEntity: "NestedModeledRepository",
   ecElement: RepositoryLink.classFullName,
   modifyProps: (
@@ -108,7 +108,7 @@ export const NestedModeledRepository: ElementInSubModelDMO = {
   parentAttr: "parent",
 };
 
-export const NestedLink: ElementInSubModelDMO = {
+export const NestedLink: ElementWithParentDMO = {
   irEntity: "NestedLink",
   ecElement: UrlLink.classFullName,
   modifyProps: (

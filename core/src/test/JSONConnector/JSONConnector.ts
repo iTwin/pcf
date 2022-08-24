@@ -163,7 +163,6 @@ export class JSONConnector extends pcf.PConnector {
 
     new pcf.ElementNode(this, {
       key: "SpatialSubcategory",
-      model: defModel,
       parent: {
         parent: sptCategory,
         relationship: CategoryOwnsSubCategories.classFullName

@@ -124,16 +124,21 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from bis:RepositoryLink where UserLabel = 'Reddit'": 1,
     "select * from bis:FolderContainsRepositories": 2,
     // The child URLs.
-    "select * from bis:UrlLink where userLabel in ('National Geographic', 'The New York Times')": 2,
+    "select * from bis:UrlLink where UserLabel in ('National Geographic', 'The New York Times')": 2,
     "select * from only bis:ElementOwnsChildElements as relationships inner join bis:FolderLink as folders on relationships.SourceECInstanceId = folders.ECInstanceId": 2,
     // The submodel.
-    "select * from bis:UrlLink where userLabel in ('Cozy Places', 'Aww', 'Pics')": 3,
-    // The Reddit repository is a modeled element that contains 3 subreddits; the outer model does not contain them.
-    "select * from bis:ModelContainsElements as relationships inner join bis:UrlLink as links on relationships.TargetECInstanceId = links.ECInstanceId where links.Url like '%reddit.com/r%'": 3,
+    "select * from bis:UrlLink where UserLabel in ('Cozy Places', 'Aww', 'Pics')": 3,
+    // The Reddit repository is a modeled element that contains 3 subreddits and 2 posts; the outer model does not contain them.
+    "select * from bis:ModelContainsElements as relationships inner join bis:UrlLink as links on relationships.TargetECInstanceId = links.ECInstanceId where links.Url like '%reddit.com/r%'": 5,
     "select * from bis:ModelModelsElement as relationships inner join bis:RepositoryLink as links on relationships.TargetECInstanceId = links.ECInstanceId": 1,
     // There's a default link model 0xe. I don't know why. Then 1 is mine, and 1 for the loader.
     "select * from bis:LinkModel": 3,
     "select * from bis:ModelOwnsSubModel as relationships inner join bis:LinkModel as models on relationships.TargetECInstanceId = models.ECInstanceId": 3,
+    // The children of the children of the modeled repository.
+    "select * from bis:UrlLink where Description like '%lakeside cabin%'": 1,
+    "select * from bis:UrlLink where Description like '%reading corner%'": 1,
+    "select * from only bis:ElementOwnsChildElements as relationships inner join only bis:UrlLink as links on relationships.SourceECInstanceId = links.ECInstanceId": 2,
+    // TODO: Test that the children are in the expected nested model.
   }
 };
 

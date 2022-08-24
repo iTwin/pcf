@@ -6,7 +6,7 @@
 import * as fs from "fs";
 
 import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
-import { ElementAspectDMO, ElementDMO, ElementInSubModelDMO, RelatedElementDMO, RelationshipDMO } from "./DMO";
+import { ElementAspectDMO, ElementDMO, ElementWithParentDMO, RelatedElementDMO, RelationshipDMO } from "./DMO";
 import { IModelDb, InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
 
 import { DynamicEntityMap } from "./DynamicSchema";
@@ -426,26 +426,35 @@ export type ElementNodeProps = NodeProps & {
   dmo: ElementDMO,
 
   /*
+   * If an element has a model, it must not have a parent.
+   *
+   * No types are assignable to never. The DMO prevents us from just leaving the parent and model
+   * properties off of the object type because it narrows the union.
+   *
+   * @see https://stackoverflow.com/a/44425486
+   */
+  parent?: never,
+
+  /*
    * References a Model Node defined by user
    * All the elements populated by the dmo will be contained by this model
    */
   model: ModelNode,
-
-  /*
-   * A parent navigation property. The second type in the union is equivalent to
-   * [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops).
-   */
-  parent?: ElementNode | { parent: ElementNode, relationship: string };
 } | {
   /*
-   * Parent is mandatory.
+   * Parent is mandatory, so this DMO requires the parentAttr property.
    */
-  dmo: ElementInSubModelDMO,
+  dmo: ElementWithParentDMO,
+
+  model?: never,
 
   /*
-   * The element is a modeled element, so it can't have a parent.
+   * The parent navigation property, or a modeled element to contain this element.
+
+   * The second type in the union is equivalent to
+   * [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops).
    */
-  parent: ModeledElementNode;
+  parent: ElementNode | { parent: ElementNode, relationship: string } | ModeledElementNode
 });
 
 /*
@@ -455,7 +464,7 @@ export type ElementNodeProps = NodeProps & {
  */
 export class ElementNode extends Node {
 
-  public dmo: ElementDMO | ElementInSubModelDMO;
+  public dmo: ElementDMO | ElementWithParentDMO;
   public model: ModelNode | ModeledElementNode;
   public category?: ElementNode;
   public parent?: ElementNode | { parent: ElementNode, relationship: string };
@@ -470,11 +479,18 @@ export class ElementNode extends Node {
     // have to extract the element node's model node. Elements contained in the model of a modeled
     // element aren't really children of that element.
 
-    if ("model" in props) {
+    if (typeof props.parent !== "undefined") {
+      if (props.parent instanceof ModeledElementNode) {
+        this.model = props.parent;
+      } else {
+        const parent = "relationship" in props.parent ? props.parent.parent : props.parent;
+        this.model = parent.model;
+        this.parent = props.parent;
+      }
+    } else if (typeof props.model !== "undefined") {
       this.model = props.model;
-      this.parent = props.parent;
     } else {
-      this.model = props.parent;
+      throw Error("fatal: parent and model cannot both be undefined; this is a narrowing error in PCF");
     }
 
     this.pc.tree.insert<ElementNode>(this);
@@ -499,13 +515,23 @@ export class ElementNode extends Node {
       // the cache.
 
       let modelId;
-      if (this.model instanceof ModeledElementNode) {
-        // We know that if the model of this ElementNode is a ModeledElementNode, then the
-        // parentAttr of this element must be defined in its DMO.
-        const modelKey = IRInstance.createKey(this.model.dmo.irEntity, instance.get(this.dmo.parentAttr as string));
-        modelId = this.pc.modelCache[modelKey];
+      if (typeof this.parent !== "undefined") {
+          const dmo = this.dmo as ElementWithParentDMO;
+          const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
+          const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(dmo.parentAttr));
+          const parentId = this.pc.elementCache[parentKey];
+          const inflated = this.pc.db.elements.getElement(parentId);
+          modelId = inflated.model;
       } else {
-        modelId = this.pc.modelCache[this.model.key];
+        if (this.model instanceof ModeledElementNode) {
+          // We know that if the model of this ElementNode is a ModeledElementNode, then the
+          // parentAttr of this element must be defined in its DMO.
+          const dmo = this.dmo as ElementWithParentDMO;
+          const modelKey = IRInstance.createKey(this.model.dmo.irEntity, instance.get(dmo.parentAttr));
+          modelId = this.pc.modelCache[modelKey];
+        } else {
+          modelId = this.pc.modelCache[this.model.key];
+        }
       }
 
       const codeSpec: CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
@@ -541,9 +567,10 @@ export class ElementNode extends Node {
       // an element is made a child of a ModeledElementNode, it is placed in its model. The
       // interface is identical to parent-child modeling for elements. The model can be forgotten.
 
-      if (this.parent && this.dmo.parentAttr) {
+      if (this.parent && !(this.parent instanceof ModeledElementNode)) {
         const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
-        const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(this.dmo.parentAttr));
+        const dmo = this.dmo as ElementWithParentDMO;
+        const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(dmo.parentAttr));
         const parentId = this.pc.elementCache[parentKey];
         props.parent = (
           "relationship" in this.parent
