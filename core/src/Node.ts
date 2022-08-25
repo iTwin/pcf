@@ -507,33 +507,7 @@ export class ElementNode extends Node {
           continue;
       }
 
-      // Locate the ECInstanceId of the model. Either we have a ModelNode, for which there is
-      // exactly one model and partition in the iModel, or we have a ModeledElementNode. We use the
-      // ElementNode part of the ModeledElementNode to obtain its code value, which we use to
-      // identify the model in the model cache. Remember that PCF uses JavaScript identifiers to
-      // relate nodes, so we always know a model will be inserted before its elements and exist in
-      // the cache.
-
-      let modelId;
-      if (typeof this.parent !== "undefined") {
-          const dmo = this.dmo as ElementWithParentDMO;
-          const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
-          const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(dmo.parentAttr));
-          const parentId = this.pc.elementCache[parentKey];
-          const inflated = this.pc.db.elements.getElement(parentId);
-          modelId = inflated.model;
-      } else {
-        if (this.model instanceof ModeledElementNode) {
-          // We know that if the model of this ElementNode is a ModeledElementNode, then the
-          // parentAttr of this element must be defined in its DMO.
-          const dmo = this.dmo as ElementWithParentDMO;
-          const modelKey = IRInstance.createKey(this.model.dmo.irEntity, instance.get(dmo.parentAttr));
-          modelId = this.pc.modelCache[modelKey];
-        } else {
-          modelId = this.pc.modelCache[this.model.key];
-        }
-      }
-
+      const modelId = this.modelId(instance);
       const codeSpec: CodeSpec = this.pc.db.codeSpecs.getByName(PConnector.CodeSpecName);
       const code = new Code({ spec: codeSpec.id, scope: modelId, value: instance.codeValue });
 
@@ -562,14 +536,9 @@ export class ElementNode extends Node {
       // bis:SubCategory's parent navigation property, except that the backend enforces this
       // constraint and not the navigation property bis:CategoryOwnsSubcategories.
 
-      // PCF makes modeling as simple as possible. A ModelNode is an abstraction of a model and its
-      // partition. A ModeledElementNode is an abstraction of a model and its modeled element. When
-      // an element is made a child of a ModeledElementNode, it is placed in its model. The
-      // interface is identical to parent-child modeling for elements. The model can be forgotten.
-
       if (this.parent && !(this.parent instanceof ModeledElementNode)) {
-        const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
         const dmo = this.dmo as ElementWithParentDMO;
+        const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
         const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(dmo.parentAttr));
         const parentId = this.pc.elementCache[parentKey];
         props.parent = (
@@ -603,6 +572,39 @@ export class ElementNode extends Node {
     return results;
   }
 
+  protected modelId(instance: IRInstance): Id64String {
+      // Locate the ECInstanceId of the element's model. There are 3 cases:
+      //     1. An element with a parent. We assume that a child is in the same model as its parent,
+      //        which must already exist in the iModel because PCF constrains dependencies using
+      //        JavaScript identifiers, declaratively.
+      //     2. An element with a ModelNode, for which there is exactly one model and partition in
+      //        the iModel and the former can be identified with its node's key.
+      //     3. An element with a ModeledElementNode. We use the ElementNode part of the
+      //        ModeledElementNode to obtain its code value, which can identify the model in the
+      //        model cache.
+
+      let modelId;
+      if (typeof this.parent !== "undefined") { // (1)
+          // Unfortunately we're only narrowing the parent property above, and so TypeScript doesn't
+          // know that the DMO must be one with a mandatory 'parentAttr' property.
+          const dmo = this.dmo as ElementWithParentDMO;
+          const parent = "relationship" in this.parent ? this.parent.parent : this.parent;
+          const parentKey = IRInstance.createKey(parent.dmo.irEntity, instance.get(dmo.parentAttr));
+          const inflated = this.pc.db.elements.getElement(this.pc.elementCache[parentKey]);
+          modelId = inflated.model;
+      } else {
+        if (this.model instanceof ModeledElementNode) { // (3)
+          const dmo = this.dmo as ElementWithParentDMO;
+          const modelKey = IRInstance.createKey(this.model.dmo.irEntity, instance.get(dmo.parentAttr));
+          modelId = this.pc.modelCache[modelKey];
+        } else { // (2)
+          modelId = this.pc.modelCache[this.model.key];
+        }
+      }
+
+      return modelId;
+  }
+
   public toJSON(): any {
     return { key: this.key, dmo: this.dmo, cateogoryNode: this.category ? this.category.key : "" };
   }
@@ -621,7 +623,8 @@ export type ModeledElementNodeProps = ElementNodeProps & {
 }
 
 /*
- * A node that represents a modeled element in BIS.
+ * A node that represents a modeled element in BIS. Just like ElementNode, its subtype, a
+ * ModeledElementNode supports DMOs.
  */
 export class ModeledElementNode extends ElementNode {
   subject: SubjectNode;
@@ -634,12 +637,15 @@ export class ModeledElementNode extends ElementNode {
   }
 
   protected override async _sync(): Promise<SyncResult[]> {
+    // This super call means we're going to make two passes over the elements that we need to
+    // synchronize, instead of adding their models in one pass. We have no control over the behavior
+    // of the ElementNode part of a ModeledElementNode.
     const changes = await super._sync();
 
     const instances = await this.pc.irModel.getEntityInstances(this.dmo.irEntity);
     for (const instance of instances) {
       const modeledElement = this.pc.elementCache[instance.key];
-      const parentModel = this.pc.modelCache[this.model.key];
+      const parentModel = this.modelId(instance);
 
       // Currently, PCF doesn't support properties on a model, like JSON properties. If the model
       // doesn't exist, it is inserted. Otherwise it is retrieved. Models are never updated.
@@ -677,7 +683,8 @@ export class ModeledElementNode extends ElementNode {
       }
     }
 
-    // Just return the changes from syncing the element part of the modeled element.
+    // Just return the changes from syncing the element part of the modeled element, because models
+    // can't be updated.
     return changes;
   }
 }

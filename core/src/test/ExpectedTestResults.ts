@@ -138,7 +138,6 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from bis:UrlLink where Description like '%lakeside cabin%'": 1,
     "select * from bis:UrlLink where Description like '%reading corner%'": 1,
     "select * from only bis:ElementOwnsChildElements as relationships inner join only bis:UrlLink as links on relationships.SourceECInstanceId = links.ECInstanceId": 2,
-    // TODO: Test that the children are in the expected nested model.
   }
 };
 

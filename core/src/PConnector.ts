@@ -182,7 +182,12 @@ export abstract class PConnector {
     this._modelCache[node.key] = result.entityId;
   }
 
-  public onSyncModeledElement(result: SyncResult, instance: IRInstance) {
+  /*
+   * What to do with the model part of a modeled element after it's synced. We only worry about
+   * caching the ECInstanceId of the model, because the element is cached by
+   * {@link PConnector#onSyncElement}.
+   */
+  public onSyncModeledElement(result: SyncResult, instance: IRInstance): void {
     this._modelCache[instance.key] = result.entityId;
   }
 
