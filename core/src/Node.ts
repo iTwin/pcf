@@ -493,6 +493,8 @@ export class ElementNode extends Node {
       throw Error("fatal: parent and model cannot both be undefined; this is a narrowing error in PCF");
     }
 
+    this.model.elements.push(this);
+
     this.pc.tree.insert<ElementNode>(this);
   }
 
@@ -629,6 +631,7 @@ export type ModeledElementNodeProps = ElementNodeProps & {
 export class ModeledElementNode extends ElementNode {
   subject: SubjectNode;
   modelClass: typeof Model;
+  elements: ElementNode[] = [];
 
   constructor(connector: PConnector, props: ModeledElementNodeProps) {
     super(connector, props);
