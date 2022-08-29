@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ElementAspectProps, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
-import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
+import { BriefcaseDb, Category, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
 import { ItemState, ModelNode, SubjectNode, SyncResult, IRInstance, IRInstanceKey, IRModel, JobArgs, LoaderNode, RelatedElementNode, RelationshipNode, RepoTree, SyncArg, syncDynamicSchema, tryGetSchema } from "./pcf";
 import { LockQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
@@ -74,6 +74,15 @@ export class PConnectorConfig implements PConnectorConfigProps {
   }
 }
 
+/**
+ * Tree-trimming statistics.
+ */
+export type Trim = {
+    deletedElements: number,
+    deletedModels: number,
+    deletedAspects: number
+};
+
 export abstract class PConnector {
 
   public static CodeSpecName: string = "IREntityKey-PrimaryKeyValue";
@@ -119,38 +128,38 @@ export abstract class PConnector {
     if (!this._config)
       throw new Error("You must define PConnectorConfig in the constructor of your connector class");
     return this._config;
-  } 
+  }
 
   public set config(config: PConnectorConfig) {
     this._config = config;
-  } 
+  }
 
   public get db() {
-    if (!this._db) 
+    if (!this._db)
       throw new Error("IModelDb is not assigned");
     return this._db;
   }
 
   public get jobArgs() {
-    if (!this._jobArgs) 
+    if (!this._jobArgs)
       throw new Error("JobArgs is not assigned");
     return this._jobArgs;
   }
 
   public get jobSubjectId() {
-    if (!this._jobSubjectId) 
+    if (!this._jobSubjectId)
       throw new Error("job subject ID is undefined. call updateSubject to populate its value.");
     return this._jobSubjectId;
   }
 
   public get irModel() {
-    if (!this._irModel) 
+    if (!this._irModel)
       throw new Error("irModel has not been initialized. call loadIRModel to populate its value.");
     return this._irModel;
   }
 
   public get srcState() {
-    if (this._srcState === undefined) 
+    if (this._srcState === undefined)
       throw new Error("srcState is undefined. call Loader.update() to populate its value.");
     return this._srcState;
   }
@@ -173,6 +182,15 @@ export abstract class PConnector {
   public onSyncElement(result: SyncResult, instance: IRInstance) {
     this._elementCache[instance.key] = result.entityId;
     this._seenElementIdSet.add(result.entityId);
+  }
+
+  /*
+   * What to do with the model part of a modeled element after it's synced. We only worry about
+   * caching the `ECInstanceId` of the model, because the element is cached by
+   * {@link PConnector#onSyncElement}.
+   */
+  public onSyncModeledElement(result: SyncResult, instance: IRInstance): void {
+    this._modelCache[instance.key] = result.entityId;
   }
 
   public onSyncAspect(result: SyncResult, instance: IRInstance) {
@@ -309,63 +327,151 @@ export abstract class PConnector {
       return;
     }
 
-    let nDeleted = 0;
+    const stats = this.trimTree(this.jobSubjectId);
+    const total = stats.deletedElements + stats.deletedAspects;
 
-    const deleteElementUniqueAspect = (elementId: string) => {
-      const aspects = this.db.elements.getAspects(elementId, ElementUniqueAspect.classFullName);
-      for (const aspect of aspects) {
-        if (this._seenAspectIdSet.has(aspect.id))
-          continue;
-        try {
-          this.db.elements.deleteAspect(aspect.id);
-          nDeleted += 1;
-        } catch (err) {
-          Logger.logWarning(LogCategory.PCF, (err as IModelError).message);
+    Logger.logInfo(LogCategory.PCF, `Number of deleted EC Entity Instances: ${total}`);
+
+    return total;
+  }
+
+  /*
+   * 'Managed' aspects are those that store their provenance on the element they're connected to.
+   * PCF does this to allow aspects to be updated and deleted independently of their element. If
+   * you're a BIS purist this approach isn't for you, but the alternative is having no provenance
+   * information for aspects.
+   */
+  deleteManagedAspects(element: Id64String): number {
+    const aspects = this.db.elements.getAspects(element);
+
+    let deleted = 0;
+    for (const aspect of aspects) {
+      const notProvenance = aspect.className !== ExternalSourceAspect.className;
+      if (notProvenance && !this._seenAspectIdSet.has(aspect.id)) {
+        deleted += 1;
+        this.db.elements.deleteAspect(aspect.id);
+      }
+    }
+
+    return deleted;
+  }
+
+ /**
+   * Trim the iModel tree rooted at the given branch, the `ECInstanceId` of an element or model.
+   * This method deletes all elements and models that have not been seen by the synchronizer, and
+   * whose children have not been seen.
+   *
+   * This method is a transplant from [`fir`](https://github.com/jackson-at-bentley/fir).
+   * For details about this method,
+   * [please see the documentation](https://jackson-at-bentley.github.io/fir/classes/sync.Sync.html#trim).
+   *
+   * This method is expected to be replaced by a dedicated class from the iTwin library when it is
+   * made available.
+   */
+  private trimTree(branch: Id64String): Trim
+  {
+    // There are only two kinds of elements in BIS: modeled elements and parent elements.
+    // See also: https://www.itwinjs.org/bis/intro/modeling-with-bis/#relationships
+
+    // We perform a post-order traversal down the channel, because we must ensure that every
+    // child is deleted before its parent, and every model before its modeled element.
+
+    let children: Id64String[];
+
+    let deletedElements = 0;
+    let deletedModels = 0;
+    let deletedAspects = 0;
+
+    const model = this.db.models.tryGetSubModel(branch);
+    const isElement = model === undefined;
+
+    if (isElement) {
+        // The element is a parent element.
+        children = childrenOfElement(this.db, branch);
+    } else {
+        // The element is a modeled element.
+        children = childrenOfModel(this.db, model.id);
+    }
+
+    children.forEach((child) => {
+        const deleted = this.trimTree(child);
+        deletedElements += deleted.deletedElements;
+        deletedModels += deleted.deletedModels;
+        deletedAspects += deleted.deletedAspects;
+    });
+
+    // If all elements were deleted successfully, delete the parent.
+
+    const element = this.db.elements.getElement(branch);
+    let remainingChildren: Id64String[];
+
+    if (isElement) {
+        this.deleteManagedAspects(branch);
+        remainingChildren = childrenOfElement(this.db, branch);
+    } else {
+        remainingChildren = childrenOfModel(this.db, model.id);
+    }
+
+    // A category will have an unmanaged default subcategory. If we don't see the category, and its
+    // managed subcategories are deleted, we forcibly delete this subcategory.
+
+    const managed = isManaged(this.db, branch);
+    const seen = this._seenElementIdSet.has(branch);
+    const subcategoryWithDefault = element instanceof Category && remainingChildren.length === 1;
+    const noChildren = remainingChildren.length === 0 || subcategoryWithDefault;
+
+    if (managed && !seen && noChildren) {
+      Logger.logTrace(LogCategory.PCF, `Visiting element ${branch} :: ${element.classFullName} (proto. ${Object.getPrototypeOf(element).constructor.name}); definition? ${element instanceof DefinitionElement}`);
+
+      if (isElement) {
+        // Note that although ReturnType<backend.getElement> :: backend.Element, the backend does
+        // some weird stuff and is able to construct the corresponding *class type* in iTwin's
+        // libraries. This means that the element's prototype chain is intact despite its type being
+        // narrowed to backend.Element. We can filter the element using instanceof.
+
+        // Aspects are owned, i.e., their lifetime is managed by their owning element. When we
+        // delete the element, the aspects are deleted, so we count them in advance before letting
+        // the backend loose.
+
+        if (element instanceof DefinitionElement) {
+          Logger.logTrace(LogCategory.PCF, `Try deleting definition ${element.id} :: ${element.className}; label: ${element.userLabel}`);
+
+          const aspects = this.db.elements.getAspects(branch).length;
+          const inUse = this.db.elements.deleteDefinitionElements([branch]).size;
+
+          if (inUse === 0) {
+            Logger.logTrace(LogCategory.PCF, `  Success!`);
+            deletedElements += 1;
+            if (element instanceof Category) {
+                deletedElements += 1; // The default subcategory.
+            }
+
+            deletedAspects += aspects;
+          }
+        } else {
+          Logger.logTrace(LogCategory.PCF, `Deleting element ${element.id} :: ${element.className}; label: ${element.userLabel}`);
+
+          deletedElements += 1;
+          deletedAspects += this.db.elements.getAspects(branch).length;
+
+          this.db.elements.deleteElement(branch);
         }
+      } else {
+        // If we've deleted all the immediate children of the model, delete both the modeled element
+        // and the model.
+
+        Logger.logTrace(LogCategory.PCF, `Deleting model ${model.id} :: ${model.className}`);
+
+        deletedElements += 1;
+        deletedModels += 1;
+        deletedAspects += this.db.elements.getAspects(branch).length;
+
+        this.db.models.deleteModel(model.id);
+        this.db.elements.deleteElement(branch);
       }
     }
 
-    // Assume: 1. Subjects (created by PCF) are not nested. 2. Scope.ID = Model ID
-    // This query grabs all of the ExternalSourceAspects scoped under the current job Subject.
-    // Kind='DocumentWithBeGuid' indicates an ExternalSourceAspect for RepositoryLink which we do not erase.
-    const ecsql = `
-      SELECT xsa.ECInstanceId[xsaId], xsa.Element.Id[elementId]
-      FROM ${ExternalSourceAspect.classFullName} xsa
-        INNER JOIN ${SubjectOwnsPartitionElements.classFullName} owns on xsa.Scope.Id=owns.TargetECInstanceId
-      WHERE xsa.Kind!='DocumentWithBeGuid' and owns.SourceECInstanceId=${this.jobSubjectId}
-    `;
-    const rows = await util.getRows(this.db, ecsql);
-
-    const elementIds: Id64String[] = [];
-    const defElementIds: Id64String[] = [];
-
-    for (const row of rows) {
-      const elementId = row.elementId;
-      deleteElementUniqueAspect(elementId);
-      if (this._seenElementIdSet.has(elementId))
-        continue;
-      const element = this.db.elements.getElement(elementId);
-      if (element instanceof DefinitionElement)
-        defElementIds.push(elementId);
-      else
-        elementIds.push(elementId);
-    }
-
-    for (const elementId of elementIds) {
-      if (this.db.elements.tryGetElement(elementId)) {
-        this.db.elements.deleteElement(elementId);
-        nDeleted += 1;
-      }
-    }
-
-    for (const elementId of defElementIds) {
-      if (this.db.elements.tryGetElement(elementId)) {
-        this.db.elements.deleteDefinitionElements([elementId]);
-        nDeleted += 1;
-      }
-    }
-
-    Logger.logInfo(LogCategory.PCF, `Number of deleted EC Entity Instances: ${nDeleted}`);
+    return { deletedElements, deletedModels, deletedAspects };
   }
 
   protected async _updateProjectExtents() {
@@ -451,7 +557,7 @@ export abstract class PConnector {
       const newElementId = this.db.elements.insertElement(props);
       props.id = newElementId;
     } else {
-      props.id = existingElement.id; 
+      props.id = existingElement.id;
     }
 
     const state = this.syncProvenance(arg);
@@ -551,4 +657,75 @@ export abstract class PConnector {
     const codeSpec: CodeSpec = this.db.codeSpecs.getByName(PConnector.CodeSpecName);
     return codeSpec;
   }
+}
+
+/*
+ * Return the iModel IDs of the immediate children of a model.
+ * @param imodel
+ * @param model The model containing the desired children.
+ * @returns A list of iModel IDs of the immediate children.
+ */
+function childrenOfModel(imodel: IModelDb, model: Id64String): Id64String[]
+{
+  const query = "select ECInstanceId from bis:Element where Model.id = ? and Parent is null";
+
+    return imodel.withPreparedStatement(query, (statement) => {
+        const elements: Id64String[] = [];
+
+        statement.bindId(1, model);
+        for (const row of statement) {
+            elements.push(row.id);
+        }
+
+        return elements;
+    });
+}
+
+/*
+ * Return the iModel IDs of the immediate children of an element.
+ * @param imodel
+ * @param element The element that owns the desired children.
+ * @returns A list of iModel IDs of the immediate children.
+ */
+function childrenOfElement(imodel: IModelDb, element: Id64String): Id64String[]
+{
+    const query = "select ECInstanceId from bis:Element where Parent.id = ?";
+
+    return imodel.withPreparedStatement(query, (statement) => {
+        const elements: Id64String[] = [];
+
+        statement.bindId(1, element);
+        for (const row of statement) {
+            elements.push(row.id);
+        }
+
+        return elements;
+    });
+}
+
+/*
+ * Is this element managed by the synchronizer? In other words, does it have an external source
+ * aspect? If it doesn't, the synchronizer absolutely should not delete it. As far as it is
+ * concerned, it doesn't exist.
+ * @param imodel
+ * @param element The element to inspect.
+ * @returns Does the element have at least one external source aspect?
+ *
+ */
+function isManaged(imodel: IModelDb, element: Id64String): boolean
+{
+    const query = "select count(*) from bis:ExternalSourceAspect where Element.id = ?";
+
+    return imodel.withPreparedStatement(query, (statement) => {
+        statement.bindId(1, element);
+        statement.step();
+
+        const count = statement.getValue(0);
+
+        if (count.isNull) {
+            return false;
+        }
+
+        return count.getInteger() > 0;
+    });
 }

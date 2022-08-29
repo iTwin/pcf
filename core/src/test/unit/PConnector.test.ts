@@ -2,12 +2,15 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Logger, LogLevel } from "@itwin/core-bentley";
-import { IModelHost, StandaloneDb } from "@itwin/core-backend";
+
 import * as chai from "chai";
-import * as path from "path";
 import * as fs from "fs";
+import * as path from "path";
 import * as pcf from "../../pcf";
+
+import { IModelHost, StandaloneDb } from "@itwin/core-backend";
+import { LogLevel, Logger } from "@itwin/core-bentley";
+
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
 
@@ -38,10 +41,25 @@ describe("Unit Tests", () => {
             kind: "pcf_file_connection",
             filepath: tempSrcPath,
           }
+        }
+      ]
+    },
+    {
+      title: "Parent-child and element-model modeling",
+      jobs: [
+        {
+          sourceFile: "parent-child.json",
+          connectorFile: "parent-child.js",
+          subjectNodeKey: "bookmarks-node",
+          connection: {
+            loaderNodeKey: "parent-child-modeling-loader-node",
+            kind: "pcf_file_connection",
+            filepath: tempSrcPath,
+          }
         },
       ]
     },
-  ]
+  ];
 
   const targetPath = path.join(KnownTestLocations.testOutputDir, `${path.basename(tempSrcPath, path.extname(tempSrcPath))}.bim`);
 
@@ -107,16 +125,29 @@ describe("Unit Tests", () => {
   }
 
   it("Loader Tests", async () => {
+    // TODO: I haven't added all of the new entities to this test.
     const props: pcf.LoaderProps = {
       format: "json",
-      entities: ["ExtPhysicalElement", "ExtPhysicalType", "ExtGroupInformationElement", "ExtSpace", "ExtSpatialCategory"],
-      relationships: ["ExtElementRefersToElements", "ExtElementRefersToExistingElements", "ExtElementGroupsMembers", "ExtPhysicalElementAssemblesElements"],
+      entities: [
+        "ExtPhysicalElement",
+        "ExtPhysicalType",
+        "ExtGroupInformationElement",
+        "ExtSpace",
+        "ExtSpatialCategory",
+        "SpatialSubcategory"
+      ],
+      relationships: [
+        "ExtElementRefersToElements",
+        "ExtElementRefersToExistingElements",
+        "ExtElementGroupsMembers",
+        "ExtPhysicalElementAssemblesElements"
+      ],
       defaultPrimaryKey: "id",
     };
 
     const jsonLoader = new pcf.JSONLoader(props);
     const jsonConnection = { kind: "pcf_file_connection", filepath: path.join(KnownTestLocations.testAssetsDir, "v1.json") };
-    const modelFromJSON = new pcf.IRModel(jsonLoader, jsonConnection as pcf.DataConnection)
+    const modelFromJSON = new pcf.IRModel(jsonLoader, jsonConnection as pcf.DataConnection);
     await modelFromJSON.load();
 
     const sqliteLoader = new pcf.SQLiteLoader(props);
@@ -124,11 +155,42 @@ describe("Unit Tests", () => {
     const modelFromSQLite = new pcf.IRModel(sqliteLoader, sqliteConnection as pcf.DataConnection);
     await modelFromSQLite.load();
 
-    if (!pcf.IRModel.compare(modelFromJSON, modelFromSQLite))
-      chai.assert.fail("IR Model from JSON != IR Model from SQLite");
+    // Assuming instances are given unique primary keys:
+    // 1. There are the same number of IR entities in each model.
+    // 2. There are the same number of IR instances for each IR entity.
+    // 3. For each instance in the JSON IR model, there is a matching instance in the SQLite IR model.
+
+    const jsonEntities = await jsonLoader.getEntities();
+    const sqliteEntities = await sqliteLoader.getEntities();
+
+    chai.assert.deepStrictEqual(jsonEntities.length, sqliteEntities.length); // 1.
+
+    const jsonRelationships = await jsonLoader.getRelationships();
+    const sqliteRelationships = await sqliteLoader.getRelationships();
+
+    chai.assert.deepStrictEqual(jsonRelationships.length, sqliteRelationships.length); // 1.
+
+    for (const entity of jsonEntities) {
+      const jsonInstances = await modelFromJSON.getEntityInstances(entity.key);
+      const sqliteInstances = await modelFromSQLite.getEntityInstances(entity.key);
+      chai.assert.deepStrictEqual(jsonInstances.length, sqliteInstances.length); // 2.
+      for (const instance of jsonInstances) {
+        const found = sqliteInstances.find(other => instance.key === other.key); // Slow!
+        chai.assert.deepStrictEqual(instance, found); // 3.
+      }
+    }
+
+    for (const entity of jsonRelationships) {
+      const jsonInstances = await modelFromJSON.getRelationshipInstances(entity.key);
+      const sqliteInstances = await modelFromSQLite.getRelationshipInstances(entity.key);
+      chai.assert.deepStrictEqual(jsonInstances.length, sqliteInstances.length); // 2.
+      for (const instance of jsonInstances) {
+        const found = sqliteInstances.find(other => instance.key === other.key);
+        chai.assert.deepStrictEqual(instance, found); // 3.
+      }
+    }
 
     await modelFromJSON.clear();
     await modelFromSQLite.clear();
   });
 });
-

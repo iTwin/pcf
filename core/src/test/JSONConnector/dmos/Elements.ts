@@ -2,11 +2,12 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
-import { GroupInformationElement, PhysicalElement, PhysicalType } from "@itwin/core-backend";
-import { IRInstance, ElementDMO, PConnector } from "../../../pcf";
 
-export const ExtPhysicalElement: ElementDMO = {
+import { ElementDMO, ElementWithParentDMO, IRInstance, PConnector } from "../../../pcf";
+import { GroupInformationElement, PhysicalElement, PhysicalType, RepositoryLink, SubCategory, UrlLink } from "@itwin/core-backend";
+import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
+
+export const ExtPhysicalElement: ElementWithParentDMO = {
   irEntity: "ExtPhysicalElement",
   ecElement: {
     name: "ExtPhysicalElement",
@@ -30,6 +31,7 @@ export const ExtPhysicalElement: ElementDMO = {
     return instance.get("id") === "0" ? false : true;
   },
   categoryAttr: "category",
+  parentAttr: "parent",
 };
 
 export const ExtSpace: ElementDMO = {
@@ -68,3 +70,54 @@ export const ExtSpatialCategory: ElementDMO = {
   ecElement: "BisCore:SpatialCategory",
 };
 
+export const SpatialSubcategory: ElementWithParentDMO = {
+  irEntity: "SpatialSubcategory",
+  ecElement: SubCategory.classFullName,
+  modifyProps: (
+    connector: PConnector,
+    props: { [property: string]: unknown },
+    instance: IRInstance
+  ): void => {
+    props.description = instance.get("description");
+  },
+  parentAttr: "parent",
+};
+
+export const ModeledRepository: ElementDMO = {
+  irEntity: "ModeledRepository",
+  ecElement: RepositoryLink.classFullName,
+  modifyProps: (
+    connector: PConnector,
+    props: { [property: string]: unknown },
+    instance: IRInstance
+  ): void => {
+    props.userLabel = instance.get("label");
+  }
+};
+
+export const NestedModeledRepository: ElementWithParentDMO = {
+  irEntity: "NestedModeledRepository",
+  ecElement: RepositoryLink.classFullName,
+  modifyProps: (
+    connector: PConnector,
+    props: { [property: string]: unknown },
+    instance: IRInstance
+  ): void => {
+    props.userLabel = instance.get("label");
+  },
+  parentAttr: "parent",
+};
+
+export const NestedLink: ElementWithParentDMO = {
+  irEntity: "NestedLink",
+  ecElement: UrlLink.classFullName,
+  modifyProps: (
+    connector: PConnector,
+    props: { [property: string]: unknown },
+    instance: IRInstance
+  ): void => {
+    props.userLabel = instance.get("label");
+    props.url = instance.get("url");
+  },
+  parentAttr: "parent",
+};

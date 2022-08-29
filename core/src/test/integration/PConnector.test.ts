@@ -2,14 +2,18 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
+import * as chai from "chai";
+import * as fs from "fs";
+import * as path from "path";
+import * as pcf from "../../pcf";
+
+import { LogLevel, Logger } from "@itwin/core-bentley";
+
 import { IModelHost } from "@itwin/core-backend";
+import { IntegrationTestApp } from "./IntegrationTestApp";
 import KnownTestLocations from "../KnownTestLocations";
 import TestResults from "../ExpectedTestResults";
-import { IntegrationTestApp } from "./IntegrationTestApp";
-import * as pcf from "../../pcf";
-import * as chai from "chai";
-import * as path from "path";
-import * as fs from "fs";
 
 describe("Integration Tests", () => {
 
@@ -89,6 +93,15 @@ describe("Integration Tests", () => {
       fs.mkdirSync(KnownTestLocations.testOutputDir);
     await IModelHost.startup();
     await app.signin();
+    Logger.initializeToConsole();
+    Logger.configureLevels({
+      categoryLevels: [
+        {
+          category: pcf.LogCategory.PCF,
+          logLevel: LogLevel[LogLevel.Trace],
+        },
+      ]
+    });
   });
 
   after(async () => {
@@ -134,4 +147,3 @@ describe("Integration Tests", () => {
     });
   }
 });
-
