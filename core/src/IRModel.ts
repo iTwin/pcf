@@ -115,9 +115,7 @@ export class IRModel {
     await this._loader.open(this._connection);
 
     const entities = await this._loader.getEntities();
-    let relationships: IRRelationship[] = [];
-    // if (typeof this._loader.getRelationships === "function") ???
-      relationships = await this._loader.getRelationships();
+    const relationships: IRRelationship[] = await this._loader.getRelationships();
 
     for (const entity of entities) {
       if (!this.lazyMode)
