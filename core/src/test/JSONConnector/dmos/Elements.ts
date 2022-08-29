@@ -15,11 +15,22 @@ export const ExtPhysicalElement: ElementWithParentDMO = {
     properties: [
       {
         name: "BuildingNumber",
+        // TODO: I have no idea what's going on with @itwin/ecschema-metadata here. Both `type` and
+        // `typeName` are required properties, the former by `PropertyProps` and the latter by
+        // `PrimitivePropertyProps`, even though `PrimitivePropertyProps` is a supertype of
+        // `PropertyProps`.
+        //
+        // For the source of my confusion, please
+        // [see the EC documentation](https://www.itwinjs.org/bis/ec/ec-property/#common-attributes).
+        //
+        // `typeName` is a common property of *all* 5 EC property types.
         type: primitiveTypeToString(PrimitiveType.String),
+        typeName: primitiveTypeToString(PrimitiveType.String),
       },
       {
         name: "RoomNumber",
         type: primitiveTypeToString(PrimitiveType.String),
+        typeName: primitiveTypeToString(PrimitiveType.String),
       },
     ],
   },
