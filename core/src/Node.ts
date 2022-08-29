@@ -493,7 +493,9 @@ export class ElementNode extends Node {
       throw Error("fatal: parent and model cannot both be undefined; this is a narrowing error in PCF");
     }
 
-    this.model.elements.push(this);
+    if (this.model instanceof ModelNode) {
+      this.model.elements.push(this);
+    }
 
     this.pc.tree.insert<ElementNode>(this);
   }
@@ -607,8 +609,26 @@ export class ElementNode extends Node {
       return modelId;
   }
 
-  public toJSON(): any {
-    return { key: this.key, dmo: this.dmo, cateogoryNode: this.category ? this.category.key : "" };
+  public toJSON(): {
+    key: ElementNode["key"],
+    dmo: ElementNode["dmo"],
+    categoryKey?: string
+    parentKey?: string,
+  } {
+    const readable: ReturnType<typeof this.toJSON> = {
+      key: this.key,
+      dmo: this.dmo,
+    };
+
+    if (this.category) {
+      readable.categoryKey = this.category.key;
+    }
+
+    if (this.parent) {
+      readable.parentKey = "relationship" in this.parent ? this.parent.parent.key : this.parent.key;
+    }
+
+    return readable;
   }
 }
 
@@ -631,7 +651,6 @@ export type ModeledElementNodeProps = ElementNodeProps & {
 export class ModeledElementNode extends ElementNode {
   subject: SubjectNode;
   modelClass: typeof Model;
-  elements: ElementNode[] = [];
 
   constructor(connector: PConnector, props: ModeledElementNodeProps) {
     super(connector, props);
@@ -689,6 +708,15 @@ export class ModeledElementNode extends ElementNode {
     // Just return the changes from syncing the element part of the modeled element, because models
     // can't be updated.
     return changes;
+  }
+
+  public override toJSON(): ReturnType<ElementNode["toJSON"]> & { modelClass: string } {
+    const readable: ReturnType<typeof this.toJSON> = {
+      ...super.toJSON(),
+      modelClass: this.modelClass.className,
+    };
+
+    return readable;
   }
 }
 

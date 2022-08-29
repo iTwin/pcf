@@ -7,6 +7,8 @@ import * as pcf from "../../pcf";
 
 import { ElementOwnsChildElements, FolderContainsRepositories, FolderLink, LinkModel, LinkPartition, RepositoryLink, UrlLink } from "@itwin/core-backend";
 
+import { assert } from "chai";
+
 /*
  *                                o - repository model
  *                               / \
@@ -115,7 +117,9 @@ export class BookmarkConnector extends pcf.PConnector {
       dmo: folderDMO,
     });
 
-    new pcf.ElementNode(this, {
+    assert.strictEqual(folder.toJSON().key, "folder-node");
+
+    const repository = new pcf.ElementNode(this, {
       parent: {
         parent: folder,
         relationship: FolderContainsRepositories.classFullName,
@@ -123,6 +127,8 @@ export class BookmarkConnector extends pcf.PConnector {
       key: "repository-node",
       dmo: repositoryDMO("repository"),
     });
+
+    assert.strictEqual(repository.toJSON().parentKey, "folder-node");
 
     // Note that we're using the hyperlink DMO, which specifies parentAttr. But it's not in the JSON
     // of the IR instances of the IR entity 'hyperlink'. So the property is undefined, which is a
@@ -143,6 +149,8 @@ export class BookmarkConnector extends pcf.PConnector {
       key: "modeled-repository-node",
       dmo: repositoryDMO("modeled-repository"),
     });
+
+    assert.strictEqual(modeledRepository.toJSON().modelClass, LinkModel.className);
 
     const childOfModeledRepository = new pcf.ElementNode(this, {
       parent: modeledRepository,
