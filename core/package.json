@@ -52,7 +52,7 @@
     "@itwin/presentation-common": "^3.0.0",
     "@itwin/service-authorization": "0.3.0",
     "@itwin/webgl-compatibility": "^3.0.0",
-    "electron": "^14.0.0",
+    "electron": "^15.5.5",
     "sqlite": "^4.0.12",
     "sqlite3": "^5.0.0",
     "xlsx": "^0.16.9",
