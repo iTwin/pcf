@@ -54,7 +54,7 @@ stages:
 
       - task: NodeTool@0
         inputs:
-          versionSpec: '12.17.0'
+          versionSpec: '16.17.0'
         displayName: 'Install Node.js'
 
       # @itwin/pcf build
@@ -233,4 +233,3 @@ stages:
         path: '*.tgz'
         artifactName: cli
         name: cli
-
