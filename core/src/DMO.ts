@@ -5,7 +5,7 @@
 import { EntityClassProps, RelationshipClassProps } from "@itwin/ecschema-metadata";
 import { IRInstance, PConnector } from "./pcf";
 
-/* 
+/*
  * A string that contains a JSON whose keys refer to EC Properties and values refer to their values.
  * The combination of this set of properties and values should uniquely identify a target element that already exists in the iModel.
  * e.g. {"ECClassId": "Bis.PhysicalElement", "CodeValue": "Wall"}
@@ -37,11 +37,11 @@ export interface DMO {
    * Defines a condition to determine if an ECInstance should be created from an IRInstance.
    * The instance will not be synchronized if "false" is returned.
    * This function is always awaited in case if a Promise is returned.
-   */ 
+   */
   doSyncInstance?(instance: IRInstance): Promise<boolean> | boolean;
 
   /*
-   * Modifies the default properties assigned to the current ECInstance. 
+   * Modifies the default properties assigned to the current ECInstance.
    * An IRInstance contains the external data corresponding to current EC Entity.
    * This function is always awaited in case if a Promise is returned.
    */
@@ -55,7 +55,7 @@ export interface ElementDMO extends DMO {
 
   /*
    * References an EC Element Class by one of the following options:
-   * 1. include its domain class full name 
+   * 1. include its domain class full name
    * 2. create a dynamic element class by defining it here
    */
   readonly ecElement: ECDomainClassFullName | ECDynamicEntityClassProps;
@@ -77,10 +77,16 @@ export interface ElementDMO extends DMO {
   // readonly registeredClass?: typeof BisElement;
 }
 
+/*
+ * Identical to a DMO for elements, but with a mandatory `parrentAttr` property. When an element
+ * node does not have a model node, it must have this DMO attached to it.
+ */
+export type ElementWithParentDMO = ElementDMO & { parentAttr: string };
+
 export interface ElementAspectDMO extends DMO {
   /*
    * References an EC Element Aspect Class by one of the following options:
-   * 1. include its domain class full name 
+   * 1. include its domain class full name
    * 2. create a dynamic element class by defining it here
    */
   readonly ecElementAspect: ECDomainClassFullName | ECDynamicEntityClassProps;
@@ -93,7 +99,7 @@ export interface RelationshipDMO extends DMO {
 
   /*
    * References a relationship class by one of the following options:
-   * 1. include its domain class full name 
+   * 1. include its domain class full name
    * 2. create a dynamic relationship class by defining it here
    */
   readonly ecRelationship: ECDomainClassFullName | ECDynamicRelationshipClassProps;
@@ -111,7 +117,7 @@ export interface RelationshipDMO extends DMO {
 
   /*
    * References a primary/foreign key (attribute) that uniquely identifies a source IR/EC Entity.
-   * toAttr must contain Locator if toType = "ECEntity" 
+   * toAttr must contain Locator if toType = "ECEntity"
    */
   readonly toAttr: Locator | string;
 

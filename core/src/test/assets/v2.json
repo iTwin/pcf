@@ -35,6 +35,13 @@
       "id": "1"
     }
   ],
+  "SpatialSubcategory": [
+    {
+      "id": "1",
+      "description": "Whoa look at me! I've moved to the first category.",
+      "parent": "1"
+    }
+  ],
   "ExtSpace": [
     {
       "id": "1",
@@ -95,6 +102,38 @@
       "id": "1",
       "ExtGroupInformationElementKey": "2",
       "ExtPhysicalElementKey": "1"
+    }
+  ],
+  "ModeledRepository": [
+    {
+      "id": "1",
+      "label": "reference documents"
+    }
+  ],
+  "NestedModeledRepository": [
+    {
+      "id": "1",
+      "label": "large clients",
+      "parent": "1"
+    },
+    {
+      "id": "2",
+      "label": "backlog",
+      "parent": "1"
+    }
+  ],
+  "NestedLink": [
+    {
+      "id": "1",
+      "label": "high-rise floor plans",
+      "url": "https://athena-contracting.com/high-rise-floor-plans.html",
+      "parent": "1"
+    },
+    {
+      "id": "2",
+      "label": "sushi restaurant flooring",
+      "url": "https://athena-contracting.com/sushi-flooring.html",
+      "parent": "2"
     }
   ]
 }

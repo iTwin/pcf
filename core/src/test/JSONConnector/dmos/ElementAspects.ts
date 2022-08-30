@@ -11,10 +11,12 @@ export const ExtElementAspectA: ElementAspectDMO = {
       {
         name: "Name",
         type: primitiveTypeToString(PrimitiveType.String),
+        typeName: primitiveTypeToString(PrimitiveType.String),
       },
       {
         name: "Type",
         type: primitiveTypeToString(PrimitiveType.String),
+        typeName: primitiveTypeToString(PrimitiveType.String),
       },
     ],
   },

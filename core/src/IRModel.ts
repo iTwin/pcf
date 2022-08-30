@@ -44,7 +44,7 @@ export class IRModel {
     if (entity.instances)
       entity.instances = IRModel.normalized(entity.instances);
   }
-  
+
   public addRelationship(rel: IRRelationship) {
     if (rel.key in this._relMap) {
       Logger.logWarning(LogCategory.PCF, `IR Relationship Entity ${rel.key} already exists in IR Model.`);
@@ -62,7 +62,7 @@ export class IRModel {
     }
     delete this._entityMap[entity.key];
   }
-  
+
   public deleteRelationship(rel: IRRelationship) {
     if (!(rel.key in this._relMap)) {
       Logger.logWarning(LogCategory.PCF, `IR Relationship Entity ${rel.key} does not exist in IR Model.`);
@@ -112,9 +112,7 @@ export class IRModel {
     await this._loader.open(this._connection);
 
     const entities = await this._loader.getEntities();
-    let relationships: IRRelationship[] = [];
-    if (typeof this._loader.getRelationships === "function")
-      relationships = await this._loader.getRelationships();
+    const relationships = await this._loader.getRelationships();
 
     for (const entity of entities) {
       if (!this.lazyMode)
@@ -134,20 +132,6 @@ export class IRModel {
     if (this._lazyMode)
       await this._loader.close();
   }
-
-  public static compare(modelA: IRModel, modelB: IRModel): boolean {
-    const entityMapA = modelA._entityMap;
-    const entityMapB = modelB._entityMap;
-    if (JSON.stringify(entityMapA) !== JSON.stringify(entityMapB))
-      return false;
-
-    const relMapA = modelA._relMap;
-    const relMapB = modelB._relMap;
-    if (JSON.stringify(relMapA) !== JSON.stringify(relMapB))
-      return false;
-    
-    return true;
-  }
 }
 
 export interface IREntityProps {
@@ -165,8 +149,8 @@ export interface IREntityProps {
 
 /*
  * Represents an external object class
- * 
- * An IR Entity corresponds to an EC Entity 
+ *
+ * An IR Entity corresponds to an EC Entity
  */
 export class IREntity {
 
@@ -232,7 +216,7 @@ export type IRInstanceKey = `${IREntityKey}-${PrimaryKeyValue}`;
 
 /*
  * Represents an external object / instance of an external object class.
- * 
+ *
  * An IR Instance corresponds to an EC Instance
  */
 export class IRInstance implements IRInstanceProps {
