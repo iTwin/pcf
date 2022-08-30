@@ -108,6 +108,7 @@ stages:
         workingDirectory: cli
 
       - script: |
+          # I don't understand this. Isn't this a no-op if the second form isn't used: `npm link --help`?
           npm link
         displayName: 'npm link'
         workingDirectory: cli
@@ -133,9 +134,11 @@ stages:
         workingDirectory: cli
 
       - bash: |
+          # Satisfy PCF and peer dependencies in iTwin.
           # npm installing a local modules does not automatically install its dependencies
           npm install ../../core
           npm install ../../core/node_modules/@itwin/core-backend
+          npm install ../../core/node_modules/@itwin/core-common
           npm install ../../core/node_modules/@itwin/ecschema-metadata
         displayName: 'Link local dependencies'
         workingDirectory: cli/TestProject
