@@ -1,27 +1,26 @@
 {
   "name": "@itwin/pcf-cli",
-  "version": "0.3.0-3",
+  "version": "0.4.0-beta.1",
   "description": "iTwin PCF command line",
-  "license": "MIT",
   "keywords": [
     "Bentley",
     "BIM",
     "iModel"
   ],
-  "engines": {
-    "node": ">=12.17.0 <17.0",
-    "npm": ">=6.0.0 <9.0.0"
-  },
   "homepage": "https://github.com/itwin/pcf",
   "repository": {
     "type": "git",
     "url": "https://github.com/iTwin/pcf/tree/main/cli"
   },
+  "license": "MIT",
   "main": "./bin/pcf.js",
   "bin": {
     "pcf": "bin/pcf"
   },
-  "preferGlobal": true,
+  "files": [
+    "bin/*",
+    "generator/**/*"
+  ],
   "scripts": {},
   "dependencies": {
     "chalk": "^2.4.2",
@@ -36,5 +35,13 @@
     "yargs": "^17.0.1",
     "yeoman-environment": "2.7.0",
     "yeoman-generator": "^4.4.0"
-  }
+  },
+  "devDependencies": {
+    "sort-package-json": "^1.57.0"
+  },
+  "engines": {
+    "node": ">=12.17.0 <17.0",
+    "npm": ">=6.0.0 <9.0.0"
+  },
+  "preferGlobal": true
 }
