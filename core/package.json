@@ -27,9 +27,9 @@
     "deploy": "git push && npm run clean && npm run build && npm publish",
     "docs": "betools docs",
     "lint": "eslint .",
-    "test": "npm run test:unit",
+    "test": "npm run build && npm run test:unit",
     "test-connector": "node lib/test/JSONConnector/App.js",
-    "test:integration": "nyc mocha lib/test/integration --timeout 240000",
+    "test:integration": "npm run build && nyc mocha lib/test/integration --timeout 240000",
     "test:unit": "nyc mocha lib/test/unit --timeout 120000"
   },
   "dependencies": {
