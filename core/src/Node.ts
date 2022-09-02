@@ -2,21 +2,23 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String } from "@itwin/core-bentley";
-import { IModelDb, InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
-import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, PackedFeatureTable, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
-import { JobArgs } from "./BaseApp";
-import { ElementDMO, RelationshipDMO, RelatedElementDMO, ElementAspectDMO, ElementWithParentDMO } from "./DMO";
-import { IRInstance } from "./IRModel";
-import { PConnector } from "./PConnector";
-import { Loader } from "./loaders";
-import { DynamicEntityMap } from "./DynamicSchema";
+
 import * as fs from "fs";
 
-/*
- * Represents the Repository Model (the root of an iModel).
- *
- * It is made of Nodes with hierarchical structure.
+import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
+import { ElementAspectDMO, ElementDMO, ElementWithParentDMO, RelatedElementDMO, RelationshipDMO } from "./DMO";
+import { IModelDb, InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
+
+import { DynamicEntityMap } from "./DynamicSchema";
+import { IRInstance } from "./IRModel";
+import { Id64String } from "@itwin/core-bentley";
+import { JobArgs } from "./BaseApp";
+import { Loader } from "./loaders";
+import { PConnector } from "./PConnector";
+
+/**
+ * Represents the 'repository model', the root model of an iModel. It is made of {@link Node} with
+ * hierarchical structure.
  */
 export class RepoTree {
 
@@ -28,8 +30,8 @@ export class RepoTree {
     this.nodeMap = new Map<string, Node>();
   }
 
-  /*
-   * Grabs all the Nodes under a SubjectNode with their ordering preserved
+  /**
+   * Grabs all the {@link Node} under a {@link SubjectNode} with their ordering preserved.
    */
   public getNodes(subjectNodeKey: string): Node[] {
     const nodes: Node[] = [];
@@ -90,11 +92,14 @@ export class RepoTree {
   }
 }
 
+/**
+ * All {@link Node} have a unique identifier. Do not confuse this identifier with those of
+ * {@link IRModel!IRInstance}, which are found in the source data. Node identifiers are used to
+ * locate the `ECInstanceId` of the corresponding element in the iModel when the node corresponds to
+ * exactly one element in the iModel. For example, {@link ModelNode}, which can't have a DMO.
+ */
 export interface NodeProps {
-
-  /*
-   * The unique identifier of a Node
-   */
+  /** The unique identifier of a node. */
   key: string;
 }
 
@@ -104,6 +109,14 @@ export enum ItemState {
   Changed,
 }
 
+/**
+ * The argument given to the connector's synchronization methods, like
+ * {@link PConnector!PConnector#syncElement}. Besides the bundle of element properties `props`, the
+ * other properties are used to determine if the element has changed in the source file, and are
+ * found in external source aspects.
+ *
+ * @see [`bis:ExternalSourceAspect`](https://www.itwinjs.org/bis/domains/biscore.ecschema/#externalsourceaspect)
+ */
 export interface SyncArg {
   props: any;
   version: string;
@@ -113,58 +126,77 @@ export interface SyncArg {
   identifier: string;
 }
 
+/**
+ * When the connector synchronizes an element, it gives you back the `ECInstanceId` of the element
+ * in the iModel (`entityId`), how the element in the iModel compared with the
+ * {@link IRModel!IRInstance} in the source data (`state`), and a description of the changes
+ * (`comment`).
+ */
 export interface SyncResult {
   entityId: Id64String;
   state: ItemState;
   comment: string;
 }
 
-/*
- * Node is a wrapper for an EC Entity
+/**
+ * A node represents one or multiple EC instances of an EC entity in an iModel.
+ *
+ * @see [The Engineering Content (EC) documentation](https://www.itwinjs.org/bis/ec).
  */
 export abstract class Node implements NodeProps {
 
   public pc: PConnector;
   public key: string;
-  protected _isSynced: boolean = false;
+  protected _isSynced = false;
 
   constructor(pc: PConnector, props: NodeProps) {
     this.pc = pc;
     this.key = props.key;
   }
 
-  /*
-   * Returns true if this.sync() has been called.
+  /**
+   * Returns true if this node's {@link IRModel!IRInstance} have been synchronized with the iModel.
+   * In other words, if {@link Node#sync} has been called.
    */
   public get isSynced() {
     return this._isSynced;
   }
 
-  /*
-   * Synchronize Element(s) without commiting
+  /**
+   * Synchronize a node's {@link IRModel!IRInstance} without committing. Changes eventually have to
+   * be written to the iModel, for example, with
+   * [`IModelDb#saveChanges`](https://www.itwinjs.org/reference/core-backend/imodels/imodeldb/savechanges).
    */
   public async sync(): Promise<SyncResult | SyncResult[]> {
     this._isSynced = true;
     return this._sync();
   };
 
-  /*
-   * Must be implemented by subclass Nodes
+  /**
+   * Must be implemented by concrete {@link Node} types.
    */
   protected abstract _sync(): Promise<SyncResult | SyncResult[]>;
 
-  /*
-   * Serialize current Node to JSON
+  /**
+   * Convert to a JavaScript object. Useful for assertions and printing. This function was probably
+   * inspired by those in the iTwin libraries, like
+   * [`Entity#toJSON`](https://www.itwinjs.org/reference/core-backend/schema/entity/tojson).
    */
   public abstract toJSON(): any;
 }
 
 export interface SubjectNodeProps extends NodeProps {}
 
-/*
- * SubjectNode represents a Subject Element (with parent Subject = root Subject) in iModel.
+/**
+ * The {@link Node} supertype for
+ * [`bis:Subject`](https://www.itwinjs.org/bis/domains/biscore.ecschema/#subject)
+ * elements. The parent of all subjects in PCF is the 'root subject', and subject nodes cannot be
+ * nested.
  *
- * Each synchronization must target a SubjectNode through JobArgs.subjectNodeKey.
+ * Each synchronization must specify a subject node to operate on with
+ * {@link BaseApp!JobArgs#subjectNodeKey}.
+ *
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#subjects) on subject nodes.
  */
 export class SubjectNode extends Node implements SubjectNodeProps {
 
@@ -224,29 +256,20 @@ export class SubjectNode extends Node implements SubjectNodeProps {
 }
 
 export interface ModelNodeProps extends NodeProps {
-
-  /*
-   * References an EC Model class
-   * It must have the same type as partitionClass
-   */
+  /** The BIS class of the model. It must be of the same modeling perspective as its partition element. */
   modelClass: typeof Model;
 
-  /*
-   * References an EC Partition Element class
-   * It must have the same type as modelClass
-   */
+  /** The BIS class of the partition. */
   partitionClass: typeof InformationPartitionElement;
 
-  /*
-   * References a Subject Node defined in the same context
-   */
+  /** The subject node to contain the top-level model. */
   subject: SubjectNode;
 }
 
-/*
- * ModelNode represents both a Model and Partition Element in iModel.
+/**
+ * Model nodes represent exactly one model and partition in the iModel and thus cannot support DMOs.
  *
- * Elements must be contained by Models = ElementNodes must reference ModelNode
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#models) on model nodes.
  */
 export class ModelNode extends Node implements ModelNodeProps {
 
@@ -309,25 +332,18 @@ export class ModelNode extends Node implements ModelNodeProps {
 }
 
 export interface LoaderNodeProps extends NodeProps {
-
-  /*
-   * References a Model Node defined by user
-   * All the elements populated by the dmo will be contained by this model
-   */
+  /** The link model to contain the loader. */
   model: ModelNode;
 
-  /*
-   * A Loader chosen by user
-   */
+  /** A loader chosen by connector author. */
   loader: Loader;
 }
 
-/*
- * LoaderNode represents a RepositoryLink Element in iModel
+/**
+ * Loader nodes represent a repository link in the iModel and must be contained by a link model. It
+ * is a special element that is responsible for persisting loader configuration in the iModel.
  *
- * It must be contained by a LinkModel
- *
- * It is a special ElementNode that is responsible for persisting Loader configuration in iModel
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#loaders) on loader nodes.
  */
 export class LoaderNode extends Node implements LoaderNodeProps {
 
@@ -348,10 +364,11 @@ export class LoaderNode extends Node implements LoaderNodeProps {
     let instance: IRInstance | undefined = undefined;
     const con = this.pc.jobArgs.connection;
     switch(con.kind) {
-      case "pcf_file_connection":
+      case "pcf_file_connection": {
         const stats = fs.statSync(con.filepath);
-        if (!stats)
+        if (!stats) {
           throw new Error(`FileConnection.filepath not found - ${con.filepath}`);
+        }
         instance = new IRInstance({
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
@@ -364,7 +381,8 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           },
         });
         break;
-      case "pcf_api_connection":
+      }
+      case "pcf_api_connection": {
         instance = new IRInstance({
           pkey: "nodeKey",
           entityKey: "DocumentWithBeGuid",
@@ -376,6 +394,7 @@ export class LoaderNode extends Node implements LoaderNodeProps {
           },
         });
         break;
+      }
     }
 
     const modelId = this.pc.modelCache[this.model.key];
@@ -412,48 +431,46 @@ export class LoaderNode extends Node implements LoaderNodeProps {
   }
 }
 
+/**
+ * The type needed to create an element node. This is a union type.
+ *
+ * The two object types in the union are mutually exclusive, i.e., no type is assignable to both.
+ * If the element has a model node, it must not have a parent node, and vice versa.
+ *
+ * Required:
+ * - The `dmo` property allows multiple elements to be populated by a single element node.
+ * - The optional `category` property is common to each type in the union. The category contains
+ *   this element if this element is geometry. See
+ *   [`bis:Category`](https://www.itwinjs.org/bis/domains/biscore.ecschema/#category) for more
+ *   information.
+ *
+ * Choose one:
+ * - The `model` property is the top-level model that will contain the element. All the elements
+ *   populated by the DMO will be contained by this model, except of course those in sub-models.
+ * - The `parent` property is either the node that creates the parents of this element's IR
+ *   instances, or a modeled element to contain this element. The second type in the union is
+ *   equivalent to
+ *   [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops).
+ *
+ * @see [One implementation of an exclusive union on Stack Overflow](https://stackoverflow.com/a/44425486).
+ */
 export type ElementNodeProps = NodeProps & {
-  /*
-   * References a Category Node defined by user
-   */
   category?: ElementNode,
 } & ({
-  /*
-   * Allows multiple EC Elements to be populated by a single ElementNode
-   */
   dmo: ElementDMO,
-
-  /*
-   * If an element has a model, it must not have a parent.
-   *
-   * No types are assignable to never. The DMO prevents us from just leaving the parent and model
-   * properties off of the object type because it narrows the union.
-   *
-   * @see https://stackoverflow.com/a/44425486
-   */
-  parent?: never,
-
-  /*
-   * References a Model Node defined by user
-   * All the elements populated by the dmo will be contained by this model
-   */
   model: ModelNode,
+  parent?: never,
 } | {
-  /*
-   * Parent is mandatory, so this DMO requires the parentAttr property.
-   */
   dmo: ElementWithParentDMO,
-
   model?: never,
-
-  /*
-   * The parent navigation property, or a modeled element to contain this element.
-   * The second type in the union is equivalent to
-   * [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops).
-   */
   parent: ElementNode | { parent: ElementNode, relationship: string } | ModeledElementNode
 });
 
+/**
+ * Element nodes represent multiple `bis:Element` in an iModel.
+ *
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#elements) on element nodes.
+ */
 export class ElementNode extends Node {
 
   public dmo: ElementDMO | ElementWithParentDMO;
@@ -568,17 +585,19 @@ export class ElementNode extends Node {
     return results;
   }
 
+  /**
+   * Locate the ECInstanceId of the element's model. There are 3 cases:
+   *
+   * 1. An element with a parent. We assume that a child is in the same model as its parent,
+   *    which must already exist in the iModel because PCF constrains dependencies using
+   *    JavaScript identifiers, declaratively.
+   * 2. An element with a ModelNode, for which there is exactly one model and partition in
+   *    the iModel and the former can be identified with its node's key.
+   * 3. An element with a ModeledElementNode. We use the ElementNode part of the
+   *    ModeledElementNode to obtain its code value, which can identify the model in the
+   *    model cache.
+   */
   protected modelId(instance: IRInstance): Id64String {
-      // Locate the ECInstanceId of the element's model. There are 3 cases:
-      //     1. An element with a parent. We assume that a child is in the same model as its parent,
-      //        which must already exist in the iModel because PCF constrains dependencies using
-      //        JavaScript identifiers, declaratively.
-      //     2. An element with a ModelNode, for which there is exactly one model and partition in
-      //        the iModel and the former can be identified with its node's key.
-      //     3. An element with a ModeledElementNode. We use the ElementNode part of the
-      //        ModeledElementNode to obtain its code value, which can identify the model in the
-      //        model cache.
-
       let modelId;
       if (this.parent !== undefined) { // (1)
         // Unfortunately we're only narrowing the parent property above, and so TypeScript doesn't
@@ -622,21 +641,24 @@ export class ElementNode extends Node {
   }
 }
 
+/**
+ * Required:
+ * - The `subject` property is the subject that categorizes the elements in the model, i.e., the
+ *   subject element from which the elements in the model descend.
+ * - The `modelClass` property is the BIS class of the model that this element 'breaks down' into.
+ *   It must have the same modeling perspective as its parent model, which is likely a top-level
+ *   model.
+ */
 export type ModeledElementNodeProps = ElementNodeProps & {
-  /*
-   * The subject that contains the elements in the model.
-   */
   subject: SubjectNode;
-
-  /*
-   * The kind of model this element "breaks down" into.
-   */
   modelClass: typeof Model;
 }
 
-/*
- * A node that represents a modeled element in BIS. Just like ElementNode, its subtype, a
+/**
+ * A node that represents a modeled element in BIS. Just like {@link ElementNode}, its subtype, a
  * ModeledElementNode supports DMOs.
+ *
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#modeled-elements) on modeled element nodes.
  */
 export class ModeledElementNode extends ElementNode {
   subject: SubjectNode;
@@ -711,22 +733,17 @@ export class ModeledElementNode extends ElementNode {
 }
 
 export interface ElementAspectNodeProps extends NodeProps {
-
-  /*
-   * Allows multiple EC Elements to be populated by a single ElementNode
-   */
+  /** * Allows multiple elements aspects to be populated by a single node. */
   dmo: ElementAspectDMO;
 
-  /*
-   * References a Subject Node defined in the same context
-   */
+  /** The subject from which this element aspect descends. */
   subject: SubjectNode;
 }
 
-/*
- * ElementAspectNode Represents a regular ElementAspect in iModel
+/**
+ * Element aspect nodes represent multiple `bis:ElementUniqueAspect` in an iModel.
  *
- * It populates multiple ElementAspect instances based on DMO
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#aspects) on element aspect nodes.
  */
 export class ElementAspectNode extends Node implements ElementAspectNodeProps {
 
@@ -786,36 +803,42 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
 }
 
 export interface RelationshipNodeProps extends NodeProps {
-
-  /*
-   * References a Subject Node defined by user
+  /**
+   * The subject node from which the element nodes being related descend. PCF cannot relate elements
+   * across subjects, but it can relate elements across models in the same subject.
    */
   subject: SubjectNode;
 
-  /*
-   * Allows multiple EC Relationships to be populated by a single ElementNode
-   * Each EC Relationship represents a link table relationship
+  /**
+   * Allows multiple EC relationships to be populated by a single node. Each EC relationship
+   * instance is a link-table relationship in the iModel.
    */
   dmo: RelationshipDMO;
 
-  /*
-   * References the source element
-   * This is not defined if dmo points to an EC Entity with Locator
+  /**
+   * The source of the relationship. This is not defined (`undefined`) if the DMO points to an EC entity with a
+   * {@link DMO!Locator}.
+   *
+   * For an example of what a 'relationship source' means in BIS, see
+   * [`bis:ElementRefersToDocuments`](https://www.itwinjs.org/bis/domains/biscore.ecschema/#elementreferstodocuments).
+   *
+   * @see [_Relationship fundamentals_](https://www.itwinjs.org/bis/guide/fundamentals/relationship-fundamentals) by Casey Mullen.
    */
   source?: ElementNode;
 
-  /*
-   * References the target element
-   * This is not defined if dmo points to an EC Entity with Locator
+  /**
+   * The target of the relationship. This is not defined if the DMO points to an EC entity with a
+   * {@link DMO!Locator}.
    */
   target?: ElementNode;
 }
 
-/*
- * RelationshipNode Represents a regular Relationship in iModel
- * (Relationships are like link tables in a relational database)
+/**
+ * Relationship nodes represent multiple
+ * [`Relationship`](https://www.itwinjs.org/reference/core-backend/relationships/relationship) in an
+ * iModel, which are like link table entries in a relational database.
  *
- * It populates multiple Relationship instances based on RelationshipDMO
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#relationships) on relationship nodes.
  */
 export class RelationshipNode extends Node {
 
@@ -877,35 +900,39 @@ export class RelationshipNode extends Node {
 }
 
 export interface RelatedElementNodeProps extends NodeProps {
-
-  /*
-   * References a Subject Node defined by user
+  /**
+   * The subject from which the element and related element descend.
    */
   subject: SubjectNode;
 
-  /*
-   * Allows multiple EC Related Element to be populated by a single ElementNode
-   * Each Related Element represents a foreign key relationship
+  /**
+   * Allows multiple navigation properties to be populated by a single node. Each is a foreign key
+   * in the iModel.
    */
   dmo: RelatedElementDMO;
 
-  /*
-   * References the source element in the relationship
+  /**
+   * References the element that does not hold the foreign key in the iModel, i.e., the element
+   * that is being pointed at by the one with the foreign key.
+   *
+   * This is not defined if the DMO points to an EC entity with a {@link DMO!Locator}.
    */
   source: ElementNode;
 
-  /*
-   * References the target element in the relationship
-   * This is not defined if dmo points to an EC Entity with Locator
+  /**
+   * References the element that holds the foreign key in the iModel, i.e., the element that is
+   * doing the pointing.
+   *
+   * This is not defined if the DMO points to an EC entity with a {@link DMO!Locator}.
    */
   target?: ElementNode;
 }
 
-/*
- * RelatedElementNode Represents a regular RelatedElement in iModel
- * (Relationships are foreign keys in a relational database)
+/**
+ * Related element nodes represent multiple navigation properties in an iModel.
  *
- * It populates multiple RelatedElement instances based on RelatedElementDMO
+ * @see [The PCF wiki](https://github.com/iTwin/pcf/wiki/Nodes-in-detail#navigation-properties) on navigation properties.
+ * @see [_Navigation properties_](https://www.itwinjs.org/bis/guide/fundamentals/relationship-fundamentals/#navigation-properties) by Casey Muller.
  */
 export class RelatedElementNode extends Node {
 
@@ -965,11 +992,11 @@ export class RelatedElementNode extends Node {
   }
 }
 
-/*
+/**
  * Return the iModel ID of the model of an element if it is modeled.
  * @param imodel
  * @param modeled An element that may be modeled.
- * @returns The iModel ID of the model.
+ * @returns The `ECInstanceId` of the model.
  */
 function modelOf(imodel: IModelDb, modeled: Id64String): Id64String | null
 {
