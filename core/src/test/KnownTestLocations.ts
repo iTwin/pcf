@@ -9,7 +9,7 @@ import * as os from "os";
 export default class KnownTestLocations {
 
   public static get libDir(): string {
-    return path.join(__dirname, "..", "..", "lib");
+    return path.join(__dirname, "..");
   }
 
   public static get testDir(): string {
@@ -25,7 +25,7 @@ export default class KnownTestLocations {
   }
 
   public static get testAssetsDir(): string {
-    return path.join(KnownTestLocations.testDir, "assets");
+    return path.join(__dirname, "..", "..", "src", "test", "assets");
   }
 
   public static get testOutputDir(): string {
