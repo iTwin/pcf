@@ -202,12 +202,12 @@ export interface IRInstanceProps {
 /*
  * Unique identifier of an IR Entity
  */
-type IREntityKey = string;
+export type IREntityKey = string;
 
 /*
  * The primary-key-value (ID) of an IR Instance
  */
-type PrimaryKeyValue = string;
+export type PrimaryKeyValue = string;
 
 /*
  * A unique identifier of an IR Instance
