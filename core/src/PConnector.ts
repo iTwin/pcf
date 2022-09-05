@@ -2,7 +2,7 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64String, Logger } from "@itwin/core-bentley";
+import { assert, Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ElementAspectProps, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
 import { BriefcaseDb, Category, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
 import { ItemState, ModelNode, SubjectNode, SyncResult, IRInstance, IRInstanceKey, IRModel, JobArgs, LoaderNode, RelatedElementNode, RelationshipNode, RepoTree, SyncArg, syncDynamicSchema, tryGetSchema } from "./pcf";
@@ -553,7 +553,7 @@ export abstract class PConnector {
       return ItemState.New;
     }
 
-    const xsa: ExternalSourceAspect = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
+    const xsa = this.db.elements.getAspect(aspectId) as ExternalSourceAspect;
     const existing = (xsa.version ?? "") + (xsa.checksum ?? "");
     const current = (version ?? "") + (checksum ?? "");
     if (existing === current)
@@ -590,23 +590,42 @@ export abstract class PConnector {
     const aspects = this.db.elements.getAspects(props.element.id, props.classFullName);
     const existingAspect = aspects.length === 1 ? aspects[0] : undefined;
 
-    let state: ItemState;
+    // The `id` of the `props` argument becomes the element to which the external source aspect
+    // attaches in {@link PConnector#syncProvenance}. It's confusing.
+
+    // Store provenance on the element that the aspect attaches to; okay because
+    // bis:ExternalSourceAspect derives from bis:ElementMultiAspect.
+
+    const state = this.syncProvenance({ ...arg, props: { ...props, id: props.element.id } });
+
+    // Detect if the unique aspect has _moved_ to a different element in the source data. This means
+    // we'll be unable to locate the original aspect in the iModel using the updated aspect in the
+    // source. However, it will get cleaned up by the deletion pass of the synchronizer. We still
+    // have to manually move the provenance over to the new element. Unfortunately, `updateAspect`
+    // does not update the element's navigation property.
+
+    // - A test for this particular failure: https://github.com/iTwin/itwinjs-core/pull/4227.
+    // - Known issues with the aspect API: https://github.com/iTwin/itwinjs-core/issues/3969.
+
+    if (!existingAspect && state === ItemState.Changed) {
+      const { scope, kind, identifier } = arg;
+      const { aspectId: foundId } = ExternalSourceAspect.findBySource(this.db, scope, kind, identifier);
+      assert(foundId !== undefined);
+      this.db.elements.deleteAspect(foundId);
+      this.syncProvenance({ ...arg, props: { ...props, id: props.element.id } });
+    }
 
     if (!existingAspect) {
       this.db.elements.insertAspect(props);
-
-      // store provenance on the element that the aspect attaches to
-      // this is ok because ExternalSourceAspect (provenance) is a ElementMultiAspect
-      state = this.syncProvenance({ ...arg, props: { ...props, id: props.element.id} });
       const newAspect = this.db.elements.getAspects(props.element.id, props.classFullName)[0];
       props.id = newAspect.id;
     } else {
       props.id = existingAspect.id;
-      state = this.syncProvenance({ ...arg, props });
     }
 
-    if (state === ItemState.Changed)
+    if (state === ItemState.Changed) {
       this.db.elements.updateAspect(props);
+    }
 
     return { entityId: props.id, state, comment: "" };
   }
