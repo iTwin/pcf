@@ -8,10 +8,10 @@ import * as fs from "fs";
 import { Code, CodeSpec, ElementAspectProps, ElementProps, IModel, InformationPartitionElementProps, ModelProps, RelatedElement, RelatedElementProps, RelationshipProps, RepositoryLinkProps, SubjectProps } from "@itwin/core-common";
 import { ElementAspectDMO, ElementDMO, ElementWithParentDMO, RelatedElementDMO, RelationshipDMO } from "./DMO";
 import { IModelDb, InformationPartitionElement, Model, RepositoryLink, Subject, SubjectOwnsPartitionElements, SubjectOwnsSubjects } from "@itwin/core-backend";
+import { Id64, Id64String } from "@itwin/core-bentley";
 
 import { DynamicEntityMap } from "./DynamicSchema";
 import { IRInstance } from "./IRModel";
-import { Id64String } from "@itwin/core-bentley";
 import { JobArgs } from "./BaseApp";
 import { Loader } from "./loaders";
 import { PConnector } from "./PConnector";
@@ -738,6 +738,13 @@ export interface ElementAspectNodeProps extends NodeProps {
 
   /** The subject from which this element aspect descends. */
   subject: SubjectNode;
+
+  /**
+   * The element to which the unique aspect attaches.
+   *
+   * If omitted, please see the corresponding property {@link DMO!ElementAspectDMO#elementAttr}.
+   */
+  element?: ElementNode;
 }
 
 /**
@@ -749,11 +756,13 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
 
   public dmo: ElementAspectDMO;
   public subject: SubjectNode;
+  public element?: ElementNode;
 
   constructor(pc: PConnector, props: ElementAspectNodeProps) {
     super(pc, props);
     this.dmo = props.dmo;
     this.subject = props.subject;
+    this.element = props.element;
     this.pc.tree.insert<ElementAspectNode>(this);
   }
 
@@ -772,18 +781,24 @@ export class ElementAspectNode extends Node implements ElementAspectNodeProps {
       const classFullName = typeof ecElementAspect === "string" ? ecElementAspect : `${this.pc.dynamicSchemaName}:${ecElementAspect.name}`;
 
       const props: ElementAspectProps = {
-        element: { id: "" },
+        element: { id: Id64.invalid },
         classFullName,
       };
 
       if (typeof this.dmo.modifyProps === "function")
         await this.dmo.modifyProps(this.pc, props, instance);
 
-      if (!props.element || !props.element.id)
-        throw new Error("You must attach \"props.element = { ... } as RelatedElementProps\" in ElementAspectDMO.modifyProps()");
+      if (this.element && this.dmo.elementAttr) {
+        const elementKey = IRInstance.createKey(this.element.dmo.irEntity, instance.get(this.dmo.elementAttr));
+        props.element = { id: this.pc.elementCache[elementKey] };
+      } else if (this.element || this.dmo.elementAttr) {
+        throw Error(`Your aspect node '${this.key}' must have an element, and its DMO must specify the \`elementAttr\` property.`);
+      } else if (!(props.element && Id64.isValid(props.element.id))) {
+        throw Error(`You must attach \`props.element = { ... } as RelatedElementProps\` in ElementAspectDMO#modifyProps in your aspect node '${this.key}'.`);
+      }
 
       const result = this.pc.syncElementUniqueAspect({
-        props: props,
+        props,
         version: instance.version,
         checksum: instance.checksum,
         scope: this.pc.jobSubjectId,
@@ -880,7 +895,7 @@ export class RelationshipNode extends Node {
       const { sourceId, targetId } = pair;
       const existing = this.pc.db.relationships.tryGetInstance(classFullName, { sourceId, targetId });
       if (existing) {
-        results.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" })
+        results.push({ entityId: existing.id, state: ItemState.Unchanged, comment: "" });
         continue;
       }
 
@@ -889,7 +904,7 @@ export class RelationshipNode extends Node {
         await this.dmo.modifyProps(this.pc, props, instance);
 
       const relId = this.pc.db.relationships.insertInstance(props);
-      results.push({ entityId: relId, state: ItemState.New, comment: "" })
+      results.push({ entityId: relId, state: ItemState.New, comment: "" });
     }
     return results;
   }

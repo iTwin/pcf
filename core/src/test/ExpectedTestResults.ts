@@ -69,11 +69,15 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from TestSchema:ExtPhysicalType where UserLabel='new_mock_user_label'": 3, // attribute update (from v1)
     "select * from TestSchema:ExtPhysicalElement": 3,                 // -2+1 (from v1)
     "select * from TestSchema:ExtGroupInformationElement": 1,         // -1 (from v1)
+    "select * from bis:SubCategory as subcategories inner join bis:Category as categories on subcategories.Parent.id = categories.ECInstanceId where subcategories.Description like '%moved%' and categories.CodeValue = 'ExtSpatialCategory-1'": 1,
     // Element Aspect
     "select * from TestSchema:ExtElementAspectA": 1,
     "select * from TestSchema:ExtElementAspectB": 1,
     "select * from TestSchema:ExtElementAspectA where Name='a-name'": 1,
-    "select * from BisCore:ExternalSourceAspect where identifier='ExtElementAspectA-1'": 1, // provenance of ExtElementAspect
+    "select * from BisCore:ExternalSourceAspect where identifier='ExtElementAspectA-1' and Element.id in (0x20000000010, 0x20) ": 1, // provenance of ExtElementAspect
+    "select * from bis:ChannelRootAspect as aspects inner join TestSchema:ExtPhysicalElement as elements on aspects.Element.id = elements.ECInstanceId where elements.CodeValue in ('ExtPhysicalElement-1', 'ExtPhysicalElement-5')": 2,
+    "select * from bis:ExternalSourceAspect as metas inner join TestSchema:ExtPhysicalElement as elements on metas.Element.id = elements.ECInstanceId where metas.Identifier = 'ElementAspectC-1' and elements.CodeValue = 'ExtPhysicalElement-1'": 1,
+    "select * from bis:ExternalSourceAspect as metas inner join TestSchema:ExtPhysicalElement as elements on metas.Element.id = elements.ECInstanceId where metas.Identifier = 'ElementAspectC-2' and elements.CodeValue = 'ExtPhysicalElement-5'": 1,
     // Relationship
     "select * from TestSchema:ExtElementGroupsMembers": 0,            // -1 (from v1)
     "select * from TestSchema:ExtElementRefersToElements": 2,         // +1 (from v1)
@@ -81,7 +85,6 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from TestSchema:ExtExistingElementRefersToElements": 1,
     "select * from TestSchema:ExtPhysicalElementAssemblesElements": 1,
     "select categories.ECInstanceId from bis:ElementOwnsChildElements as relationships inner join bis:SpatialCategory as categories on relationships.SourceECInstanceId = categories.ECInstanceId": 2, // +1 default subcategory
-    "select * from bis:SubCategory where Description like '%moved%'": 1,
     // Domain Class
     "select * from BuildingSpatial:Space": 1,
     // Nested models, pro bono projects deleted and sushi project added to backlog
@@ -101,6 +104,12 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     "select * from TestSchema:ExtElementAspectA": 1,
     "select * from TestSchema:ExtElementAspectB": 1,
     "select * from TestSchema:ExtElementAspectA where Name='a-new-name'": 1, // attribute update
+    "select * from BisCore:ExternalSourceAspect where Identifier='ExtElementAspectA-1'": 1, // provenance update
+    "select * from BisCore:ExternalSourceAspect where Identifier='ExtElementAspectA-1' and element.id in (0x20000000010, 0x20)": 1, // provenance update
+    "select * from bis:ChannelRootAspect": 1,
+    "select * from bis:ChannelRootAspect as aspects inner join TestSchema:ExtPhysicalElement as elements on aspects.Element.id = elements.ECInstanceId where elements.CodeValue = 'ExtPhysicalElement-2'": 1,
+    "select * from bis:ExternalSourceAspect where Identifier = 'ElementAspectC-1'": 1,
+    "select * from bis:ExternalSourceAspect as metas inner join TestSchema:ExtPhysicalElement as elements on metas.Element.id = elements.ECInstanceId where metas.Identifier = 'ElementAspectC-1' and elements.CodeValue = 'ExtPhysicalElement-2'": 1,
     // Nested models, everything deleted; 1 default, 1 for the loader
     "select * from bis:LinkModel": 2,
   },
@@ -108,6 +117,7 @@ const TestResults: {[sourceFile: string]: QueryToCount} = {
     // Element Aspect
     "select * from TestSchema:ExtElementAspectA": 0, // -1 (from v3)
     "select * from TestSchema:ExtElementAspectB": 0, // -1 (from v3)
+    "select * from bis:ChannelRootAspect": 0,        // -1 (from v3)
   },
   "v5.json": { // introduce a new Subject
     "select * from BisCore:Subject": 3,

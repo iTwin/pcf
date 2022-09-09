@@ -67,6 +67,12 @@
       "StandaloneExistingElementId": "0x20"
     }
   ],
+  "ElementAspectC": [
+    {
+      "id": "1",
+      "attachTo": "2"
+    }
+  ],
   "ExtElementRefersToElements": [
     {
       "id": "1",

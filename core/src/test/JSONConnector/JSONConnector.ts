@@ -111,7 +111,7 @@ export class JSONConnector extends pcf.PConnector {
       loader: new pcf.JSONLoader({
         format: "json",
         entities: [
-          "ExtElementAspectA", "ExtElementAspectB",
+          "ExtElementAspectA", "ExtElementAspectB", "ElementAspectC",
           "ExtGroupInformationElement",
           "ExtPhysicalElement",
           "ExtPhysicalType",
@@ -188,6 +188,13 @@ export class JSONConnector extends pcf.PConnector {
       model: phyModel,
       dmo: elements.ExtPhysicalElement,
       category: sptCategory
+    });
+
+    new pcf.ElementAspectNode(this, {
+      key: "ElementAspectC",
+      subject: subject1,
+      element: extPhysicalElement,
+      dmo: aspects.ElementAspectC,
     });
 
     const extGroupInformationElement = new pcf.ElementNode(this, {

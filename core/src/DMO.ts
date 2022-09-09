@@ -119,6 +119,16 @@ export interface ElementAspectDMO extends DMO {
    * References the BIS class of this element aspect. See {@link ElementDMO#ecElement}.
    */
   readonly ecElementAspect: ECDomainClassFullName | ECDynamicEntityClassProps;
+
+  /**
+   * The attribute of IR instances of this DMO that points to the IR instance each will attach to.
+   *
+   * If omitted, the connector author (you) must specify supply the
+   * [`element`](https://www.itwinjs.org/reference/core-common/entities/elementaspectprops)
+   * property which has type [`RelatedElementProps`](https://www.itwinjs.org/reference/core-common/entities/relatedelementprops)
+   * in {@link DMO#modifyProps}.
+   */
+  elementAttr?: string;
 }
 
 /**
