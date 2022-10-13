@@ -189,7 +189,7 @@ stages:
 
         displayName: 'Store Build Info'
         name: info
-        condition: and(succeeded(), eq(variables.try_publish, true), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Agent.OS'], 'Linux'))
+        condition: and(succeeded(), eq(variables.try_publish, true), eq(variables['Build.SourceBranch'], 'refs/heads/release*'), eq(variables['Agent.OS'], 'Linux'))
 
       - bash: |
           echo "shouldPublish: $(info.shouldPublish)"
