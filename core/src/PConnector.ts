@@ -6,7 +6,6 @@ import { Id64String, Logger } from "@itwin/core-bentley";
 import { Code, CodeScopeSpec, CodeSpec, ElementAspectProps, ExternalSourceAspectProps, IModel, IModelError, RelatedElementProps } from "@itwin/core-common";
 import { BriefcaseDb, ComputeProjectExtentsOptions, DefinitionElement, ElementAspect, ElementUniqueAspect, ExternalSourceAspect, IModelDb, IModelHost, PushChangesArgs, SnapshotDb, StandaloneDb, SubjectOwnsPartitionElements } from "@itwin/core-backend";
 import { ItemState, ModelNode, SubjectNode, SyncResult, IRInstance, IRInstanceKey, IRModel, JobArgs, LoaderNode, RelatedElementNode, RelationshipNode, RepoTree, SyncArg, syncDynamicSchema, tryGetSchema } from "./pcf";
-import { LockQuery } from "@bentley/imodelhub-client";
 import { LogCategory } from "./LogCategory";
 import * as util from "./Util";
 import * as path from "path";
@@ -394,12 +393,6 @@ export abstract class PConnector {
       this.db.saveChanges();
       await this.db.pushChanges({ description } as PushChangesArgs);
     }
-  }
-
-  public async queryLocks(query: LockQuery) {
-    const token = await IModelHost.getAccessToken();
-    const locks = await (IModelHost.hubAccess as any).iModelClient.locks.get(token, this.db.iModelId, query);
-    return locks;
   }
 
   public async acquireLock(rootId: Id64String) {
