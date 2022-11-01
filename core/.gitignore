@@ -10,6 +10,7 @@ node_modules/
 # misc
 .DS_Store
 integration-test-result.xml
+docs
 
 # Logs
 *.log
@@ -24,9 +25,10 @@ package-deps.json
 
 # build
 lib
-.vscode
+coverage
+.nyc_output
 
 # integration test
 secret.sh
 secret.bat
-
+.env

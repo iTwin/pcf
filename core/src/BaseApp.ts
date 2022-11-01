@@ -3,11 +3,13 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64String, Logger, LogLevel, BentleyError, IModelHubStatus } from "@itwin/core-bentley";
-import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg } from "@itwin/core-backend";
-import { LocalBriefcaseProps, OpenBriefcaseProps, NativeAppAuthorizationConfiguration } from "@itwin/core-common";
-import { ElectronAuthorizationBackend } from "@itwin/core-electron/lib/cjs/backend/ElectronAuthorizationBackend";
+import { BriefcaseDb, BriefcaseManager, IModelHost, RequestNewBriefcaseArg, BackendHubAccess } from "@itwin/core-backend";
+import {ElectronMainAuthorization} from "@itwin/electron-authorization/lib/cjs/ElectronMain";
+import { LocalBriefcaseProps, OpenBriefcaseProps} from "@itwin/core-common";
 import { ServiceAuthorizationClient, ServiceAuthorizationClientConfiguration } from "@itwin/service-authorization";
-import { IModelHubBackend } from "@bentley/imodelhub-client/lib/cjs/IModelHubBackend";
+import {NodeCliAuthorizationClient, NodeCliAuthorizationConfiguration} from "@itwin/node-cli-authorization";
+import { IModelsClient } from "@itwin/imodels-client-authoring";
+import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
 import { AccessToken } from "@itwin/core-bentley";
 import { PConnector, DataConnection, LogCategory } from "./pcf";
 import * as fs from "fs";
@@ -58,6 +60,20 @@ export interface JobArgsProps {
    * Header of save/push comments. Push Comment = "<revisionHeader> - <your comment>".
    */
   revisionHeader?: string;
+
+   /*
+   * if false or undefined IModelHost.startup() will be called by runConnectorJob.
+   * in the case of scheduled repeated multiple runs or orchestration, may want to set this to true
+   * startup host beforehand, then run
+   */
+    suppressHostStartupOnRun?: boolean;
+
+   /*
+   * if false or undefined BaseApp.signin() will be called by runConnectorJob .
+   * in the case of scheduled repeated multiple runs or orchestration, may want to set this to true
+   * signin and get token once beforehand, then run
+   */
+   suppressSigninOnRun?: boolean;
 }
 
 export class JobArgs implements JobArgsProps {
@@ -69,6 +85,8 @@ export class JobArgs implements JobArgsProps {
   public logLevel: LogLevel = LogLevel.None;
   public enableDelete: boolean = true;
   public revisionHeader: string = "iTwin.PCF";
+  public suppressHostStartupOnRun: boolean = false;
+  public suppressSigninOnRun: boolean = false;
 
   constructor(props: JobArgsProps) {
     this.connectorPath = props.connectorPath;
@@ -85,6 +103,10 @@ export class JobArgs implements JobArgsProps {
       this.enableDelete = props.enableDelete;
     if (props.revisionHeader !== undefined)
       this.revisionHeader = props.revisionHeader;
+    if (props.suppressHostStartupOnRun !== undefined)
+      this.suppressHostStartupOnRun = props.suppressHostStartupOnRun;
+    if (props.suppressSigninOnRun !== undefined)
+      this.suppressSigninOnRun = props.suppressSigninOnRun;
 
     this.validate();
   }
@@ -110,7 +132,8 @@ export interface HubArgsProps {
   /*
    * You may acquire client configurations from https://developer.bentley.com by creating a SPA app
    */
-  clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+
+  clientConfig: NodeCliAuthorizationConfiguration|ServiceAuthorizationClientConfiguration;
 
   /*
    * Only Bentley developers could override this value for testing. Do not override it in production.
@@ -122,7 +145,7 @@ export class HubArgs implements HubArgsProps {
 
   public projectId: Id64String;
   public iModelId: Id64String;
-  public clientConfig: NativeAppAuthorizationConfiguration | ServiceAuthorizationClientConfiguration;
+  public clientConfig: NodeCliAuthorizationConfiguration|ServiceAuthorizationClientConfiguration;
   public urlPrefix: ReqURLPrefix = ReqURLPrefix.Prod;
   public updateDbProfile: boolean = false;
   public updateDomainSchemas: boolean = false;
@@ -160,9 +183,8 @@ export class BaseApp {
 
     const envStr = String(this.hubArgs.urlPrefix);
     process.env["IMJS_URL_PREFIX"] = envStr;
-
-    const hubAccess = new IModelHubBackend();
-    IModelHost.setHubAccess(hubAccess);
+    const iModelClient = new IModelsClient({ api: { baseUrl: `https://${process.env.IMJS_URL_PREFIX ?? ""}api.bentley.com/imodels`}});
+    IModelHost.setHubAccess(new BackendIModelsAccess(iModelClient));
 
     this.initLogging(logLevel);
   }
@@ -185,8 +207,11 @@ export class BaseApp {
   public async runConnectorJob(jobArgs: JobArgs): Promise<boolean> {
     let success = false;
     try {
-      await IModelHost.startup();
-      await this.signin();
+      if (!jobArgs.suppressHostStartupOnRun)
+        await IModelHost.startup();
+
+      if (!jobArgs.suppressSigninOnRun)
+        await this.signin();
 
       this.briefcaseDb = await this.openBriefcaseDb();
 
@@ -201,11 +226,14 @@ export class BaseApp {
     } finally {
       if (this.briefcaseDb) {
         this.briefcaseDb.abandonChanges();
-        if (this.briefcaseDb.isBriefcaseDb())
-          await this.briefcaseDb.locks.releaseAllLocks();
+        // if (this.briefcaseDb.isBriefcaseDb())
+        //   await this.briefcaseDb.locks.releaseAllLocks();
         this.briefcaseDb.close();
       }
-      await IModelHost.shutdown();
+
+      // only shut down IModelHost if we started!!!
+      if (!jobArgs.suppressHostStartupOnRun)
+        await IModelHost.shutdown();
     }
 
     return success;
@@ -236,6 +264,7 @@ export class BaseApp {
       token = await this.nonInteractiveSignin();
     else
       token = await this.interactiveSignin();
+
     return token;
   }
 
@@ -247,16 +276,16 @@ export class BaseApp {
     if (this._token)
       return this._token;
 
-    const config = this.hubArgs.clientConfig as NativeAppAuthorizationConfiguration;
-    if (!config.issuerUrl)
-      config.issuerUrl = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
 
-    const client = new ElectronAuthorizationBackend(config);
-    await client.initialize(config);
-    IModelHost.authorizationClient = client;
-    const token = await client.signInComplete();
+    const authClient = new NodeCliAuthorizationClient(this.hubArgs.clientConfig);
+    await authClient.signIn();
+    const token = await authClient.getAccessToken();
+    IModelHost.authorizationClient = authClient;
+
+    if (!token)
+      throw new Error("Failed to get test access token");
     this._token = token;
-    return token;
+    return this._token; 
   }
 
   /*
@@ -266,11 +295,7 @@ export class BaseApp {
     if (this._token)
       return this._token;
 
-    const config = this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration;
-    if (!config.authority)
-      (config as any).authority = `https://${this.hubArgs.urlPrefix}ims.bentley.com`;
-
-    const client = new ServiceAuthorizationClient(config);
+    const client = new ServiceAuthorizationClient(this.hubArgs.clientConfig as ServiceAuthorizationClientConfiguration);
     const token = await client.getAccessToken();
     IModelHost.authorizationClient = client;
     this._token = token;

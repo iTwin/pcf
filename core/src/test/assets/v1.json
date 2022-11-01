@@ -44,6 +44,13 @@
       "id": "2"
     }
   ],
+  "SpatialSubcategory": [
+    {
+      "id": "1",
+      "description": "I'm a subcategory that will move in v2.",
+      "parent": "2"
+    }
+  ],
   "ExtSpace": [
     {
       "id": "1",
@@ -70,6 +77,49 @@
       "id": "1",
       "ExtGroupInformationElementKey": "2",
       "ExtPhysicalElementKey": "1"
+    }
+  ],
+  "ModeledRepository": [
+    {
+      "id": "1",
+      "label": "reference documents"
+    }
+  ],
+  "NestedModeledRepository": [
+    {
+      "id": "1",
+      "label": "large clients",
+      "parent": "1"
+    },
+    {
+      "id": "2",
+      "label": "backlog",
+      "parent": "1"
+    },
+    {
+      "id": "3",
+      "label": "pro bono projects",
+      "parent": "1"
+    }
+  ],
+  "NestedLink": [
+    {
+      "id": "1",
+      "label": "high-rise floor plans",
+      "url": "https://athena-contracting.com/high-rise-floor-plans.html",
+      "parent": "1"
+    },
+    {
+      "id": "2",
+      "label": "steeple drawing",
+      "url": "https://athena-contracting.com/steeple-drawing.html",
+      "parent": "3"
+    },
+    {
+      "id": "3",
+      "label": "interior design sketches",
+      "url": "https://athena-contracting.com/interior-design-sketches.html",
+      "parent": "3"
     }
   ]
 }
