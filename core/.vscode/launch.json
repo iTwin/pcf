@@ -9,7 +9,8 @@
                 "<node_internals>/**"
             ],
             "runtimeExecutable": "npm",
-            "runtimeArgs": ["run-script", "test:integration"]
+            "runtimeArgs": ["run-script", "test:integration"],
+            "envFile": "${workspaceFolder}/.env"
         },
         {
             "type": "pwa-node",
