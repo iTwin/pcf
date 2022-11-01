@@ -1,6 +1,6 @@
 {
   "name": "@itwin/pcf",
-  "version": "0.4.0-beta.1",
+  "version": "1.0.0",
   "description": "Define your digital twin as code with iTwin PCF (Parametric Connector Framework).",
   "keywords": [
     "Bentley",
@@ -33,25 +33,24 @@
     "test:unit": "nyc mocha lib/test/unit --timeout 120000"
   },
   "dependencies": {
-    "@bentley/imodelhub-client": "^3.0.0-dev.127",
-    "@itwin/appui-abstract": "^3.0.0",
+    "@itwin/appui-abstract": "^3.3.0",
     "@itwin/browser-authorization": "0.3.2",
-    "@itwin/core-backend": "^3.0.0",
-    "@itwin/core-bentley": "^3.0.0",
-    "@itwin/core-common": "^3.0.0",
-    "@itwin/core-electron": "^3.0.0",
-    "@itwin/core-frontend": "^3.0.0",
-    "@itwin/core-geometry": "^3.0.0",
-    "@itwin/core-orbitgt": "^3.0.0",
-    "@itwin/core-quantity": "^3.0.0",
-    "@itwin/ecschema-editing": "^3.0.0",
-    "@itwin/ecschema-locaters": "^3.0.0",
-    "@itwin/ecschema-metadata": "^3.0.0",
+    "@itwin/core-backend": "^3.3.0",
+    "@itwin/core-bentley": "^3.3.0",
+    "@itwin/core-common": "^3.3.0",
+    "@itwin/core-electron": "^3.3.0",
+    "@itwin/core-frontend": "^3.3.0",
+    "@itwin/core-geometry": "^3.3.0",
+    "@itwin/core-orbitgt": "^3.3.0",
+    "@itwin/core-quantity": "^3.3.0",
+    "@itwin/ecschema-editing": "^3.3.0",
+    "@itwin/ecschema-locaters": "^3.3.0",
+    "@itwin/ecschema-metadata": "^3.3.0",
     "@itwin/electron-authorization": "0.5.1",
     "@itwin/imodels-access-backend": "^1.0.1",
     "@itwin/imodels-client-authoring": "^1.0.1",
     "@itwin/node-cli-authorization": "^0.9.0",
-    "@itwin/presentation-common": "^3.0.0",
+    "@itwin/presentation-common": "^3.3.0",
     "@itwin/service-authorization": "0.3.0",
     "@itwin/webgl-compatibility": "^3.0.0",
     "electron": "^15.5.5",
@@ -87,7 +86,10 @@
     "typedoc": "^0.23.12",
     "typescript": "^4.8.2"
   },
-  "engines": {
-    "node": ">=14.17.0 <17.0"
+  "peerDependencies": {
+    "@itwin/core-backend": "^3.3.0",
+    "@itwin/core-bentley": "^3.3.0",
+    "@itwin/core-common": "^3.3.0",
+    "@itwin/node-cli-authorization": "^0.9.0"
   }
 }
