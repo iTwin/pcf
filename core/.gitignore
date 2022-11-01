@@ -10,6 +10,7 @@ node_modules/
 # misc
 .DS_Store
 integration-test-result.xml
+docs
 
 # Logs
 *.log

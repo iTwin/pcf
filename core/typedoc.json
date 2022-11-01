@@ -1,0 +1,6 @@
+{
+    "entryPoints": ["src/*.ts", "src/loaders/*.ts"],
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "excludeInternal": true
+}

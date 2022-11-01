@@ -1,34 +1,36 @@
 {
   "name": "@itwin/pcf",
-  "version": "0.4.0-beta-1",
+  "version": "0.4.0-beta.1",
   "description": "Define your digital twin as code with iTwin PCF (Parametric Connector Framework).",
-  "main": "lib/pcf.js",
-  "typings": "lib/pcf",
-  "license": "MIT",
   "keywords": [
     "Bentley",
     "BIM",
     "iModel"
   ],
-  "engines": {
-    "node": ">=14.17.0 <17.0"
-  },
   "homepage": "https://github.com/itwin/pcf",
   "repository": {
     "type": "git",
     "url": "https://github.com/itwin/pcf"
   },
+  "license": "MIT",
+  "main": "lib/pcf.js",
+  "typings": "lib/pcf",
+  "files": [
+    "lib/*.js",
+    "lib/loaders/*.js",
+    "lib/*.d.ts",
+    "lib/loaders/*.d.ts"
+  ],
   "scripts": {
-    "build": "tsc && npm run copyFiles",
+    "build": "tsc",
     "clean": "rimraf lib",
-    "lint": "eslint .",
-    "test": "npm run test:unit",
-    "test:unit": "nyc mocha lib/test/unit --timeout 120000",
-    "test:integration": "nyc mocha lib/test/integration --timeout 240000",
-    "copyFiles": "babel src --out-dir lib --copy-files",
     "deploy": "git push && npm run clean && npm run build && npm publish",
-    "docs": "betools docs",
-    "test-connector": "node lib/test/JSONConnector/App.js"
+    "docs": "typedoc",
+    "lint": "eslint .",
+    "test": "npm run build && npm run test:unit",
+    "test-connector": "node lib/test/JSONConnector/App.js",
+    "test:integration": "npm run build && nyc mocha lib/test/integration --timeout 240000",
+    "test:unit": "nyc mocha lib/test/unit --timeout 120000"
   },
   "dependencies": {
     "@bentley/imodelhub-client": "^3.0.0-dev.127",
@@ -79,14 +81,13 @@
     "mocha": "^8.3.2",
     "nyc": "^15.1.0",
     "rimraf": "^2.7.1",
+    "sort-package-json": "^1.57.0",
     "ts-node": "^10.4.0",
     "tslint": "^5.20.1",
+    "typedoc": "^0.23.12",
     "typescript": "^4.8.2"
   },
-  "peerDependencies": {
-    "@itwin/core-backend": "^3.0.0",
-    "@itwin/core-bentley": "^3.0.0",
-    "@itwin/core-common": "^3.0.0",
-    "@itwin/node-cli-authorization": "^0.9.0"
+  "engines": {
+    "node": ">=14.17.0 <17.0"
   }
 }
