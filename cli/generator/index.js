@@ -49,8 +49,8 @@ module.exports = class extends Generator {
 
   async initializing() {
     this.destinationRoot(path.resolve(this.contextRoot, this.options.projectName));
-    if (semver.lt(process.versions.node, "12.17.0") || semver.gte(process.versions.node, "15.0.0")) {
-      const msg = "Your Node.js version must be >=12.17.0 <15.0.0";
+    if (semver.lt(process.versions.node, "12.17.0") || semver.gte(process.versions.node, "17.0.0")) {
+      const msg = "Your Node.js version must be >=12.17.0 <17.0.0";
       this.log(msg);
       throw msg;
     }
@@ -170,5 +170,3 @@ function replaceFileName(fullpath, searchValue, replaceValue) {
 function paramCaseWithSlash(input) {
   return paramCase(input, { stripRegexp: /[^A-Z0-9/]+/gi });
 }
-
-

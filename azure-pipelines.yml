@@ -2,7 +2,6 @@ trigger:
   branches:
     include:
       - main
-      - release/*
   paths:
     exclude:
       - docs/*
@@ -14,7 +13,6 @@ pr:
   branches:
     include:
       - main
-      - release/*
   paths:
     exclude:
       - docs/*
@@ -54,7 +52,7 @@ stages:
 
       - task: NodeTool@0
         inputs:
-          versionSpec: '12.17.0'
+          versionSpec: '16.17.0'
         displayName: 'Install Node.js'
 
       # @itwin/pcf build
@@ -80,7 +78,9 @@ stages:
         workingDirectory: core
         env:
           imjs_test_project_id: $(test_project_id)
+          imjs_test_imodel_id: $(test_imodel_id)
           imjs_test_client_id: $(test_client_id)
+          imjs_test_client_secret: $(test_client_secret)
           imjs_test_regular_user_name: $(test_user_name)
           imjs_test_regular_user_password: $(test_user_password)
 
@@ -106,6 +106,7 @@ stages:
         workingDirectory: cli
 
       - script: |
+          # I don't understand this. Isn't this a no-op if the second form isn't used: `npm link --help`?
           npm link
         displayName: 'npm link'
         workingDirectory: cli
@@ -131,9 +132,11 @@ stages:
         workingDirectory: cli
 
       - bash: |
+          # Satisfy PCF and peer dependencies in iTwin.
           # npm installing a local modules does not automatically install its dependencies
           npm install ../../core
           npm install ../../core/node_modules/@itwin/core-backend
+          npm install ../../core/node_modules/@itwin/core-common
           npm install ../../core/node_modules/@itwin/ecschema-metadata
         displayName: 'Link local dependencies'
         workingDirectory: cli/TestProject
@@ -231,4 +234,3 @@ stages:
         path: '*.tgz'
         artifactName: cli
         name: cli
-
