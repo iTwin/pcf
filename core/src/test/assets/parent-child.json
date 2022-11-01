@@ -1,0 +1,87 @@
+{
+    "folder": [
+        {
+            "key": "folder",
+            "description:": "A folder containing my bookmarks"
+        }
+    ],
+    "hyperlink": [
+        {
+            "key": "natgeo",
+            "userLabel": "National Geographic",
+            "description": "A dashing emu on the cover",
+            "url": "https://natgeo.com"
+        },
+        {
+            "key": "nyt",
+            "userLabel": "The New York Times",
+            "description": "Home of the crossword",
+            "url": "https://nyt.com"
+        }
+    ],
+    "modeled-repository": [
+        {
+            "key": "reddit",
+            "parent": "folder",
+            "userLabel": "Reddit",
+            "description": "Bulletin boards as far as the eye can see",
+            "url": "https://reddit.com"
+        }
+    ],
+    "child-of-modeled-repository": [
+        {
+            "key": "r/cozyplaces",
+            "userLabel": "Cozy Places",
+            "description": "Curl up on a bearskin rug and read a book",
+            "url": "https://reddit.com/r/cozyplaces",
+            "parent": "reddit"
+        },
+        {
+            "key": "r/aww",
+            "userLabel": "Aww",
+            "description": "Eye bleach",
+            "url": "https://reddit.com/r/aww",
+            "parent": "reddit"
+        },
+        {
+            "key": "r/pics",
+            "userLabel": "Pics",
+            "description": "Everyone has a camera",
+            "url": "https://reddit.com/r/pics",
+            "parent": "reddit"
+        }
+    ],
+    "child-of-child-of-modeled-repository": [
+        {
+            "key": "lakeside-cabin",
+            "description": "This little lakeside cabin in Castle Danger, Minnesota",
+            "url": "https://www.reddit.com/r/CozyPlaces/comments/wwjebw/this_little_lakeside_cabin_in_castle_danger",
+            "parent": "r/cozyplaces"
+        },
+        {
+            "key": "reading-corner",
+            "description": "My new reading corner",
+            "url": "https://www.reddit.com/r/CozyPlaces/comments/ww522i/my_new_reading_corner",
+            "parent": "r/cozyplaces"
+        }
+    ],
+    "repository": [
+        {
+            "key": "repository",
+            "parent": "folder",
+            "userLabel": "somewhere over the rainbow"
+        }
+    ],
+    "folder-owns-hyperlinks": [
+        {
+            "key": "folder-owns-natgeo-hyperlink",
+            "from": "folder",
+            "to": "natgeo"
+        },
+        {
+            "key": "folder-owns-nyt-hyperlink",
+            "from": "folder",
+            "to": "nyt"
+        }
+    ]
+}

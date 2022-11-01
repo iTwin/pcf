@@ -1,4 +1,4 @@
-import { BriefcaseDb, ElementUniqueAspect, StandaloneDb } from "@itwin/core-backend";
+import { BriefcaseDb, ChannelRootAspect, ElementUniqueAspect, StandaloneDb } from "@itwin/core-backend";
 import { PrimitiveType, primitiveTypeToString } from "@itwin/ecschema-metadata";
 import { IRInstance, ElementAspectDMO, PConnector } from "../../../pcf";
 
@@ -11,10 +11,12 @@ export const ExtElementAspectA: ElementAspectDMO = {
       {
         name: "Name",
         type: primitiveTypeToString(PrimitiveType.String),
+        typeName: primitiveTypeToString(PrimitiveType.String),
       },
       {
         name: "Type",
         type: primitiveTypeToString(PrimitiveType.String),
+        typeName: primitiveTypeToString(PrimitiveType.String),
       },
     ],
   },
@@ -42,4 +44,11 @@ export const ExtElementAspectB: ElementAspectDMO = {
     else if (pc.db instanceof BriefcaseDb)
       props.element = { id: instance.get("BriefcaseExistingElementId") };
   },
+
+};
+
+export const ElementAspectC: ElementAspectDMO = {
+  irEntity: "ElementAspectC",
+  ecElementAspect: ChannelRootAspect.classFullName,
+  elementAttr: "attachTo",
 };

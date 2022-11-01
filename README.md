@@ -25,16 +25,14 @@ Parametric Connector Framework (PCF) follows a declarative paradigm and aims to 
 # Getting Started
 
 
-```bash
+```sh
 # make sure your npm version is < 7.0.0
 npm --version
 # run this command if you npm version is > 7.0.0
 npm install -g npm@6.x
-
 ```
 
-```bash
-
+```sh
 # 1. install global pcf command line utility
 npm install -g @itwin/pcf-cli
 
@@ -49,10 +47,9 @@ npm install @itwin/pcf
 
 # 5. execute your connector (compilation is included in this command)
 npm run start
-
 ```
 
-You usually do not need to install any iTwin.js related dependencies besides [domain schema npm packages](https://www.npmjs.com/search?q=%40bentley%20schema%20) (@bentley/{schema name}-schema) since most iTwin.js libraries are automatically installed as you install @itwin/pcf. If you do, you must make sure that they share the same version string as the ones installed by PCF, otherwise you may encounter unknown errors.
+You usually do not need to install any iTwin.js related dependencies besides [domain schema npm packages](https://www.npmjs.com/search?q=%40bentley%20schema%20) (`` `@bentley/${schemaName}-schema` ``) since most iTwin.js libraries are automatically installed as you install @itwin/pcf. If you do, you must make sure that they share the same version string as the ones installed by PCF, otherwise you may encounter unknown errors.
 
 
 Currently, all the documentations and API references of this project are embedded in source files. Use your IDE/language server to look them up through go-to-definitions.
@@ -245,7 +242,7 @@ They are all embedded in code. You will be working in a single context, your mod
 # Install from source
 
 ### pre-steps:
-```console
+```sh
 # clone PCF repo
 git clone https://github.com/iTwin/pcf.git
 
@@ -258,7 +255,7 @@ npm run build
 ```
 
 ### Option 1: try PCF locally with your connector:
-```console
+```sh
 # create global symlink
 npm link
 
@@ -268,7 +265,7 @@ npm link @itwin/pcf
 ```
 
 ### Option 2: run PCF unit tests:
-```console
+```sh
 npm run test
 ```
 
