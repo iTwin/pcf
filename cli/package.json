@@ -27,14 +27,14 @@
     "config": "^3.1.0",
     "git-config": "0.0.7",
     "glob": "^7.1.4",
-    "latest-version": "^5.1.0",
+    "latest-version": "^7.0.0",
     "param-case": "^3.0.3",
     "pascal-case": "^3.1.1",
     "request": "2.88.0",
     "semver": "^7.1.1",
     "yargs": "^17.0.1",
     "yeoman-environment": "2.7.0",
-    "yeoman-generator": "^4.4.0"
+    "yeoman-generator": "^5.7.0"
   },
   "devDependencies": {
     "sort-package-json": "^1.57.0"
