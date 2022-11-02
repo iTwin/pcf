@@ -33,7 +33,7 @@
     "request": "2.88.0",
     "semver": "^7.1.1",
     "yargs": "^17.0.1",
-    "yeoman-environment": "2.7.0",
+    "yeoman-environment": "3.2.0",
     "yeoman-generator": "^5.7.0"
   },
   "devDependencies": {
