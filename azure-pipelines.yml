@@ -98,61 +98,11 @@ stages:
           targetFolder: $(Build.ArtifactStagingDirectory)/core
         displayName: 'Copy @itwin/pcf'
 
-      # @itwin/pcf-cli build
-
-      - script: |
-          npm ci
-        displayName: 'npm ci'
-        workingDirectory: cli
-
-      - script: |
-          # I don't understand this. Isn't this a no-op if the second form isn't used: `npm link --help`?
-          npm link
-        displayName: 'npm link'
-        workingDirectory: cli
-
-      - bash: |
-          cp ../LICENSE .
-          npm pack
-        displayName: 'npm pack'
-        workingDirectory: cli
-
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: cli
-          contents: '*.tgz'
-          targetFolder: $(Build.ArtifactStagingDirectory)/cli
-        displayName: 'Copy @itwin/pcf-cli'
-
-      # TestConnector build
-
-      - script: |
-          pcf init TestProject TestConnector TestClientId TestClientRedirectUri TestClientScope TestProjectId TestIModelId
-        displayName: 'pcf init'
-        workingDirectory: cli
-
-      - bash: |
-          # Satisfy PCF and peer dependencies in iTwin.
-          # npm installing a local modules does not automatically install its dependencies
-          npm install ../../core
-          npm install ../../core/node_modules/@itwin/core-backend
-          npm install ../../core/node_modules/@itwin/core-common
-          npm install ../../core/node_modules/@itwin/ecschema-metadata
-        displayName: 'Link local dependencies'
-        workingDirectory: cli/TestProject
-
-      - script: |
-          npm run build
-        displayName: 'Build Generated Connector'
-        workingDirectory: cli/TestProject
-
       # publish artifact
 
       - bash: |
           coreVer=$(node -p "require('./core/package.json').version")
           coreName=$(node -p "require('./core/package.json').name")
-          cliVer=$(node -p "require('./cli/package.json').version")
-          cliName=$(node -p "require('./cli/package.json').name")
 
           checkVer() {
             localVer=$1
@@ -172,9 +122,8 @@ stages:
           }
 
           updateCore=$(checkVer $coreVer $coreName)
-          updateCli=$(checkVer $cliVer $cliName)
 
-          if [ "$updateCore" = "true" ] && [ "$updateCore" = "$updateCli" ] && [ "$coreVer" = "$cliVer" ]; then
+          if [ "$updateCore" = "true" ]; then
             echo "package publishing conditions are met."
             shouldPublish=true
           else
@@ -185,8 +134,6 @@ stages:
           echo "##vso[task.setvariable variable=shouldPublish;isOutput=true]$shouldPublish"
           echo "##vso[task.setvariable variable=coreVer;isOutput=true]$coreVer"
           echo "##vso[task.setvariable variable=coreName;isOutput=true]$coreName"
-          echo "##vso[task.setvariable variable=cliVer;isOutput=true]$cliVer"
-          echo "##vso[task.setvariable variable=cliName;isOutput=true]$cliName"
 
         displayName: 'Store Build Info'
         name: info
@@ -196,10 +143,7 @@ stages:
           echo "shouldPublish: $(info.shouldPublish)"
           echo "coreVer: $(info.coreVer)"
           echo "coreName: $(info.coreName)"
-          echo "cliVer: $(info.cliVer)"
-          echo "cliName: $(info.cliName)"
           ls
-          ls cli
           ls core
         displayName: 'Show Build Info'
         condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
@@ -211,12 +155,6 @@ stages:
         displayName: 'Publish PCF Core Artifact'
         condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
 
-      - task: PublishBuildArtifacts@1
-        inputs:
-          PathtoPublish: '$(Build.ArtifactStagingDirectory)/cli'
-          artifactName: cli
-        displayName: 'Publish PCF Cli Artifact'
-        condition: and(succeeded(), eq(variables['info.shouldPublish'], 'true'))
 
 - stage: Publish
   displayName: Publish
@@ -229,8 +167,3 @@ stages:
         path: '*.tgz'
         artifactName: core
         name: core
-    - template: templates/npmjs-publish-deployment.yaml@build-pipeline-scripts
-      parameters:
-        path: '*.tgz'
-        artifactName: cli
-        name: cli
