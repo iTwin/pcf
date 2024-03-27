@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 import { Schema as MetaSchema, SchemaContext, SchemaLoader, SchemaProps, SchemaPropsGetter } from "@itwin/ecschema-metadata";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
-import { DOMParser, XMLSerializer } from "xmldom";
+import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { ClassRegistry, ElementAspect, IModelDb, Relationship, Schema, Schemas } from "@itwin/core-backend";
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import { Element} from "@itwin/core-backend";

@@ -53,11 +53,12 @@
     "@itwin/presentation-common": "^4.3.5",
     "@itwin/service-authorization": "1.2.0",
     "@itwin/webgl-compatibility": "^4.3.5",
+    "@xmldom/xmldom": "^0.8.4",
     "electron": ">=23.0.0",
+    "object-hash": "^3.0.0",
     "sqlite": "^4.0.12",
     "sqlite3": "^5.0.0",
-    "xlsx": "^0.18.5",
-    "@xmldom/xmldom": "^0.8.4"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@bentley/aec-units-schema": "1.0.3",
