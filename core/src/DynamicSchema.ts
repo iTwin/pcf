@@ -2,10 +2,10 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
+import { Schema as MetaSchema, SchemaContext, SchemaLoader, SchemaProps, SchemaPropsGetter } from "@itwin/ecschema-metadata";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
 import { DOMParser, XMLSerializer } from "xmldom";
-import { ClassRegistry, ElementAspect, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
+import { ClassRegistry, ElementAspect, IModelDb, Relationship, Schema, Schemas } from "@itwin/core-backend";
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
@@ -34,8 +34,8 @@ export interface SchemaVersion {
 }
 
 export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
-  const loader = new IModelSchemaLoader(db);
-  const schema = loader.tryGetSchema(schemaName);
+  const loader = new SchemaLoader((name) => db.getSchemaProps(name));
+  const schema = loader.getSchema(schemaName);
   return schema;
 }
 
@@ -149,8 +149,7 @@ async function createDynamicSchema(
 
   const { schemaName, schemaAlias } = props;
   const newSchema = new MetaSchema(context, schemaName, schemaAlias, version.readVersion, version.writeVersion, version.minorVersion);
-
-  const loader = new IModelSchemaLoader(db);
+  const loader = new SchemaLoader((name) => db.getSchemaProps(name));
   const bisSchema = loader.getSchema("BisCore");
   await context.addSchema(newSchema);
   await context.addSchema(bisSchema);
