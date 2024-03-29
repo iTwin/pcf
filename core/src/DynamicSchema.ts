@@ -149,16 +149,19 @@ async function createDynamicSchema(
 
   const { schemaName, schemaAlias } = props;
   const newSchema = new MetaSchema(context, schemaName, schemaAlias, version.readVersion, version.writeVersion, version.minorVersion);
-  const loader = new SchemaLoader((name) => db.getSchemaProps(name));
-  const bisSchema = loader.getSchema("BisCore");
+  const bisSchema = await tryGetSchema(db, "BisCore");
   await context.addSchema(newSchema);
-  await context.addSchema(bisSchema);
-  await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
+  if (bisSchema != undefined) {
+    await context.addSchema(bisSchema);
+    await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
+    }
 
   for (const schemaName of domainSchemaNames) {
-    const schema = loader.getSchema(schemaName);
-    await context.addSchema(schema);
-    await (newSchema as MutableSchema).addReference(schema);
+    const schema = await tryGetSchema(db, schemaName);
+    if (schema != undefined) {
+      await context.addSchema(schema);
+      await (newSchema as MutableSchema).addReference(schema);
+      }
   }
 
   await createEntityClass(newSchema);
