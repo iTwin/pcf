@@ -34,8 +34,8 @@ export interface SchemaVersion {
 }
 
 export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
-  const loader = new SchemaLoader((name) => db.getSchemaProps(name));
-  const schema = loader.getSchema(schemaName);
+  const loader = new SchemaLoader( (name) => {try {return db.getSchemaProps(name);} catch {return undefined;}});
+  const schema = loader.tryGetSchema(schemaName);
   return schema;
 }
 
