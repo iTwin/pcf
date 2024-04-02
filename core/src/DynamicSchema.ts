@@ -9,6 +9,8 @@ import { ClassRegistry, ElementAspect, IModelDb, Relationship, Schema, Schemas }
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
+import { Logger} from "@itwin/core-bentley";
+import { LogCategory } from "./pcf";
 
 export interface DynamicEntityMap {
   entities: {
@@ -151,17 +153,23 @@ async function createDynamicSchema(
   const newSchema = new MetaSchema(context, schemaName, schemaAlias, version.readVersion, version.writeVersion, version.minorVersion);
   const bisSchema = await tryGetSchema(db, "BisCore");
   await context.addSchema(newSchema);
-  if (bisSchema != undefined) {
+  if (bisSchema !== undefined) {
     await context.addSchema(bisSchema);
     await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
     }
+  else {
+    Logger.logInfo(LogCategory.PCF, `Schema Name, 'BisCore' not found in iModel.`);
+  }
 
   for (const schemaName of domainSchemaNames) {
     const schema = await tryGetSchema(db, schemaName);
-    if (schema != undefined) {
+    if (schema !== undefined) {
       await context.addSchema(schema);
       await (newSchema as MutableSchema).addReference(schema);
       }
+    else {
+      Logger.logInfo(LogCategory.PCF, `Schema Name, '${schemaName}' not found in iModel.`);
+    }
   }
 
   await createEntityClass(newSchema);
