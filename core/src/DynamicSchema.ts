@@ -9,8 +9,6 @@ import { ClassRegistry, ElementAspect, IModelDb, Relationship, Schema, Schemas }
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
-import { Logger} from "@itwin/core-bentley";
-import { LogCategory } from "./pcf";
 
 export interface DynamicEntityMap {
   entities: {
@@ -158,7 +156,7 @@ async function createDynamicSchema(
     await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
     }
   else {
-    Logger.logInfo(LogCategory.PCF, `Schema Name, 'BisCore' not found in iModel.`);
+    throw new Error(`Schema Name, 'BisCore' not found in iModel.`);
   }
 
   for (const schemaName of domainSchemaNames) {
@@ -168,7 +166,7 @@ async function createDynamicSchema(
       await (newSchema as MutableSchema).addReference(schema);
       }
     else {
-      Logger.logInfo(LogCategory.PCF, `Schema Name, '${schemaName}' not found in iModel.`);
+      throw new Error(`Schema Name, '${schemaName}' not found in iModel.`);
     }
   }
 
