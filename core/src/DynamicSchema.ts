@@ -2,10 +2,10 @@
 * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Schema as MetaSchema, SchemaContext } from "@itwin/ecschema-metadata";
+import { Schema as MetaSchema, SchemaContext, SchemaLoader, SchemaProps, SchemaPropsGetter } from "@itwin/ecschema-metadata";
 import { AnyDiagnostic, ISchemaChanges, ISchemaCompareReporter, SchemaChanges, SchemaComparer, SchemaContextEditor } from "@itwin/ecschema-editing";
-import { DOMParser, XMLSerializer } from "xmldom";
-import { ClassRegistry, ElementAspect, IModelDb, IModelSchemaLoader, Relationship, Schema, Schemas } from "@itwin/core-backend";
+import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
+import { ClassRegistry, ElementAspect, IModelDb, Relationship, Schema, Schemas } from "@itwin/core-backend";
 import { MutableSchema } from "@itwin/ecschema-metadata/lib/cjs/Metadata/Schema";
 import { Element} from "@itwin/core-backend";
 import * as pcf from "./pcf";
@@ -34,7 +34,7 @@ export interface SchemaVersion {
 }
 
 export async function tryGetSchema(db: IModelDb, schemaName: string): Promise<MetaSchema | undefined> {
-  const loader = new IModelSchemaLoader(db);
+  const loader = new SchemaLoader( (name) => {try {return db.getSchemaProps(name);} catch {return undefined;}});
   const schema = loader.tryGetSchema(schemaName);
   return schema;
 }
@@ -149,17 +149,25 @@ async function createDynamicSchema(
 
   const { schemaName, schemaAlias } = props;
   const newSchema = new MetaSchema(context, schemaName, schemaAlias, version.readVersion, version.writeVersion, version.minorVersion);
-
-  const loader = new IModelSchemaLoader(db);
-  const bisSchema = loader.getSchema("BisCore");
+  const bisSchema = await tryGetSchema(db, "BisCore");
   await context.addSchema(newSchema);
-  await context.addSchema(bisSchema);
-  await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
+  if (bisSchema !== undefined) {
+    await context.addSchema(bisSchema);
+    await (newSchema as MutableSchema).addReference(bisSchema); // TODO remove this hack later
+    }
+  else {
+    throw new Error(`Schema Name, 'BisCore' not found in iModel.`);
+  }
 
   for (const schemaName of domainSchemaNames) {
-    const schema = loader.getSchema(schemaName);
-    await context.addSchema(schema);
-    await (newSchema as MutableSchema).addReference(schema);
+    const schema = await tryGetSchema(db, schemaName);
+    if (schema !== undefined) {
+      await context.addSchema(schema);
+      await (newSchema as MutableSchema).addReference(schema);
+      }
+    else {
+      throw new Error(`Schema Name, '${schemaName}' not found in iModel.`);
+    }
   }
 
   await createEntityClass(newSchema);
