@@ -1,6 +1,6 @@
 {
   "name": "@itwin/pcf",
-  "version": "2.0.0",
+  "version": "2.0.0-dev.1",
   "description": "Define your digital twin as code with iTwin PCF (Parametric Connector Framework).",
   "keywords": [
     "Bentley",
@@ -33,6 +33,7 @@
     "test:unit": "nyc mocha lib/test/unit --timeout 120000"
   },
   "dependencies": {
+    "@babel/cli": "^7.24.1",
     "@itwin/appui-abstract": "^4.3.5",
     "@itwin/browser-authorization": "1.1.0",
     "@itwin/core-backend": "^4.3.5",
@@ -58,7 +59,7 @@
     "object-hash": "^3.0.0",
     "sqlite": "^4.0.12",
     "sqlite3": "^5.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz"
   },
   "devDependencies": {
     "@bentley/aec-units-schema": "1.0.3",
@@ -75,7 +76,6 @@
     "@types/sqlite3": "^3.1.6",
     "@types/xmldom": "^0.1.30",
     "@typescript-eslint/eslint-plugin": "^5.35.1",
-    "babel-cli": "^6.18.0",
     "chai": "^4.2.0",
     "eslint": "^8.23.0",
     "mocha": "^10.1.0",
