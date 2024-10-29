@@ -1,6 +1,10 @@
 [![Build Status](https://dev.azure.com/bentleycs/iModelTechnologies/_apis/build/status/iTwin.pcf?branchName=main)](https://dev.azure.com/bentleycs/iModelTechnologies/_build/latest?definitionId=5431&branchName=main)
 [![@itwin/pcf on npm](https://img.shields.io/npm/v/@itwin/pcf)](https://www.npmjs.com/package/@itwin/pcf)
 
+<div style="background-color:#fee;color:#800;border:solid 1px #800;padding:1em;margin:1em">
+The PCF is being <strong>deprecated on January 25th, 2025</strong>. If you have any questions or concerns about this, please [submit a service case](https://bentleysystems.service-now.com/csp?id=csm_sc_cat_item&sys_id=0a2342ef1b10c1103eeeeb53604bcb0b).
+</div>
+
 Table of Contents
 =======================
 
