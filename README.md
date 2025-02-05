@@ -3,7 +3,7 @@
 
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
-The PCF is being **deprecated on January 31st, 2025**. If you have any questions or concerns about this, please [submit a service case](https://bentleysystems.service-now.com/csp?id=csm_sc_cat_item&sys_id=0a2342ef1b10c1103eeeeb53604bcb0b).
+The PCF is now **deprecated**. If you have any questions or concerns about this, please [submit a service case](https://bentleysystems.service-now.com/csp?id=csm_sc_cat_item&sys_id=0a2342ef1b10c1103eeeeb53604bcb0b).
 
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
